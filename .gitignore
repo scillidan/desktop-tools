@@ -1,0 +1,7 @@
+target/
+dist/
+Profile/User/
+Profile/logs/
+.vscode/
+.idea/
+Thumbs.db
