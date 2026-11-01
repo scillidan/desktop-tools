@@ -322,6 +322,22 @@ A plugin can no longer show a custom icon state (locked/unlocked color). The
 host status line/menu text carries the state instead. If a plugin truly needs
 an icon badge, the protocol can add `status_icon` later; v1 does not.
 
+### 5.5 Notifications
+
+- The host owns the notification identity. A hosted plugin sends
+  `{"op":"notify","title":"...","body":"..."}`; the host shows it on its own
+  tray icon. `command` and `silent` remain plugin-local escaping hatches.
+- The plugin must not call `Shell_NotifyIconW` itself in hosted mode; a
+  notification must not create a second tray icon.
+- `tray-icon 0.20` gotcha: `TrayIconBuilder::new()` consumes one counter value
+  and the platform icon consumes a second, so the first icon's internal `uID`
+  is 2. Use `TrayIconBuilder::default().with_id("desktop-tools")` to keep the
+  internal `uID` at 1, and make `Tray::notify` return/log failure instead of
+  silently targeting a non-existent icon.
+- Default `system` uses the host balloon/toast; if Windows Focus Assist hides
+  it, `command` (snoretoast) or `silent` is the fallback. Linux later can use
+  `notify-send`/dunst through the same command hook.
+
 ---
 
 ## 6. Profile and configuration
@@ -539,6 +555,25 @@ Triggers to reopen the monorepo question:
 
 Until then, keep the repos separate and the contract versioned.
 
+### 10.3 Build isolation before the monorepo
+
+All these repos currently inherit
+`CARGO_TARGET_DIR=C:\Users\User\.cache\cargo`. That means two repos building
+the same binary name overwrite each other — during this work the old
+`keytools-rs` build replaced the new `keyboard-locker.exe`/`keyboard-switch.exe`
+with pre-fix code, which looks exactly like a regression.
+
+Rules until one workspace exists:
+
+- Never build the old/superseded repo. `keytools-rs` now excludes its moved
+  apps from the workspace so a stray build only produces `kit`.
+- Keep the app names unique or give each repo its own target dir; a
+  repo-local `.cargo/config.toml` does **not** beat the global
+  `CARGO_TARGET_DIR` environment variable.
+- Rebuild from the owning repo last and check the exe timestamp before a
+  physical test.
+- CI/release builds must set an explicit per-product target dir.
+
 ---
 
 ## 11. Security and robustness
@@ -556,6 +591,10 @@ Until then, keep the repos separate and the contract versioned.
 - Autostart is one HKCU Run value; uninstall leaves the user profile intact.
 - Updates are user/Scoop initiated; no background download of code.
 - Config writes are atomic (temp + rename) to avoid a half-written TOML.
+- Every Windows GUI binary declares
+  `#![cfg_attr(windows, windows_subsystem = "windows")]`; without it,
+  double-clicking opens a console window. Verify the PE subsystem is 2
+  (GUI), not 3 (console), in the release check.
 
 ---
 
