@@ -426,6 +426,11 @@ enabled = [
   path while keys and mouse buttons are swallowed; mouse movement passes.
   The host menu only needs a lock/unlock action and a status line, not a
   per-plugin icon.
+- `keyboard-locker` notifications are currently system balloon / custom command
+  / silent. When hosted, `system` should route through the host's notifier so
+  all plugins share one notification identity; `command`/`silent` stay
+  plugin-local. The host can expose this as a small `host.notify` call rather
+  than letting each plugin call `Shell_NotifyIconW` itself.
 
 ### 9.2 desktop-tools-rs
 
