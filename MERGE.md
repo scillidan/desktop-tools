@@ -421,6 +421,11 @@ enabled = [
   the larger products join.
 - This is the reference implementation; its `PLAN.md` is the source of truth
   for its own phases.
+- `keyboard-locker` is the stress case for the host: in hosted mode it has no
+  tray and no status icon. The password (default `unlock`) is the recovery
+  path while keys and mouse buttons are swallowed; mouse movement passes.
+  The host menu only needs a lock/unlock action and a status line, not a
+  per-plugin icon.
 
 ### 9.2 desktop-tools-rs
 
