@@ -765,6 +765,9 @@ pub fn parse(text: &str) -> Result<Config> {
             continue;
         }
         if let Some(t) = action.as_str() {
+            if t == "suppress" {
+                continue; // Owned by keyboard-keymap since P4a.
+            }
             match (combo.parse::<Combo>(), t.parse::<Action>()) {
                 (Ok(c), Ok(a)) => out.push(Binding {
                     combo: c,
@@ -783,12 +786,7 @@ pub fn parse(text: &str) -> Result<Config> {
     let global = out
         .iter()
         .copied()
-        .filter(|b| {
-            matches!(
-                b.action,
-                Action::Undo | Action::ToggleScreen | Action::Suppress | Action::Quit
-            )
-        })
+        .filter(|b| matches!(b.action, Action::Undo | Action::ToggleScreen | Action::Quit))
         .collect();
     assemble(legacy_modules(&out, settings), global)
 }
@@ -801,7 +799,7 @@ mod tests {
     #[test]
     fn parses_default_config() {
         let cfg = parse(LEGACY_DEFAULT_CONFIG).unwrap();
-        assert_eq!(cfg.bindings.len(), 108);
+        assert_eq!(cfg.bindings.len(), 41);
         assert_eq!(cfg.settings.gap, 0);
         assert!(cfg.settings.quick_switch);
         assert!(cfg.settings.drag_modifier.win && !cfg.settings.drag_modifier.alt);
@@ -815,7 +813,7 @@ mod tests {
     }
 
     #[test]
-    fn p3_keeps_shell_and_screen_actions_until_their_owner_migrations() {
+    fn p4_ignores_shell_but_keeps_screen_until_its_owner_migration() {
         assert_eq!(
             "toggleScreen".parse::<Action>().unwrap(),
             Action::ToggleScreen
@@ -825,9 +823,9 @@ mod tests {
             "\"win+f2\" = \"toggleScreen\"\n\"win+e\" = \"suppress\"\n\"alt+`\" = \"nextWindow\"\n",
         )
         .unwrap();
-        assert_eq!(cfg.bindings.len(), 3);
+        assert_eq!(cfg.bindings.len(), 2);
         assert!(cfg.bindings.iter().any(|b| b.action == Action::NextWindow));
-        assert!(cfg.bindings.iter().any(|b| b.action == Action::Suppress));
+        assert!(!cfg.bindings.iter().any(|b| b.action == Action::Suppress));
         assert!(cfg
             .bindings
             .iter()
@@ -1041,7 +1039,7 @@ mod tests {
             .bindings
             .iter()
             .any(|b| b.action == Action::MoveToRight));
-        assert!(updated
+        assert!(!updated
             .bindings
             .iter()
             .any(|b| b.action == Action::Suppress));
@@ -1055,7 +1053,7 @@ mod tests {
         let dir = test_dir("fresh-split");
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
-        assert_eq!(cfg.bindings.len(), 108);
+        assert_eq!(cfg.bindings.len(), 41);
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
         }

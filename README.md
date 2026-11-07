@@ -12,7 +12,9 @@ external integrations in documentation, code registration and tray menus.
 - P3 window import, feature ownership and per-module configuration have clean
   fmt/tests/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
   module reload, invalid-config rollback and lifecycle. Hosted and standalone
-  physical passes are signed off. Screen, taskbar, KeyMap and application toggles are not imported yet.
+  physical passes are signed off. P4a moves all 67 legacy shell suppressions into
+  `keyboard-keymap.toml`; static Unicode replacement arrives separately in P4b.
+  Screen, taskbar and application toggles are not imported yet.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.

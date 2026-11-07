@@ -47,6 +47,25 @@ Physical:
 
 P2 signed off on 2026-11-06; this unlocked P3.
 
+## P4a — shell suppression moved to KeyMap
+
+- [x] 138 tests, clippy, release/staging and seven-plugin isolated smoke passed;
+      the real profile imported all 67 existing suppressions, including Win+E.
+- [x] Agent started the final staged host as PID 27344 with seven children.
+
+- [ ] Keyboard contains native **KeyMap** before GoldenDict; its config entry opens
+      `keyboard-keymap.toml` and Window's legacy TOML remains unchanged.
+- [ ] With KeyMap enabled, physically try **Win+E**, **Win+Shift+S**, **Win+.**
+      and **Win+Ctrl+D**: Explorer, Snipping Tool, emoji panel and desktop creation
+      must not appear. Releasing Win must not open Start. Ordinary Ctrl+C and
+      Win+Alt+H window snap must continue working.
+- [ ] Window → Suspend Window must not disable shell suppression. Then Disable
+      KeyMap from Keyboard and confirm Win+E now opens Explorer (Window must not
+      take it back); Enable KeyMap and confirm Win+E is suppressed again.
+- [ ] Host Exit must close all seven plugins without leftover processes/hooks.
+
+Do not advance to P4b until this pass is signed off.
+
 ## P3 — native window import and module split
 
 Build under test: `stage\desktop-tools.exe`, SHA-256

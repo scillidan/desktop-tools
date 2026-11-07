@@ -1,0 +1,8 @@
+id = "keyboard-keymap"
+name = "KeyMap"
+version = "0.1.0"
+api = 1
+exe = "keyboard-keymap.exe"
+group = "keyboard"
+optional = false
+tray = "host"

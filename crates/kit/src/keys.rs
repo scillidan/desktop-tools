@@ -19,7 +19,9 @@ pub enum Key {
     Tab,
     CapsLock,
     PrintScreen,
+    Pause,
     Backspace,
+    Enter,
     Escape,
     Left,
     Right,
@@ -129,7 +131,7 @@ impl FromStr for Combo {
 
 fn parse_key(name: &str) -> Option<Key> {
     let b = name.as_bytes();
-    if b.len() == 1 && b[0].is_ascii_alphanumeric() {
+    if b.len() == 1 && b[0].is_ascii_graphic() {
         return Some(Key::Char(b[0].to_ascii_lowercase() as char));
     }
     if let Some(rest) = name.strip_prefix('f') {
@@ -147,8 +149,10 @@ fn parse_key(name: &str) -> Option<Key> {
         "space" => Some(Key::Space),
         "tab" => Some(Key::Tab),
         "capslock" | "caps" => Some(Key::CapsLock),
-        "printscreen" | "printscr" | "prtsc" => Some(Key::PrintScreen),
+        "printscreen" | "printscr" | "prtsc" | "prtscn" => Some(Key::PrintScreen),
+        "pause" => Some(Key::Pause),
         "backspace" => Some(Key::Backspace),
+        "enter" | "return" => Some(Key::Enter),
         "escape" | "esc" => Some(Key::Escape),
         "left" => Some(Key::Left),
         "right" => Some(Key::Right),
@@ -191,7 +195,9 @@ impl fmt::Display for Combo {
             Key::Tab => "tab".into(),
             Key::CapsLock => "capslock".into(),
             Key::PrintScreen => "printscreen".into(),
+            Key::Pause => "pause".into(),
             Key::Backspace => "backspace".into(),
+            Key::Enter => "enter".into(),
             Key::Escape => "escape".into(),
             Key::Left => "left".into(),
             Key::Right => "right".into(),

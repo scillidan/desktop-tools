@@ -736,6 +736,12 @@ plus hosted Reload/Restart/Exit and standalone parity.
 
 ### P4 — Add KeyMap and move shell suppression
 
+**P4a status 2026-11-07:** shared exact-combo hook, `keyboard-keymap` shell module,
+67-binding default/custom import and Window ownership removal pass 138 tests,
+clippy, release/staging and seven-plugin smoke. The real profile imported 67/67
+rows. Physical suppression and plugin-lifecycle sign-off are pending; P4b remains
+gated.
+
 Split into reviewable substeps:
 
 - P4a: the separate shell module owns suppression; window ignores migrated

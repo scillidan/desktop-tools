@@ -15,6 +15,8 @@ pub mod menu;
 #[cfg(windows)]
 pub mod hotkey;
 #[cfg(windows)]
+pub mod lowkey;
+#[cfg(windows)]
 pub mod tray;
 #[cfg(windows)]
 pub mod win;

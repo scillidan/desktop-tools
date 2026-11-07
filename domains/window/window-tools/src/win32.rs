@@ -890,7 +890,7 @@ pub fn register_hotkeys(p: &mut Win32, bindings: &[Binding]) -> Vec<String> {
         // Win combos live in the kbdhook (Explorer owns the Win+key namespace
         // and registers many of them, so RegisterHotKey fails by design);
         // suppress rows likewise need no registration.
-        if b.combo.win || b.action == Action::Suppress {
+        if b.combo.win {
             continue;
         }
         let Some(vk) = vk_of_key(b.combo.key) else {
