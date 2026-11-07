@@ -1,0 +1,14 @@
+[package]
+name = "taskbar-core"
+description = "Shared Explorer taskbar discovery, ordering and restoration primitives"
+license.workspace = true
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+kit = { path = "../../../crates/kit" }
+windows.workspace = true

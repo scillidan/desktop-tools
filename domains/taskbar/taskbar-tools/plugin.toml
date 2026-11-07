@@ -1,0 +1,7 @@
+id = "taskbar-tools"
+name = "Taskbar Tools"
+version = "0.1.0"
+api = 1
+exe = "taskbar-tools.exe"
+group = "taskbar"
+external = false

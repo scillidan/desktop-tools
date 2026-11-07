@@ -103,7 +103,8 @@ desktop-tools/
 │   │   ├── goldendict-search-in-group/
 │   │   └── goldendict-auto-search/
 │   └── taskbar/
-│       └── taskbar-tools/      # taskbar-tools-rs.exe
+│       ├── taskbar-core/       # Explorer discovery, ordering, restoration
+│       └── taskbar-tools/      # workers, config, diagnostics, host IPC
 ├── scripts/
 ├── Profile/User/               # runtime files, gitignored
 ├── CHECKLIST.md
@@ -773,6 +774,11 @@ trigger character; no hotkey/hook regression in locker, switch or window; no
 trigger/replacement text appears in logs and expansion never touches clipboard.
 
 ### P5 — Import taskbar
+
+**Code/automated status 2026-11-07:** `taskbar-core` and `taskbar-tools` retain
+all 27 original tests, hosted Suspend/Unpin/Quit and the hidden-taskbar hotkey
+are wire-verified, diagnostics run against the real Explorer, and nine-plugin
+smoke passes. Physical taskbar behavior and standalone parity remain pending.
 
 - Add profile/hosted menu/IPC while preserving diagnostics and standalone mode.
 - Keep existing taskbar algorithms unchanged.

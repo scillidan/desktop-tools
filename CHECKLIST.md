@@ -201,3 +201,36 @@ Agent stopped the host and started only the final staged standalone
       current/legacy Run values are absent and no host/window process remains.
 
 P3 is signed off; P4 may proceed.
+
+## P5 — hosted Taskbar
+
+Automated before handoff:
+
+- [x] `scripts\verify.ps1`: 176 tests, clippy, release and hash-verified staging.
+- [x] Taskbar retains all 27 original geometry/pin/config tests. Real wire v3
+      verifies Ready, `Ctrl+Alt+F9` occupancy, Suspend on/off, Unpin and Quit=0.
+- [x] Real Explorer `--dump`, `--inspect` and `--once` return successfully.
+- [x] Isolated host starts nine children; Window, GoldenDict and Taskbar hotkey
+      probes pass; duplicate hosted locker and hard-kill cleanup still pass.
+
+Physical pass A — hosted Taskbar (agent started host PID 27268):
+
+- [ ] One host tray contains **Taskbar** after Keyboard. Taskbar has Unpin all,
+      Suspend Group "Taskbar" and host
+      Disable/Restart/Edit config/Open log; there is no second Taskbar tray.
+- [ ] CenterTaskbar centers the task buttons. `Ctrl+Alt+F9` hides and shows the
+      current monitor taskbar repeatedly; no maximized/snapped window is left
+      with an incorrect work area.
+- [ ] Suspend Group "Taskbar" disables `Ctrl+Alt+F9` without suspending Window
+      or Keyboard; resume restores it.
+- [ ] With the taskbar hidden, use host **Restart taskbar-tools**: the taskbar
+      must be restored during stop, then HiddenTaskbar must work again. Repeat
+      with Disable, then Enable. Check for duplicate processes in Task Manager.
+- [ ] Taskbar Pin defaults to `pin = []` and therefore does not reorder anything.
+      If a custom order is desired, record it explicitly before testing; do not
+      infer or overwrite the user's preferred order.
+- [ ] Host Exit restores centered/hidden taskbar state and leaves no taskbar
+      worker, process or registered hotkey behind.
+
+After pass A, the agent will rebuild/restart in standalone Taskbar mode for
+pass B (menu parity, diagnostics, Start with Windows and clean Exit).

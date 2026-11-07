@@ -14,6 +14,8 @@ members = [
   "domains/window/window-rectangle",
   "domains/window/window-app-switch",
   "domains/window/window-virtual-desktops",
+  "domains/taskbar/taskbar-core",
+  "domains/taskbar/taskbar-tools",
 ]
 
 [workspace.package]
@@ -31,7 +33,12 @@ arboard = "3"
 windows = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Dwm",
     "Win32_Security",
+    "Win32_System_Com",
+    "Win32_System_Console",
+    "Win32_System_Ole",
+    "Win32_System_Variant",
     "Win32_System_JobObjects",
     "Win32_System_LibraryLoader",
     "Win32_System_Registry",
@@ -41,6 +48,7 @@ windows = { version = "0.59", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Controls",
+    "Win32_UI_HiDpi",
 ] }
 tray-icon = "0.20"
 

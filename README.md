@@ -17,21 +17,26 @@ external integrations in documentation, code registration and tray menus.
   Suspend Shell Keys toggle. **Key Map** is a separate plugin with immediate
   static Unicode replacement and same-process automatic config reload. Native
   plugins and Window feature menus sort by display name; external tools follow.
-  Screen, taskbar and application toggles are not imported yet.
+  Screen and application toggles are not imported yet. P5 imports the native
+  taskbar tools with profile/host IPC and clean worker restoration; its physical
+  pass is pending.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
 
 ## Current plugins
 
-Native window/keyboard tools first, then external GoldenDict integrations:
+Native window/keyboard/taskbar tools first, then external GoldenDict integrations:
 
 1. `window-tools`
-2. `keyboard-auto-switch-back`
-3. `keyboard-locker`
-4. `keyboard-switch`
-5. `goldendict-auto-search` (external)
-6. `goldendict-search-in-group` (external)
+2. `taskbar-tools`
+3. `keyboard-keymap`
+4. `keyboard-auto-switch-back`
+5. `keyboard-locker`
+6. `keyboard-switch`
+7. `keyboard-shell`
+8. `goldendict-auto-search` (external)
+9. `goldendict-search-in-group` (external)
 
 `window-tools` is one hosted process and one standalone executable, but its
 Window menu and code are divided into native modules:
@@ -49,6 +54,14 @@ Window menu and code are divided into native modules:
 
 The modules share suspend/reload/undo and do not add independent processes or
 per-module Enable/Restart switches. Each has its own schema, defaults, tests and
+
+`taskbar-tools` retains its three worker-based features — Taskbar Pin,
+CenterTaskbar and HiddenTaskbar — with one shared `taskbar-tools.toml`, automatic
+reload, group suspend and restore-on-exit. `taskbar-core` holds shared Explorer
+primitives. Standalone retains `--dump`, `--inspect`, `--once`, its own tray and
+Start with Windows; hosted errors use the host notification path.
+
+Each Window module has its own schema, defaults, tests and
 `window-<module>.toml` edit entry. Fresh profiles use split defaults. An imported
 full `window-tools.toml` remains the compatibility source until a module file is
 first edited; that first edit materializes the effective module settings without
@@ -77,6 +90,9 @@ stage\
   desktop-tools.exe
   plugins\
     window-tools\...
+    taskbar-tools\...
+    keyboard-keymap\...
+    keyboard-shell\...
     keyboard-locker\...
     keyboard-switch\...
     keyboard-auto-switch-back\...
