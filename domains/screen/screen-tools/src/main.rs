@@ -21,7 +21,6 @@ mod ocr;
 mod overlay;
 mod pin;
 mod scale;
-mod text;
 mod tray;
 
 use anyhow::Result;
@@ -65,10 +64,21 @@ fn set_dpi_aware() {
     }
 }
 
+pub(crate) fn ocr_frame_ops() -> screen_ocr::FrameOps {
+    screen_ocr::FrameOps {
+        note_start: frame::note_ocr_start,
+        screen_rect: frame::screen_rect,
+        scale: frame::ocr_scale,
+        set_running: frame::set_ocr_running,
+        language: frame::ocr_language,
+    }
+}
+
 fn run() -> Result<()> {
     let hosted = std::env::args().any(|arg| arg == "--plugin");
     set_dpi_aware();
     screen_capture::set_logger(logline);
+    screen_ocr::set_logger(logline);
     screen_record::set_logger(logline);
     unsafe {
         use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
@@ -309,7 +319,7 @@ fn run() -> Result<()> {
                     .copied()
                     .find(|&h| frame::visible_rect(h).is_some());
                 if let Some(frame) = visible {
-                    ocr::auto_tick(frame);
+                    ocr::auto_tick(frame, mask::dismiss, frame::prepare_ocr, ocr_frame_ops());
                 }
             }
             let _ = windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
@@ -404,7 +414,7 @@ fn dispatch(action: Action, frame: HWND) {
                         mask::dismiss();
                         frame::prepare_ocr(frame, ocr::Intent::Auto, true);
                         ocr::resume_auto(frame);
-                        if let Err(e) = ocr::start(frame) {
+                        if let Err(e) = ocr::start(frame, ocr_frame_ops()) {
                             logline(&format!("auto OCR resume failed: {e:#}"));
                             frame::clear_flash(frame);
                             ocr::disable_auto();
@@ -428,7 +438,7 @@ fn dispatch(action: Action, frame: HWND) {
                 mask::dismiss();
                 frame::prepare_ocr(frame, ocr::Intent::Auto, true);
                 ocr::enable_auto(frame);
-                if let Err(e) = ocr::start(frame) {
+                if let Err(e) = ocr::start(frame, ocr_frame_ops()) {
                     logline(&format!("auto OCR failed: {e:#}"));
                     frame::clear_flash(frame);
                     ocr::disable_auto();
@@ -505,7 +515,7 @@ fn dispatch(action: Action, frame: HWND) {
                     // P0.3: copy the image (above) AND read the words into the
                     // overlay. OCR runs on a worker thread; the frame is
                     // click-through until the mask takes over.
-                    if let Err(e) = ocr::start(frame) {
+                    if let Err(e) = ocr::start(frame, ocr_frame_ops()) {
                         logline(&format!("ocr capture failed: {e:#}"));
                     }
                 }

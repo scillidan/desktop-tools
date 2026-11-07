@@ -4,7 +4,8 @@
 //! capture pixels.
 
 use super::Word;
-use crate::logline;
+use crate::logger;
+
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use kit::layout::Rect;
 use std::io::{BufRead, BufReader, Write};
@@ -16,7 +17,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
-const WORKER_PY: &str = include_str!("../../scripts/rapidocr_worker.py");
+const WORKER_PY: &str = include_str!("../scripts/rapidocr_worker.py");
 static RAPID: OnceLock<Mutex<Option<RapidWorker>>> = OnceLock::new();
 static TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -39,7 +40,7 @@ pub(super) fn rapid(
         *guard = None; // a broken pipe or timeout must not poison the next OCR
     }
     let lines = result?;
-    logline(&format!(
+    logger::log(&format!(
         "ocr: rapid {lang} -> {} lines, {} words in {} ms",
         lines.len(),
         lines.iter().map(Vec::len).sum::<usize>(),
@@ -79,7 +80,7 @@ pub(super) fn tesseract(
     }
     let tsv = String::from_utf8(output.stdout).context("tesseract returned non-UTF-8 TSV")?;
     let lines = parse_tsv(&tsv)?;
-    logline(&format!(
+    logger::log(&format!(
         "ocr: tesseract {lang} -> {} lines, {} words in {} ms",
         lines.len(),
         lines.iter().map(Vec::len).sum::<usize>(),
@@ -98,7 +99,7 @@ impl TempPng {
         let path =
             std::env::temp_dir().join(format!("screen-tools-rs-{}-{id}.png", std::process::id()));
         std::fs::File::create(&path).context("cannot create temporary OCR image")?;
-        unsafe { crate::capture::write_png(&path, w as u32, h as u32, bgra)? };
+        unsafe { screen_capture::write_png(&path, w as u32, h as u32, bgra)? };
         Ok(Self(path))
     }
 
@@ -292,7 +293,7 @@ fn rapid_language(requested: Option<&str>) -> &str {
             _ => "ch",
         },
         other => {
-            logline(&format!(
+            logger::log(&format!(
                 "warn: RapidOCR language `{other}` unsupported; using ch"
             ));
             "ch"

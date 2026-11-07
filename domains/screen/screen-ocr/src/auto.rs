@@ -2,9 +2,9 @@
 //! stays on its worker thread. Automatic mode is armed only by the
 //! `ctrl+shift+alt+o` action; drawing or moving a frame never starts it.
 
-use crate::config::OcrAuto;
-use crate::logline;
-use crate::ocr::Snapshot;
+use crate::logger;
+use crate::OcrAuto;
+use crate::Snapshot;
 use anyhow::Result;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -122,7 +122,7 @@ pub fn retarget_auto(frame: HWND) {
 }
 
 pub(super) fn before_start(frame: HWND, snapshot: &Snapshot) {
-    let baseline = unsafe { crate::frame::visible_rect(frame) }
+    let baseline = unsafe { visible_rect(frame) }
         .and_then(|rect| unsafe { sample(rect).ok() })
         .unwrap_or_else(|| fingerprint(snapshot));
     let mut s = state();
@@ -133,9 +133,8 @@ pub(super) fn before_start(frame: HWND, snapshot: &Snapshot) {
     s.last_start = Some(Instant::now());
 }
 
-pub(crate) fn finished(frame: HWND) {
-    let baseline =
-        unsafe { crate::frame::visible_rect(frame) }.and_then(|rect| unsafe { sample(rect).ok() });
+pub fn finished(frame: HWND) {
+    let baseline = unsafe { visible_rect(frame) }.and_then(|rect| unsafe { sample(rect).ok() });
     let mut s = state();
     if s.frame == frame.0 as isize {
         if let Some(baseline) = baseline {
@@ -150,7 +149,7 @@ pub(crate) fn finished(frame: HWND) {
 unsafe fn sample(rect: RECT) -> Result<Vec<u8>> {
     // shortcut: on-change needs one containing source window; multi-window
     // regions are sampled as one rect, upgrade to per-window compositing if needed.
-    let (width, height, bgra) = crate::capture::print_source(rect)?;
+    let (width, height, bgra) = screen_capture::print_source(rect)?;
     let sampled = fingerprint(&Snapshot {
         width,
         height,
@@ -168,15 +167,23 @@ unsafe fn sample(rect: RECT) -> Result<Vec<u8>> {
 
 /// Host timer entry point. Auto OCR is always active for a visible frame; the
 /// first observed frame only establishes the comparison baseline.
-pub unsafe fn auto_tick(frame: HWND) {
+///
+/// # Safety
+/// `frame` and all callbacks must belong to the calling UI thread.
+pub unsafe fn auto_tick(
+    frame: HWND,
+    dismiss_mask: unsafe fn(),
+    prepare_ocr: unsafe fn(HWND, crate::Intent, bool),
+    ops: crate::FrameOps,
+) {
     if !auto_enabled() || auto_paused() || frame.0.is_null() {
         return;
     }
     // Recording must stay free of our own mask overlays.
-    if crate::record::is_recording() {
+    if screen_record::is_recording() {
         return;
     }
-    let Some(rect) = crate::frame::visible_rect(frame) else {
+    let Some(rect) = visible_rect(frame) else {
         let mut s = state();
         if s.frame == frame.0 as isize {
             s.frame = 0;
@@ -198,7 +205,7 @@ pub unsafe fn auto_tick(frame: HWND) {
             if !s.sample_failed {
                 s.sample_failed = true;
                 drop(s);
-                logline(&format!("warn: auto sample failed: {e:#}"));
+                logger::log(&format!("warn: auto sample failed: {e:#}"));
             }
             return;
         }
@@ -244,14 +251,14 @@ pub unsafe fn auto_tick(frame: HWND) {
         }
     };
     if dismiss_stale {
-        crate::mask::dismiss();
-        logline("ocr: auto source changing; stale mask dismissed");
+        dismiss_mask();
+        logger::log("ocr: auto source changing; stale mask dismissed");
     }
     if due {
-        logline("ocr: auto refresh (source settled)");
-        crate::frame::prepare_ocr(frame, super::Intent::Auto, false);
-        if let Err(e) = super::start(frame) {
-            logline(&format!("warn: auto OCR failed: {e:#}"));
+        logger::log("ocr: auto refresh (source settled)");
+        prepare_ocr(frame, crate::Intent::Auto, false);
+        if let Err(e) = super::start(frame, ops) {
+            logger::log(&format!("warn: auto OCR failed: {e:#}"));
         }
     }
 }
@@ -307,6 +314,20 @@ fn track_change(previous: Option<Instant>, changed: bool, now: Instant) -> (Opti
 
 fn refresh_due(stable_for: Duration, since_ocr: Duration, delay: Duration) -> bool {
     stable_for >= delay && since_ocr >= delay
+}
+
+/// Screen bounds of a visible, non-empty window.
+///
+/// # Safety
+/// `hwnd` must be a valid window handle on the calling UI thread.
+pub unsafe fn visible_rect(hwnd: HWND) -> Option<RECT> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowRect, IsWindowVisible};
+    if !IsWindowVisible(hwnd).as_bool() {
+        return None;
+    }
+    let mut rect = RECT::default();
+    GetWindowRect(hwnd, &mut rect).ok()?;
+    (rect.right > rect.left && rect.bottom > rect.top).then_some(rect)
 }
 
 #[cfg(test)]

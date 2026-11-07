@@ -268,7 +268,7 @@ unsafe fn finish(hwnd: HWND, band_rect: Option<RECT>) {
     if ocr_intent == crate::ocr::Intent::Auto {
         crate::ocr::enable_auto(frame);
     }
-    if let Err(e) = crate::ocr::start(frame) {
+    if let Err(e) = crate::ocr::start(frame, crate::ocr_frame_ops()) {
         logline(&format!("ocr start failed: {e:#}"));
         if ocr_intent == crate::ocr::Intent::Auto {
             crate::ocr::disable_auto();

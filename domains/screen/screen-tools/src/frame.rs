@@ -1378,7 +1378,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         crate::ocr::WM_OCR_START => {
             prepare_ocr(hwnd, crate::ocr::Intent::Manual, false);
-            if let Err(e) = crate::ocr::start(hwnd) {
+            if let Err(e) = crate::ocr::start(hwnd, crate::ocr_frame_ops()) {
                 logline(&format!("ocr capture failed: {e:#}"));
                 clear_flash(hwnd);
             }

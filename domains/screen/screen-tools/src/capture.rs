@@ -5,8 +5,7 @@ use crate::logline;
 use anyhow::Result;
 use screen_capture::grab;
 pub use screen_capture::{
-    capture_frame, choose_file, copy_text, default_capture_name, print_source, target_window,
-    window_target, write_png,
+    capture_frame, choose_file, copy_text, default_capture_name, target_window, window_target,
 };
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{

@@ -839,6 +839,11 @@ one host tray and one autostart entry.
   capture transitions involving Frame or Pin, so feature code has no reverse UI
   dependency. All five capture tests moved; workspace tests and final wire/smoke
   checks passed.
+- P6b module commit 3: `screen-ocr` owns Windows/RapidOCR/Tesseract engines,
+  text layout, automatic sampling and the embedded Python worker. A narrow
+  `FrameOps` adapter and UI callbacks preserve overlay coordination without a
+  feature-to-root dependency. All 23 OCR tests moved; a real staged run completed
+  frame/capture/OCR/result and exited cleanly without clipboard writes.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the

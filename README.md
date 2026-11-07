@@ -59,7 +59,8 @@ and the original Win32 loop with a custom IPC wakeup. Suspend releases Screen
 hotkeys without changing Window/Keyboard/Taskbar. Hosted notifications use the
 host; standalone retains its tray and autostart. Recording and audio now live in
 `screen-record`; pixel capture, clipboard and PNG operations live in
-`screen-capture`. Extraction preserves one process and coordinated
+`screen-capture`; recognition, text layout, external engines and automatic OCR
+live in `screen-ocr`. Extraction preserves one process and coordinated
 capture/overlay/recording lifecycle.
 
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
