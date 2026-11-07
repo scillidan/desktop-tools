@@ -57,16 +57,16 @@ P2 signed off on 2026-11-06; this unlocked P3.
 - [x] The earlier Win+Ctrl+D failure was observed while KeyMap was Disabled;
       no hook-code change was made without a failing enabled-state signal.
 
-- [ ] Keyboard contains native **Shell Keys** before GoldenDict; its config entry
+- [x] Keyboard contains native **Shell Keys** before GoldenDict; its config entry
       opens `keyboard-shell.toml`. The legacy Window TOML remains unchanged.
-- [ ] With Shell Keys visibly Enabled, try **Win+Ctrl+D** first: it must not create
+- [x] With Shell Keys visibly Enabled, try **Win+Ctrl+D** first: it must not create
       or switch to a virtual desktop. Then Win+E, Win+Shift+S and Win+. must not
       open their shell UI, and releasing Win must not open Start.
-- [ ] Keyboard → Shell Keys → **Suspend Shell Keys** must become checked and allow
+- [x] Keyboard → Shell Keys → **Suspend Shell Keys** must become checked and allow
       Win+E / Win+Ctrl+D normally. Select it again to resume; it becomes unchecked
       and both combinations are suppressed. Window → Suspend Group "Window"
       must remain a separate state and must not suspend Shell Keys.
-- [ ] Ordinary Ctrl+C and Win+Alt+H window snap still work. Host Exit closes all
+- [x] Ordinary Ctrl+C and Win+Alt+H window snap still work. Host Exit closes all
       seven plugins without leftover processes/hooks.
 
 The follow-up review requested the separate Key Map entry before signing P4a;
@@ -78,23 +78,25 @@ P4a/P4b physical verification is therefore combined below.
       state produced `3 / . / a`; synchronized generic modifier state produces
       `# / > / A`. Rebuilt and restarted the real eight-plugin profile.
 
-- [ ] Native Keyboard order is **Key Map, Keyboard Auto Switch Back, Keyboard
+- [x] Native Keyboard order is **Key Map, Keyboard Auto Switch Back, Keyboard
        Locker, Keyboard Switch, Shell Keys**; both GoldenDict tools remain after
        them. Window feature submenus
        are also alphabetical.
-- [ ] `Keyboard > Key Map > Edit keyboard-keymap config` opens only the static
+- [x] `Keyboard > Key Map > Edit keyboard-keymap config` opens only the static
        `[keymap]` table. The old shell-only content is preserved separately as
        `keyboard-keymap.legacy-shell.toml`.
-- [ ] In Notepad and WezTerm, type `#alpha`, `#Alpha`, `#alpha.`, `>>star`,
+- [x] In Notepad and WezTerm, type `#alpha`, `#Alpha`, `#alpha.`, `>>star`,
        `#->` and `;em`: expect `α`, `Α`, `α.`, `★`, `→` and `—`, with no residual
        trigger character, no extra space and no recursive replacement.
-- [ ] Type `#alphx`, Backspace, then `a`: expect `α`. Type `#al`, click elsewhere,
+- [x] Type `#alphx`, Backspace, then `a`: expect `α`. Type `#al`, click elsewhere,
        then type `pha`: expect literal `pha` because mouse/focus resets history.
-- [ ] Disable Key Map and type `#alpha`: it stays literal. Enable it and repeat:
+- [x] Disable Key Map and type `#alpha`: it stays literal. Enable it and repeat:
        replacement resumes. Normal typing, Backspace and Ctrl+C remain usable.
-- [ ] Automated wire verification (already run, not a physical substitute):
+- [x] Automated wire verification (already run, not a physical substitute):
        invalid prefix config notifies once and keeps the process/old recognizer;
        a subsequent valid config reloads; Quit exits 0; 8-plugin smoke passes.
+
+P4 signed off on 2026-11-07; this unlocks P5.
 
 ## P3 — native window import and module split
 
@@ -139,45 +141,45 @@ Automated before handoff:
 User reported the hosted behavior "基本ok" on 2026-11-07; the final Suspend
 Window / no-manual-Reload menu was additionally verified through real wire v3.
 
-- [ ] **Structure/config entries:** one host tray has Window before Keyboard.
+- [x] **Structure/config entries:** one host tray has Window before Keyboard.
       Window directly opens Rectangle / Resize / Mouse Drag / On Top/Bottom /
       Maximize/Minimize / App Window Switch / Quick Switch / Virtual Desktops.
       Each has its own Edit config; Resize also has Edit resize presets, and
       On Top/Bottom has Clear all pins. Window root has Undo and Suspend Group "Window"
       (no manual Reload), plus host Disable/Restart/config/log. No intermediate Window (running),
       duplicate plugin config entry or second Window tray.
-- [ ] **Rectangle edges/corners:** on a normal window, each Win+Alt+H/L/K/J
+- [x] **Rectangle edges/corners:** on a normal window, each Win+Alt+H/L/K/J
       cycles 1/2 → 2/3 → 1/3. Check all four Ctrl+Win+Alt+H/K/J/L corners and
       Ctrl+Win+Alt+C centering. Repeating an edge must not open a shell action.
-- [ ] **Display/maximize:** Ctrl+Win+Alt+N/P move the same window between
+- [x] **Display/maximize:** Ctrl+Win+Alt+N/P move the same window between
       monitors without changing its relative size; Ctrl+Win+Alt+F maximizes and
       restores it. With one monitor, N/P wrapping to the same monitor is N/A.
-- [ ] **Pin/minimize/sizer/undo:** Ctrl+Win+Alt+T pins above other windows and
+- [x] **Pin/minimize/sizer/undo:** Ctrl+Win+Alt+T pins above other windows and
       toggles off; Ctrl+Win+Alt+B keeps a window behind after another window is
       activated and toggles off; Ctrl+Win+Alt+M minimizes; Ctrl+Win+Alt+S opens
       Sizer and applies a preset. Ctrl+Win+Alt+U successively restores Sizer,
       snap, maximize and minimize states. On Top/Bottom → Clear all pins clears pins.
-- [ ] **Mouse drag:** hold the configured drag modifier and left-drag a normal
+- [x] **Mouse drag:** hold the configured drag modifier and left-drag a normal
       window across a monitor boundary; repeat on a maximized window. The first
       movement restores it without jumping, a modifier-click without movement
       does not restore it, and releasing Win must not open Start.
-- [ ] **Switcher:** open three windows of one application. Alt+` and
+- [x] **Switcher:** open three windows of one application. Alt+` and
       Alt+Shift+` cycle them forward/back without two-window ping-pong. Close
       one window during the sequence and continue: no error or stuck state.
-- [ ] **QuickSwitch:** with an Explorer folder active, open a Notepad Save As
+- [x] **QuickSwitch:** with an Explorer folder active, open a Notepad Save As
       dialog and confirm it follows that folder. Ctrl+Alt+L applies the current
       folder again. Outside a file dialog, Ctrl+Alt+L still reaches the
       application (for example Double Commander list view).
-- [ ] **Virtual desktops:** with at least three desktops, Win+` / Win+Shift+`
+- [x] **Virtual desktops:** with at least three desktops, Win+` / Win+Shift+`
       move next/previous; check every configured Win+Alt+number for desktops
       that exist, then Win+Shift+number moves the active window there without
       losing it or unexpectedly switching focus.
-- [ ] **P3 compatibility:** Win+E, Win+C, Win+1, Win+Left and Win+Shift+S remain
+- [x] **P3 compatibility:** Win+E, Win+C, Win+1, Win+Left and Win+Shift+S remain
       suppressed rather than opening shell UI; Win+F2 still turns displays off
       and input wakes them. These are temporary P3-owned behaviors: P4 performs
       the exhaustive suppression matrix after moving it to keyboard-shell, and
       P6c moves monitor power to screen-power.
-- [ ] **Lifecycle/config:** Window → Suspend Group "Window" disables its hotkeys/drag while
+- [x] **Lifecycle/config:** Window → Suspend Group "Window" disables its hotkeys/drag while
       keyboard tools still work; Resume restores them. Open all eight module
       config entries and confirm each opens its matching TOML with the existing
       effective bindings/settings (the original full legacy file is unchanged).

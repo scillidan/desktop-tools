@@ -754,9 +754,8 @@ plus hosted Reload/Restart/Exit and standalone parity.
 shared hook, 67-binding import and Window ownership removal pass 140 tests,
 clippy, release/staging and seven-plugin smoke. Wire probes verify both suspend
 transitions and clean Quit; the real profile preserves 67/67 rows. Physical
-re-test with Shell Keys explicitly Enabled is included in the P4 physical pass;
-P4b code and automated verification are complete, physical replacement sign-off
-is pending.
+P4 physical verification and sign-off completed on 2026-11-07 after fixing
+low-level Shift translation for `#`, `>` and uppercase triggers.
 
 Split into reviewable substeps:
 
