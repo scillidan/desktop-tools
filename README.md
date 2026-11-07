@@ -60,8 +60,9 @@ hotkeys without changing Window/Keyboard/Taskbar. Hosted notifications use the
 host; standalone retains its tray and autostart. Recording and audio now live in
 `screen-record`; pixel capture, clipboard and PNG operations live in
 `screen-capture`; recognition, text layout, external engines and automatic OCR
-live in `screen-ocr`. Extraction preserves one process and coordinated
-capture/overlay/recording lifecycle.
+live in `screen-ocr`; frames, selection, OCR masks, pins and virtual-desktop
+frame coordination live in `screen-draw`. Extraction preserves one process and
+coordinated capture/overlay/recording lifecycle.
 
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
 `taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and

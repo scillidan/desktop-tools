@@ -4,6 +4,7 @@
 
 use anyhow::{Context, Result};
 use kit::keys::Combo;
+pub use screen_draw::{MaskFill, MaskMode, MaskSize, PinBorder};
 pub use screen_ocr::{OcrAuto, OcrBackend};
 
 pub const CONFIG_NAME: &str = "screen-tools.toml";
@@ -82,34 +83,6 @@ pub struct Config {
     /// Refuse to start / stop early below this much free space.
     pub record_min_free_mb: u32,
     pub bindings: Bindings,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PinBorder {
-    Hatch,
-    Line,
-    None,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MaskFill {
-    Boxes,
-    Lines,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MaskMode {
-    Box,
-    BoxMask,
-    BoxOutside,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MaskSize {
-    /// Legacy: size each line from its OCR box height.
-    Auto,
-    /// One fixed size for all text, in points (WezTerm's `font_size` unit).
-    Pt(u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

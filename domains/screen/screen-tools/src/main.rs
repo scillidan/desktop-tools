@@ -14,21 +14,22 @@ mod frame;
 mod host;
 mod hotkeys;
 mod icon;
-mod interaction;
 mod mask;
 mod menu;
 mod ocr;
 mod overlay;
-mod pin;
 mod scale;
 mod tray;
 
 use anyhow::Result;
 use std::io::Write;
-use std::os::windows::process::CommandExt;
 use std::time::SystemTime;
 
 use config::Action;
+pub use screen_draw::frame_hwnd;
+use screen_draw::{
+    cleanup_temp_captures, pin_style, set_capture_dir, set_external_editor, set_pin_style,
+};
 use screen_record as record;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::HiDpi::{
@@ -65,12 +66,18 @@ fn set_dpi_aware() {
 }
 
 pub(crate) fn ocr_frame_ops() -> screen_ocr::FrameOps {
-    screen_ocr::FrameOps {
-        note_start: frame::note_ocr_start,
-        screen_rect: frame::screen_rect,
-        scale: frame::ocr_scale,
-        set_running: frame::set_ocr_running,
-        language: frame::ocr_language,
+    screen_draw::ocr_frame_ops()
+}
+
+fn frame_settings(cfg: &config::Config) -> screen_draw::FrameSettings {
+    screen_draw::FrameSettings {
+        frame_w: cfg.frame_w,
+        frame_h: cfg.frame_h,
+        work_area: cfg.work_area,
+        show_hint: cfg.show_hint,
+        font: cfg.font.clone(),
+        ocr_scale: cfg.ocr_scale,
+        ocr_language: cfg.ocr_language.clone(),
     }
 }
 
@@ -78,6 +85,8 @@ fn run() -> Result<()> {
     let hosted = std::env::args().any(|arg| arg == "--plugin");
     set_dpi_aware();
     screen_capture::set_logger(logline);
+    screen_draw::set_logger(logline);
+    screen_draw::set_notifier(tray::notify);
     screen_ocr::set_logger(logline);
     screen_record::set_logger(logline);
     unsafe {
@@ -170,7 +179,7 @@ fn run() -> Result<()> {
     } else {
         None
     };
-    let mut frames = desktops::Frames::new(&cfg)?;
+    let mut frames = desktops::Frames::new(&frame_settings(&cfg))?;
     let _tray = if hosted {
         None
     } else {
@@ -253,7 +262,7 @@ fn run() -> Result<()> {
                     continue;
                 }
                 logline(&format!("hotkey: {action:?}"));
-                match frames.current(&cfg) {
+                match frames.current(&frame_settings(&cfg)) {
                     Ok(current) => dispatch(action, current),
                     Err(e) => logline(&format!("warn: cannot select desktop frame: {e:#}")),
                 }
@@ -559,130 +568,6 @@ fn dispatch(action: Action, frame: HWND) {
     }
 }
 
-/// Focused-frame Ctrl+Shift+S: straight to `[capture] dir`.
-pub(crate) fn frame_quick_save(frame: HWND) {
-    if let Err(e) = unsafe { capture::save_frame(frame, &capture_dir()) } {
-        logline(&format!("save frame failed: {e:#}"));
-    }
-}
-
-/// Focused-frame Ctrl+S: file save dialog starting in `[capture] dir` with the
-/// default timestamped name. A modal dialog leaves an animation behind, so let
-/// it fade before grabbing.
-pub(crate) fn frame_save_as(frame: HWND) {
-    let name = capture::default_capture_name();
-    let path = match unsafe { capture::choose_file(frame, &capture_dir(), &name) } {
-        Ok(Some(path)) => path,
-        Ok(None) => return,
-        Err(e) => {
-            logline(&format!("save dialog failed: {e:#}"));
-            return;
-        }
-    };
-    std::thread::sleep(std::time::Duration::from_millis(220));
-    if let Err(e) = unsafe { capture::save_frame_to(frame, &path) } {
-        logline(&format!("save frame failed: {e:#}"));
-    }
-}
-
-pub(crate) fn frame_copy(frame: HWND) {
-    let keep_open = unsafe { frame::is_pinned(frame) };
-    if let Err(e) = unsafe { capture::copy_frame(frame, keep_open) } {
-        logline(&format!("copy frame failed: {e:#}"));
-    }
-}
-
-pub(crate) fn frame_pin(frame: HWND) {
-    let r = unsafe {
-        match frame::visible_rect(frame) {
-            Some(rect) => {
-                frame::hide(frame);
-                let r = capture::pin_rect(rect, pin_style());
-                if r.is_err() {
-                    frame::ensure_visible(frame);
-                }
-                r
-            }
-            None => return,
-        }
-    };
-    if let Err(e) = r {
-        logline(&format!("pin frame failed: {e:#}"));
-    }
-}
-
-/// Temp files handed to an external editor live here; a day of files is kept.
-const TEMP_KEEP_SECS: u64 = 24 * 60 * 60;
-
-fn temp_capture_dir() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join("screen-tools-rs");
-    let _ = std::fs::create_dir_all(&dir);
-    dir
-}
-
-/// Delete handoff PNGs older than `TEMP_KEEP_SECS` from the handoff folder and
-/// from the temp root (older builds wrote there). Runs at startup and before
-/// every new handoff, so the folder cannot grow without bound.
-fn cleanup_temp_captures() {
-    let mut roots = vec![std::env::temp_dir()];
-    roots.push(temp_capture_dir());
-    roots.push(std::env::temp_dir().join("dt-ocr"));
-    let now = SystemTime::now();
-    let mut removed = 0;
-    for root in roots {
-        let Ok(entries) = std::fs::read_dir(&root) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            let is_capture = path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
-                (n.starts_with("screen-tools-rs-") || n.starts_with("dt-ocr-"))
-                    && n.ends_with(".png")
-            });
-            if !is_capture {
-                continue;
-            }
-            let stale = entry
-                .metadata()
-                .and_then(|m| m.modified())
-                .ok()
-                .and_then(|t| now.duration_since(t).ok())
-                .is_some_and(|age| age.as_secs() > TEMP_KEEP_SECS);
-            if stale && std::fs::remove_file(&path).is_ok() {
-                removed += 1;
-            }
-        }
-    }
-    if removed > 0 {
-        logline(&format!("temp: removed {removed} stale capture(s)"));
-    }
-}
-
-/// Focused-frame Ctrl+O: save the frame to a temp PNG and open it in the
-/// configured `[external] editor` (for example PhotoCraft). The frame is put
-/// away like the other handoffs.
-pub(crate) fn frame_open_with(frame: HWND) {
-    let editor = external_editor();
-    if editor.trim().is_empty() {
-        logline("open with: [external] editor is empty");
-        return;
-    }
-    cleanup_temp_captures();
-    let path = temp_capture_dir().join(capture::default_capture_name());
-    if let Err(e) = unsafe { capture::save_frame_to(frame, &path) } {
-        logline(&format!("open with: save failed: {e:#}"));
-        return;
-    }
-    match std::process::Command::new(&editor)
-        .arg(&path)
-        .creation_flags(0x0800_0000)
-        .spawn()
-    {
-        Ok(_) => logline(&format!("open with: {editor} <- {}", path.display())),
-        Err(e) => logline(&format!("open with failed: {e:#}")),
-    }
-}
-
 static LAST_HOTKEY: std::sync::Mutex<Option<(Action, std::time::Instant)>> =
     std::sync::Mutex::new(None);
 
@@ -700,54 +585,6 @@ fn hotkey_repeat(
     }
     *last = Some((action, now));
     false
-}
-
-static CAPTURE_DIR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
-
-fn capture_dir() -> String {
-    CAPTURE_DIR
-        .lock()
-        .map(|d| d.clone())
-        .unwrap_or_else(|e| e.into_inner().clone())
-}
-
-pub fn set_capture_dir(dir: &str) {
-    if let Ok(mut d) = CAPTURE_DIR.lock() {
-        *d = dir.to_string();
-    }
-}
-
-static PIN_STYLE: std::sync::Mutex<pin::Style> = std::sync::Mutex::new(pin::Style::DEFAULT);
-
-fn set_pin_style(border: config::PinBorder, line_color: u32, hatch_color: u32) {
-    if let Ok(mut style) = PIN_STYLE.lock() {
-        *style = pin::Style {
-            border,
-            line_color,
-            hatch_color,
-        };
-    }
-}
-
-fn pin_style() -> pin::Style {
-    PIN_STYLE
-        .lock()
-        .map(|style| *style)
-        .unwrap_or(pin::Style::DEFAULT)
-}
-
-static EXTERNAL_EDITOR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
-fn set_external_editor(editor: &str) {
-    if let Ok(mut e) = EXTERNAL_EDITOR.lock() {
-        *e = editor.to_string();
-    }
-}
-
-fn external_editor() -> String {
-    EXTERNAL_EDITOR
-        .lock()
-        .map(|e| e.clone())
-        .unwrap_or_else(|e| e.into_inner().clone())
 }
 
 static RECORD_CFG: std::sync::Mutex<record::Settings> = std::sync::Mutex::new(record::Settings {
@@ -781,16 +618,6 @@ fn record_cfg() -> record::Settings {
         .lock()
         .map(|c| c.clone())
         .unwrap_or_else(|e| e.into_inner().clone())
-}
-
-static FRAME_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
-
-pub fn frame_hwnd() -> HWND {
-    HWND(FRAME_HWND.load(std::sync::atomic::Ordering::SeqCst) as *mut core::ffi::c_void)
-}
-
-fn set_frame_hwnd(hwnd: HWND) {
-    FRAME_HWND.store(hwnd.0 as isize, std::sync::atomic::Ordering::SeqCst);
 }
 
 /// Append-only profile log (release builds have no console).

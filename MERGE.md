@@ -844,6 +844,10 @@ one host tray and one autostart entry.
   `FrameOps` adapter and UI callbacks preserve overlay coordination without a
   feature-to-root dependency. All 23 OCR tests moved; a real staged run completed
   frame/capture/OCR/result and exited cleanly without clipboard writes.
+- P6b module commit 4: `screen-draw` owns Frame, selection overlays, OCR Mask,
+  Pin, Flameshot handoff and per-virtual-desktop frame coordination. All 37
+  existing tests moved with it. The composition root no longer contains those
+  Win32 implementations; real OCR and hosted lifecycle checks remain green.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the

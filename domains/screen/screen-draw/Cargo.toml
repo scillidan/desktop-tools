@@ -1,0 +1,16 @@
+[package]
+name = "screen-draw"
+description = "Screen selection frame, OCR overlay, pins and virtual-desktop frames"
+license.workspace = true
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+kit = { path = "../../../crates/kit" }
+screen-capture = { path = "../screen-capture" }
+screen-ocr = { path = "../screen-ocr" }
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
