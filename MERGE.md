@@ -834,6 +834,11 @@ one host tray and one autostart entry.
   cleanup. The composition root still owns its hotkey and frame coordination;
   environment expansion is shared through kit. All six recording/audio tests
   moved with the implementation, and the hosted wire/ten-plugin smoke stayed green.
+- P6b module commit 2: `screen-capture` owns pixels, target selection, clipboard
+  and PNG/file-dialog operations. The composition-root facade retains only
+  capture transitions involving Frame or Pin, so feature code has no reverse UI
+  dependency. All five capture tests moved; workspace tests and final wire/smoke
+  checks passed.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the

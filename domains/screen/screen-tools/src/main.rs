@@ -68,6 +68,7 @@ fn set_dpi_aware() {
 fn run() -> Result<()> {
     let hosted = std::env::args().any(|arg| arg == "--plugin");
     set_dpi_aware();
+    screen_capture::set_logger(logline);
     screen_record::set_logger(logline);
     unsafe {
         use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
