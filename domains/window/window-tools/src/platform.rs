@@ -6,11 +6,15 @@
 use crate::config::Action;
 use crate::layout::{Rect, SizeSpec};
 use anyhow::Result;
-use window_rectangle::{Rectangle, RectangleAction, RectanglePlatform};
-use window_switcher::{Switcher, SwitcherPlatform};
+use window_app_switch::{Switcher, SwitcherPlatform};
+use window_maximize_minimize::{MaximizeMinimize, MaximizeMinimizeAction};
+use window_on_top_bottom::{OnTopBottom, OnTopBottomAction};
+use window_rectangle::{Rectangle, RectangleAction};
+use window_resize::Resize;
 
-use window_core::WindowQuery;
+use crate::history::History;
 pub use window_core::{Monitor, WinId};
+use window_core::{WindowOps, WindowQuery};
 pub use window_rectangle::SizerPick;
 
 pub trait Platform {
@@ -98,9 +102,9 @@ impl<P: Platform> SwitcherPlatform for SwitcherBackend<'_, P> {
     }
 }
 
-struct RectangleBackend<'a, P>(&'a P);
+struct WindowBackend<'a, P>(&'a P);
 
-impl<P: Platform> WindowQuery for RectangleBackend<'_, P> {
+impl<P: Platform> WindowQuery for WindowBackend<'_, P> {
     fn foreground(&self) -> Option<WinId> {
         self.0.foreground()
     }
@@ -112,7 +116,7 @@ impl<P: Platform> WindowQuery for RectangleBackend<'_, P> {
     }
 }
 
-impl<P: Platform> RectanglePlatform for RectangleBackend<'_, P> {
+impl<P: Platform> WindowOps for WindowBackend<'_, P> {
     fn monitors(&self) -> Vec<Monitor> {
         self.0.monitors()
     }
@@ -163,7 +167,11 @@ impl<P: Platform> RectanglePlatform for RectangleBackend<'_, P> {
 pub struct App<P: Platform> {
     pub p: P,
     rectangle: Rectangle,
+    resize: Resize,
+    pins: OnTopBottom,
+    window_state: MaximizeMinimize,
     switcher: Switcher,
+    history: History,
 }
 
 impl<P: Platform> App<P> {
@@ -171,7 +179,11 @@ impl<P: Platform> App<P> {
         Self {
             p,
             rectangle: Rectangle::default(),
+            resize: Resize::default(),
+            pins: OnTopBottom,
+            window_state: MaximizeMinimize,
             switcher: Switcher::default(),
+            history: History::default(),
         }
     }
 
@@ -180,7 +192,7 @@ impl<P: Platform> App<P> {
     }
 
     pub fn set_sizer(&mut self, presets: Vec<SizeSpec>) {
-        self.rectangle.set_sizer(presets);
+        self.resize.set_sizer(presets);
     }
 
     pub fn apply(&mut self, action: Action) -> Result<()> {
@@ -200,25 +212,63 @@ impl<P: Platform> App<P> {
             Action::MoveToBottomLeft => Some(R::MoveToBottomLeft),
             Action::MoveToBottomRight => Some(R::MoveToBottomRight),
             Action::MoveToCenter => Some(R::MoveToCenter),
-            Action::Maximize => Some(R::Maximize),
             Action::NextDisplay => Some(R::NextDisplay),
             Action::PrevDisplay => Some(R::PrevDisplay),
-            Action::ToggleAlwaysOnTop => Some(R::ToggleAlwaysOnTop),
-            Action::ToggleAlwaysOnBottom => Some(R::ToggleAlwaysOnBottom),
-            Action::Minimize => Some(R::Minimize),
-            Action::UnpinAll => Some(R::UnpinAll),
-            Action::SizerMenu => Some(R::SizerMenu),
-            Action::Undo => Some(R::Undo),
             _ => None,
         };
         if let Some(action) = rectangle {
-            return self
-                .rectangle
-                .apply(&RectangleBackend(&self.p), action, forced);
+            return self.rectangle.apply(
+                &WindowBackend(&self.p),
+                &mut self.history,
+                action,
+                forced,
+            );
         }
         match action {
             Action::NextWindow => self.switcher.switch(&SwitcherBackend(&self.p), 1, forced),
             Action::PrevWindow => self.switcher.switch(&SwitcherBackend(&self.p), -1, forced),
+            Action::SizerMenu => {
+                self.rectangle.reset_cycle();
+                self.resize
+                    .apply(&WindowBackend(&self.p), &mut self.history, forced)
+            }
+            Action::ToggleAlwaysOnTop => self.pins.apply(
+                &WindowBackend(&self.p),
+                OnTopBottomAction::ToggleAlwaysOnTop,
+                forced,
+            ),
+            Action::ToggleAlwaysOnBottom => self.pins.apply(
+                &WindowBackend(&self.p),
+                OnTopBottomAction::ToggleAlwaysOnBottom,
+                forced,
+            ),
+            Action::UnpinAll => self.pins.apply(
+                &WindowBackend(&self.p),
+                OnTopBottomAction::ClearAllPins,
+                forced,
+            ),
+            Action::Maximize => {
+                self.rectangle.reset_cycle();
+                self.window_state.apply(
+                    &WindowBackend(&self.p),
+                    &mut self.history,
+                    MaximizeMinimizeAction::Maximize,
+                    forced,
+                )
+            }
+            Action::Minimize => {
+                self.rectangle.reset_cycle();
+                self.window_state.apply(
+                    &WindowBackend(&self.p),
+                    &mut self.history,
+                    MaximizeMinimizeAction::Minimize,
+                    forced,
+                )
+            }
+            Action::Undo => {
+                self.rectangle.reset_cycle();
+                self.history.undo(&WindowBackend(&self.p))
+            }
             Action::Quit | Action::Suppress => Ok(()),
             Action::FileDialog => self.p.file_dialog(),
             Action::ToggleScreen => self.p.toggle_screen(),
@@ -226,7 +276,7 @@ impl<P: Platform> App<P> {
             Action::NextDesktop => self.p.next_desktop(),
             Action::PrevDesktop => self.p.prev_desktop(),
             Action::MoveToDesktop(n) => {
-                let t = window_core::target(&RectangleBackend(&self.p), forced)?;
+                let t = window_core::target(&WindowBackend(&self.p), forced)?;
                 self.p.move_to_desktop(t, n)
             }
             _ => unreachable!("rectangle actions returned above"),

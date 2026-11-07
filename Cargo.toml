@@ -5,11 +5,15 @@ members = [
   "apps/*",
   "plugins/*",
   "domains/window/window-core",
+  "domains/window/window-resize",
+  "domains/window/window-mouse-drag",
+  "domains/window/window-on-top-bottom",
+  "domains/window/window-maximize-minimize",
   "domains/window/window-tools",
   "domains/window/window-quick-switch",
   "domains/window/window-rectangle",
-  "domains/window/window-switcher",
-  "domains/window/window-vdesk",
+  "domains/window/window-app-switch",
+  "domains/window/window-virtual-desktops",
 ]
 
 [workspace.package]

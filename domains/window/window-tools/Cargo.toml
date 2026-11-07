@@ -14,10 +14,14 @@ winresource = "0.1"
 [dependencies]
 kit = { path = "../../../crates/kit" }
 window-core = { path = "../window-core" }
+window-resize = { path = "../window-resize" }
+window-mouse-drag = { path = "../window-mouse-drag" }
+window-on-top-bottom = { path = "../window-on-top-bottom" }
+window-maximize-minimize = { path = "../window-maximize-minimize" }
 window-quick-switch = { path = "../window-quick-switch" }
 window-rectangle = { path = "../window-rectangle" }
-window-switcher = { path = "../window-switcher" }
-window-vdesk = { path = "../window-vdesk" }
+window-app-switch = { path = "../window-app-switch" }
+window-virtual-desktops = { path = "../window-virtual-desktops" }
 anyhow.workspace = true
 toml.workspace = true
 tracing = "0.1"

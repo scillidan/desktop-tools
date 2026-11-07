@@ -6,11 +6,11 @@
 //! loop, swallows the button press/release so the window does not also see a
 //! click, and is removed while the tray has hotkeys suspended.
 
-use crate::geometry::Rect;
 use anyhow::{Context, Result};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use window_core::win::{focus_window, hwnd_of, id_of, rect_of, zonable};
+use window_core::Rect;
 use window_core::{Mods, WinId};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{

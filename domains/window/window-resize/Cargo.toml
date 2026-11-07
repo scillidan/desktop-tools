@@ -1,10 +1,9 @@
 [package]
-name = "window-vdesk"
+name = "window-resize"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-kit = { path = "../../../crates/kit" }
-windows.workspace = true
+window-core = { path = "../window-core" }

@@ -1651,11 +1651,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
+name = "window-app-switch"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "window-core",
+]
+
+[[package]]
 name = "window-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "windows",
+]
+
+[[package]]
+name = "window-maximize-minimize"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "window-core",
+]
+
+[[package]]
+name = "window-mouse-drag"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "window-core",
+ "windows",
+]
+
+[[package]]
+name = "window-on-top-bottom"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "window-core",
 ]
 
 [[package]]
@@ -1677,7 +1710,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "window-switcher"
+name = "window-resize"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1693,17 +1726,21 @@ dependencies = [
  "toml 0.8.2",
  "tracing",
  "tracing-subscriber",
+ "window-app-switch",
  "window-core",
+ "window-maximize-minimize",
+ "window-mouse-drag",
+ "window-on-top-bottom",
  "window-quick-switch",
  "window-rectangle",
- "window-switcher",
- "window-vdesk",
+ "window-resize",
+ "window-virtual-desktops",
  "windows",
  "winresource",
 ]
 
 [[package]]
-name = "window-vdesk"
+name = "window-virtual-desktops"
 version = "0.1.0"
 dependencies = [
  "anyhow",

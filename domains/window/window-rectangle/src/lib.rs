@@ -2,8 +2,8 @@
 
 pub mod geometry;
 #[cfg(windows)]
-pub mod mouse;
 mod state;
 
 pub use geometry::{Rect, SizeSpec};
-pub use state::{Rectangle, RectangleAction, RectanglePlatform, SizerPick};
+pub use state::{Rectangle, RectangleAction};
+pub use window_core::{SizerPick, WindowOps as RectanglePlatform};

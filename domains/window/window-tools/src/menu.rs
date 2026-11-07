@@ -8,20 +8,29 @@ pub enum Cmd {
     Reload,
     Edit,
     EditResize,
-    UnpinAll,
+    ClearAllPins,
+    Undo,
     ToggleSuspend,
     Quit,
 }
 
+fn info(label: &str, description: &str) -> MenuItem {
+    MenuItem::Submenu {
+        label: label.into(),
+        items: vec![MenuItem::Info {
+            label: description.into(),
+        }],
+    }
+}
+
 pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
     let mut items = vec![
+        info("Rectangle", "Snap windows to rectangles"),
         MenuItem::Submenu {
-            label: "Rectangle".into(),
+            label: "Resize".into(),
             items: vec![
-                MenuItem::Item {
-                    id: "unpin".into(),
-                    label: "Unpin all".into(),
-                    enabled: true,
+                MenuItem::Info {
+                    label: "Sizer and resize presets".into(),
                 },
                 MenuItem::Item {
                     id: "edit-resize".into(),
@@ -30,25 +39,28 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
                 },
             ],
         },
+        info("Mouse Drag", "Drag windows with a modifier and left button"),
         MenuItem::Submenu {
-            label: "Window switcher".into(),
-            items: vec![MenuItem::Info {
-                label: "Cycle windows of the same application".into(),
+            label: "On Top/Bottom".into(),
+            items: vec![MenuItem::Item {
+                id: "clear-pins".into(),
+                label: "Clear all pins".into(),
+                enabled: true,
             }],
         },
-        MenuItem::Submenu {
-            label: "QuickSwitch".into(),
-            items: vec![MenuItem::Info {
-                label: "File dialogs follow the file manager".into(),
-            }],
-        },
-        MenuItem::Submenu {
-            label: "Virtual desktops".into(),
-            items: vec![MenuItem::Info {
-                label: "Switch desktops and move windows".into(),
-            }],
-        },
+        info(
+            "Maximize/Minimize",
+            "Maximize, restore, or minimize windows",
+        ),
+        info("App Window Switch", "Cycle windows of the same application"),
+        info("Quick Switch", "File dialogs follow the file manager"),
+        info("Virtual Desktops", "Switch desktops and move windows"),
         MenuItem::Separator,
+        MenuItem::Item {
+            id: "undo".into(),
+            label: "Undo Window Action".into(),
+            enabled: true,
+        },
         MenuItem::Toggle {
             id: "suspend".into(),
             label: "Suspend all hotkeys".into(),
@@ -88,7 +100,8 @@ pub fn command(id: &str) -> Option<Cmd> {
         "reload" => Cmd::Reload,
         "edit" => Cmd::Edit,
         "edit-resize" => Cmd::EditResize,
-        "unpin" => Cmd::UnpinAll,
+        "clear-pins" => Cmd::ClearAllPins,
+        "undo" => Cmd::Undo,
         "suspend" => Cmd::ToggleSuspend,
         "quit" => Cmd::Quit,
         _ => return None,
@@ -103,7 +116,8 @@ mod tests {
     fn hosted_and_standalone_share_valid_module_models() {
         let hosted = model(true, false, false);
         hosted.validate().unwrap();
-        assert_eq!(hosted.id_for_label("Unpin all"), Some("unpin"));
+        assert_eq!(hosted.id_for_label("Clear all pins"), Some("clear-pins"));
+        assert_eq!(hosted.id_for_label("Undo Window Action"), Some("undo"));
         assert_eq!(hosted.id_for_label("Exit window-tools"), None);
         assert_eq!(hosted.id_for_label("Edit window-tools.toml"), None);
 

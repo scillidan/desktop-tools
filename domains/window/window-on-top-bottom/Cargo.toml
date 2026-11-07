@@ -1,0 +1,9 @@
+[package]
+name = "window-on-top-bottom"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+window-core = { path = "../window-core" }

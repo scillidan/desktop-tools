@@ -16,6 +16,7 @@ mod menu;
 mod platform;
 
 #[cfg(windows)]
+mod history;
 mod kbdhook;
 #[cfg(windows)]
 mod screen;

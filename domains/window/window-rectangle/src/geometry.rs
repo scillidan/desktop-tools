@@ -1,77 +1,9 @@
 //! Pure snapping geometry. Ported from RectangleWin `snap.go`
 //! (fraction-of-workarea rect math; no Win32 types in here).
 
-use anyhow::{Context, Result};
-use std::fmt;
-use std::str::FromStr;
-
 pub use window_core::{intersect, Rect};
 
-/// A Sizer preset: exact pixels, or a fraction applied to both work-area
-/// dimensions (width and height).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum SizeSpec {
-    Px { w: i32, h: i32 },
-    Fraction { num: u32, den: u32 },
-}
-
-impl SizeSpec {
-    pub fn resolve(self, work: Rect) -> (i32, i32) {
-        match self {
-            SizeSpec::Px { w, h } => (w, h),
-            SizeSpec::Fraction { num, den } => {
-                let w = (work.w() as i64 * num as i64 / den as i64) as i32;
-                let h = (work.h() as i64 * num as i64 / den as i64) as i32;
-                (w.max(1), h.max(1))
-            }
-        }
-    }
-}
-
-impl FromStr for SizeSpec {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> Result<Self> {
-        let s = s.trim();
-        if let Some((w, h)) = s.split_once(['x', 'X']) {
-            let w: i32 = w
-                .trim()
-                .parse()
-                .with_context(|| format!("invalid width in `{s}`"))?;
-            let h: i32 = h
-                .trim()
-                .parse()
-                .with_context(|| format!("invalid height in `{s}`"))?;
-            anyhow::ensure!((1..=20_000).contains(&w), "width must be 1..=20000");
-            anyhow::ensure!((1..=20_000).contains(&h), "height must be 1..=20000");
-            return Ok(SizeSpec::Px { w, h });
-        }
-        let (num, den) = s
-            .split_once('/')
-            .with_context(|| format!("preset `{s}` must be WxH (1600x1200) or N/D (1/2)"))?;
-        let num: u32 = num
-            .trim()
-            .parse()
-            .with_context(|| format!("invalid numerator in `{s}`"))?;
-        let den: u32 = den
-            .trim()
-            .parse()
-            .with_context(|| format!("invalid denominator in `{s}`"))?;
-        anyhow::ensure!(
-            num > 0 && num <= den && den <= 1000,
-            "fraction must be 1 <= N <= D <= 1000"
-        );
-        Ok(SizeSpec::Fraction { num, den })
-    }
-}
-
-impl fmt::Display for SizeSpec {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SizeSpec::Px { w, h } => write!(f, "{w}x{h}"),
-            SizeSpec::Fraction { num, den } => write!(f, "{num}/{den}"),
-        }
-    }
-}
+pub use window_core::SizeSpec;
 
 pub fn to_left(d: Rect, mul: i32, div: i32) -> Rect {
     let w = (d.w() * mul + div - 1) / div; // ceil, matches RectangleWin math.Ceil

@@ -27,9 +27,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 pub(crate) use window_core::win::{focus_window, hwnd_of, id_of, rect_of, zonable};
+use window_mouse_drag as mouse;
 use window_quick_switch as dialogs;
-use window_rectangle::mouse;
-use window_vdesk as vdesk;
+use window_virtual_desktops as vdesk;
 use windows::Win32::Foundation::{
     GetLastError, ERROR_ALREADY_EXISTS, HWND, LPARAM, POINT, RECT, WPARAM,
 };
@@ -1254,9 +1254,15 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                         tray.set_status(&format!("window-tools — {e:#}"));
                     }
                 }
-                Cmd::UnpinAll => {
-                    if let Err(e) = app.p.unpin_all() {
-                        eprintln!("warn: unpin all: {e:#}");
+                Cmd::ClearAllPins => {
+                    if let Err(e) = app.apply(Action::UnpinAll) {
+                        eprintln!("warn: clear all pins: {e:#}");
+                    }
+                }
+                Cmd::Undo => {
+                    if let Err(e) = app.apply(Action::Undo) {
+                        eprintln!("warn: undo: {e:#}");
+                        tray.set_status(&format!("window-tools — {e:#}"));
                     }
                 }
                 Cmd::ToggleSuspend => {
@@ -1290,7 +1296,12 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                         tray.set_status(&status_text(cfg.bindings.len(), &[], true));
                     }
                 }
-                Cmd::Quit => return Ok(()),
+                Cmd::Quit => {
+                    if let Err(e) = app.p.unpin_all() {
+                        eprintln!("warn: clear pins during shutdown: {e:#}");
+                    }
+                    return Ok(());
+                }
             }
         }
     }
