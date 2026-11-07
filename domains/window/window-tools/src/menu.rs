@@ -23,6 +23,7 @@ fn module(label: &str, description: &str, id: &str, edit: &str) -> MenuItem {
             MenuItem::Info {
                 label: description.into(),
             },
+            MenuItem::Separator,
             MenuItem::Item {
                 id: id.into(),
                 label: edit.into(),
@@ -46,6 +47,7 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
                 MenuItem::Info {
                     label: "Sizer and resize presets".into(),
                 },
+                MenuItem::Separator,
                 MenuItem::Item {
                     id: "edit-resize".into(),
                     label: "Edit Resize config".into(),
@@ -67,6 +69,10 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
         MenuItem::Submenu {
             label: "On Top/Bottom".into(),
             items: vec![
+                MenuItem::Info {
+                    label: "Topmost and bottommost window pins".into(),
+                },
+                MenuItem::Separator,
                 MenuItem::Item {
                     id: "clear-pins".into(),
                     label: "Clear all pins".into(),
@@ -208,6 +214,14 @@ mod tests {
                 "Virtual Desktops"
             ]
         );
+
+        for item in &hosted.items[..8] {
+            let MenuItem::Submenu { items, .. } = item else {
+                panic!("feature must be a submenu")
+            };
+            assert!(matches!(items.first(), Some(MenuItem::Info { .. })));
+            assert!(matches!(items.get(1), Some(MenuItem::Separator)));
+        }
 
         let standalone = model(false, true, true);
         standalone.validate().unwrap();

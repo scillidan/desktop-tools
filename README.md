@@ -72,7 +72,11 @@ Each plugin still has its own `plugin.toml` and config file. `group` controls
 menu ownership; `external = true` places an integration after native tools in
 the same group. Nested plugin wrappers show process status in their labels;
 inside, an optional manifest `description` and separator replace duplicate
-status, version and restart counters. Suspend temporarily pauses hooks without
+status, version and restart counters. Single-plugin groups put the process
+status on the group title itself, such as `Window (running)`, without adding a
+duplicate plugin layer; multi-plugin groups retain per-plugin wrappers. Every
+Window feature submenu also has a separator after its grey description.
+Suspend temporarily pauses hooks without
 stopping the process; Disable persistently stops the plugin and performs normal
 cleanup. Window's root `Edit window-tools config` remains the legacy aggregate
 entry while its eight feature entries edit split configuration files.

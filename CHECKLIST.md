@@ -213,9 +213,9 @@ Automated before handoff:
 - [x] Isolated host starts nine children; Window, GoldenDict and Taskbar hotkey
       probes pass; duplicate hosted locker and hard-kill cleanup still pass.
 
-Physical pass A — hosted Taskbar (agent restarted final host PID 28156):
+Physical pass A — hosted Taskbar (agent restarted final host PID 19016):
 
-- [ ] One host tray contains **Taskbar** after Keyboard. Taskbar has Unpin all,
+- [ ] One host tray contains **Taskbar (running)** after Keyboard. Taskbar has Unpin all,
       Suspend Group "Taskbar" and host
       Disable/Restart/Edit config/Open log; there is no second Taskbar tray.
 - [ ] CenterTaskbar centers the task buttons. `Ctrl+Alt+F9` hides and shows the
@@ -234,7 +234,10 @@ Physical pass A — hosted Taskbar (agent restarted final host PID 28156):
       preferred order or overwrite this setting.
 - [ ] Keyboard plugin wrappers retain `(running)` but their inner menus have no
       Status/Version/Restarts rows. A grey function description is followed by a
-      separator; Window root still exposes its legacy aggregate config entry.
+      separator. **Window (running)** / **Taskbar (running)** show status on the
+      single-plugin group title without an intermediate plugin layer; Keyboard
+      keeps per-plugin status. Every Window feature has grey description →
+      separator → entries. Window root still exposes its legacy aggregate config entry.
 - [ ] Host Exit restores centered/hidden taskbar state and leaves no taskbar
       worker, process or registered hotkey behind.
 

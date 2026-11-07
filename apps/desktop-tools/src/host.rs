@@ -176,6 +176,7 @@ impl Host {
         let enabled = self.core.enabled_set();
         let mut grouped: Vec<Vec<Entry>> = GROUPS.iter().map(|_| Vec::new()).collect();
         let mut group_sizes = [0usize; GROUPS.len()];
+        let mut group_status: [Option<String>; GROUPS.len()] = std::array::from_fn(|_| None);
         for hosted in &self.plugins {
             group_sizes[group_index(&hosted.plugin.manifest.group).unwrap()] += 1;
         }
@@ -185,6 +186,9 @@ impl Host {
             let group = group_index(&hosted.plugin.manifest.group)
                 .expect("catalog accepts only known groups");
             let inline = group_sizes[group] == 1;
+            if inline {
+                group_status[group] = Some(hosted.status.label().to_string());
+            }
             let mut sub = plugin_menu_header(hosted.plugin.manifest.description.as_deref(), inline);
             let contributed = render_plugin_items(id, &hosted.menu, &mut targets);
             let has_contributed = !contributed.is_empty();
@@ -210,9 +214,12 @@ impl Host {
         }
         self.menu_targets = targets;
         let mut entries = Vec::new();
-        for ((_, title), items) in GROUPS.iter().zip(grouped) {
+        for (index, ((_, title), items)) in GROUPS.iter().zip(grouped).enumerate() {
             if !items.is_empty() {
-                entries.push(Entry::SubmenuOwned((*title).to_string(), items));
+                entries.push(Entry::SubmenuOwned(
+                    group_title(title, group_sizes[index], group_status[index].as_deref()),
+                    items,
+                ));
             }
         }
         if entries.is_empty() {
@@ -722,6 +729,13 @@ impl Host {
     }
 }
 
+fn group_title(title: &str, size: usize, status: Option<&str>) -> String {
+    match (size, status) {
+        (1, Some(status)) => format!("{title} ({status})"),
+        _ => title.to_string(),
+    }
+}
+
 fn plugin_menu_header(description: Option<&str>, inline: bool) -> Vec<Entry> {
     match (inline, description) {
         (false, Some(description)) => vec![Entry::Info(description.into()), Entry::Sep],
@@ -1105,6 +1119,11 @@ mod tests {
 
     #[test]
     fn single_plugin_groups_inline_and_multi_plugin_groups_keep_wrappers() {
+        assert_eq!(
+            group_title("Window", 1, Some("running")),
+            "Window (running)"
+        );
+        assert_eq!(group_title("Keyboard", 5, None), "Keyboard");
         let plugin_entries = || {
             vec![Entry::ItemId(
                 "window-tools::reload".into(),

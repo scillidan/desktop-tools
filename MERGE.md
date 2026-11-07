@@ -404,7 +404,9 @@ logs and errors go to stderr, never to stdout or a modal message box.
 
 Nested plugin wrappers own the `(running)` status. Their inner menu starts with
 one grey manifest `description` and a separator; it does not repeat status,
-version or restart counters. Single-plugin groups remain inline.
+version or restart counters. A single-plugin group stays inline and puts that
+status on the group title itself (for example `Window (running)`), avoiding a
+duplicate plugin wrapper. Multi-plugin groups keep status on each plugin.
 
 Suspend is temporary hook/feature suspension while the process remains running.
 Disable is persistent lifecycle removal with graceful cleanup. Keep both where

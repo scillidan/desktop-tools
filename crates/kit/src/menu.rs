@@ -7,7 +7,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const MAX_ITEMS: usize = 32;
+pub const MAX_ITEMS: usize = 64;
 pub const MAX_LABEL: usize = 120;
 pub const MAX_ID: usize = 64;
 pub const MAX_DEPTH: usize = 4;
