@@ -1,5 +1,6 @@
 //! One Window menu model for hosted IPC and the standalone tray.
 
+use crate::config::ConfigModule;
 use kit::menu::{MenuItem, MenuModel};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -8,24 +9,37 @@ pub enum Cmd {
     Reload,
     Edit,
     EditResize,
+    EditModule(ConfigModule),
     ClearAllPins,
     Undo,
     ToggleSuspend,
     Quit,
 }
 
-fn info(label: &str, description: &str) -> MenuItem {
+fn module(label: &str, description: &str, id: &str, edit: &str) -> MenuItem {
     MenuItem::Submenu {
         label: label.into(),
-        items: vec![MenuItem::Info {
-            label: description.into(),
-        }],
+        items: vec![
+            MenuItem::Info {
+                label: description.into(),
+            },
+            MenuItem::Item {
+                id: id.into(),
+                label: edit.into(),
+                enabled: true,
+            },
+        ],
     }
 }
 
 pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
     let mut items = vec![
-        info("Rectangle", "Snap windows to rectangles"),
+        module(
+            "Rectangle",
+            "Snap windows to rectangles",
+            "edit-rectangle",
+            "Edit Rectangle config",
+        ),
         MenuItem::Submenu {
             label: "Resize".into(),
             items: vec![
@@ -34,27 +48,61 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
                 },
                 MenuItem::Item {
                     id: "edit-resize".into(),
+                    label: "Edit Resize config".into(),
+                    enabled: true,
+                },
+                MenuItem::Item {
+                    id: "edit-resize-presets".into(),
                     label: "Edit resize presets".into(),
                     enabled: true,
                 },
             ],
         },
-        info("Mouse Drag", "Drag windows with a modifier and left button"),
+        module(
+            "Mouse Drag",
+            "Drag windows with a modifier and left button",
+            "edit-mouse-drag",
+            "Edit Mouse Drag config",
+        ),
         MenuItem::Submenu {
             label: "On Top/Bottom".into(),
-            items: vec![MenuItem::Item {
-                id: "clear-pins".into(),
-                label: "Clear all pins".into(),
-                enabled: true,
-            }],
+            items: vec![
+                MenuItem::Item {
+                    id: "clear-pins".into(),
+                    label: "Clear all pins".into(),
+                    enabled: true,
+                },
+                MenuItem::Item {
+                    id: "edit-on-top-bottom".into(),
+                    label: "Edit On Top/Bottom config".into(),
+                    enabled: true,
+                },
+            ],
         },
-        info(
+        module(
             "Maximize/Minimize",
             "Maximize, restore, or minimize windows",
+            "edit-maximize-minimize",
+            "Edit Maximize/Minimize config",
         ),
-        info("App Window Switch", "Cycle windows of the same application"),
-        info("Quick Switch", "File dialogs follow the file manager"),
-        info("Virtual Desktops", "Switch desktops and move windows"),
+        module(
+            "App Window Switch",
+            "Cycle windows of the same application",
+            "edit-app-switch",
+            "Edit App Window Switch config",
+        ),
+        module(
+            "Quick Switch",
+            "File dialogs follow the file manager",
+            "edit-quick-switch",
+            "Edit Quick Switch config",
+        ),
+        module(
+            "Virtual Desktops",
+            "Switch desktops and move windows",
+            "edit-virtual-desktops",
+            "Edit Virtual Desktops config",
+        ),
         MenuItem::Separator,
         MenuItem::Item {
             id: "undo".into(),
@@ -69,7 +117,7 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
         },
         MenuItem::Item {
             id: "reload".into(),
-            label: "Reload window-tools.toml".into(),
+            label: "Reload window configs".into(),
             enabled: true,
         },
     ];
@@ -99,7 +147,15 @@ pub fn command(id: &str) -> Option<Cmd> {
         "autostart" => Cmd::ToggleAutostart,
         "reload" => Cmd::Reload,
         "edit" => Cmd::Edit,
-        "edit-resize" => Cmd::EditResize,
+        "edit-resize-presets" => Cmd::EditResize,
+        "edit-rectangle" => Cmd::EditModule(ConfigModule::Rectangle),
+        "edit-resize" => Cmd::EditModule(ConfigModule::Resize),
+        "edit-mouse-drag" => Cmd::EditModule(ConfigModule::MouseDrag),
+        "edit-on-top-bottom" => Cmd::EditModule(ConfigModule::OnTopBottom),
+        "edit-maximize-minimize" => Cmd::EditModule(ConfigModule::MaximizeMinimize),
+        "edit-app-switch" => Cmd::EditModule(ConfigModule::AppSwitch),
+        "edit-quick-switch" => Cmd::EditModule(ConfigModule::QuickSwitch),
+        "edit-virtual-desktops" => Cmd::EditModule(ConfigModule::VirtualDesktops),
         "clear-pins" => Cmd::ClearAllPins,
         "undo" => Cmd::Undo,
         "suspend" => Cmd::ToggleSuspend,
@@ -120,6 +176,10 @@ mod tests {
         assert_eq!(hosted.id_for_label("Undo Window Action"), Some("undo"));
         assert_eq!(hosted.id_for_label("Exit window-tools"), None);
         assert_eq!(hosted.id_for_label("Edit window-tools.toml"), None);
+        assert_eq!(
+            hosted.id_for_label("Edit Rectangle config"),
+            Some("edit-rectangle")
+        );
 
         let standalone = model(false, true, true);
         standalone.validate().unwrap();

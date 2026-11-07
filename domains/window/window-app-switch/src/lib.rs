@@ -1,5 +1,7 @@
 //! Same-application window cycling with a stable Z-order snapshot.
 
+pub mod config;
+
 use anyhow::{Context, Result};
 use window_core::{WinId, WindowQuery};
 

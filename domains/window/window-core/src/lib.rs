@@ -213,4 +213,8 @@ pub fn target<Q: WindowQuery + ?Sized>(q: &Q, forced: Option<WinId>) -> Result<W
 }
 
 #[cfg(windows)]
+pub mod config;
+pub mod keys;
 pub mod win;
+pub use config::{Binding, ConfigPart};
+pub use keys::{Combo, Key};

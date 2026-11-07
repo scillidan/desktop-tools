@@ -241,10 +241,12 @@ process, but split the old monolith into native modules with explicit ownership:
 These modules share the current keyboard/mouse hooks, Win32 message loop,
 foreground-window state and reload/suspend lifecycle. Separate exes would
 duplicate those mechanisms without a required independent lifecycle or fault
-boundary. P3b keeps `window-tools.toml` unchanged; approved P3c then gives each
-module its own config schema/parser/tests and edit entry. The composition root
-still validates cross-file hotkey conflicts and reloads all modules atomically.
-Legacy config remains compatible and user text is never silently rewritten.
+boundary. P3c gives each module its own schema/parser/tests/default/edit entry.
+The composition root validates cross-file hotkey conflicts and reloads all
+modules atomically. Fresh profiles use split defaults. An existing imported full
+`window-tools.toml` stays authoritative only for modules without a split file;
+first use of an edit entry materializes that module's effective config without
+rewriting the legacy file or any other module.
 P3c names align with the module crates: `window-rectangle.toml`,
 `window-resize.toml`, `window-mouse-drag.toml`, `window-on-top-bottom.toml`,
 `window-maximize-minimize.toml`, `window-app-switch.toml`,
@@ -707,11 +709,12 @@ new host identity and grouped menu as intentional differences.
 
 ### P3 — Import and modularize window
 
-**Status 2026-11-07:** the behavior-preserving import and approved P3b split have
-124 passing tests (plus eight intentionally ignored real-desktop tests), clean
-clippy/release, six-plugin smoke and hosted Suspend/Resume/Reload/Quit checks.
-Physical sign-off is pending. Wire v3 adds nested submenus; use one staged
-package for host and all plugins.
+**Status 2026-11-07:** behavior import, feature ownership and P3c config split
+have 131 passing tests (plus eight intentionally ignored real-desktop tests),
+clean fmt/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
+module reload, invalid-config rollback and Suspend/Resume/Quit. Physical sign-off
+is pending. Wire v3 adds nested submenus; use one staged package for host and all
+plugins.
 
 - P3a: import `desktop-tools-rs` as `window-tools`; add profile/plugin/no-tray and
   menu IPC.

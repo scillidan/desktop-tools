@@ -10,7 +10,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod config;
-mod keys;
+pub use window_core::keys;
 pub use window_rectangle::geometry as layout;
 mod menu;
 mod platform;
@@ -136,8 +136,8 @@ fn run() -> Result<()> {
         Some(p) => p,
         None => config::default_config_path()?,
     };
-    let text = match config::load_or_create(&cfg_path, include_str!("../window-tools.toml")) {
-        Ok(text) => text,
+    let cfg = match config::load(&cfg_path) {
+        Ok(cfg) => cfg,
         Err(e) => {
             #[cfg(windows)]
             if args.plugin {
@@ -148,7 +148,6 @@ fn run() -> Result<()> {
             return Err(e);
         }
     };
-    let cfg = config::parse(&text)?;
     if cfg.bindings.is_empty() {
         anyhow::bail!("no usable bindings in {}", cfg_path.display());
     }

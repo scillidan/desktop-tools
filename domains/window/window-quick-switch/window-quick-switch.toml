@@ -1,0 +1,3 @@
+# window-quick-switch.toml — changes apply on Reload.
+quickSwitch = true
+"ctrl+alt+l" = "fileDialog"

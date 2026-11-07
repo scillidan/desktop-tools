@@ -1,3 +1,5 @@
+pub mod config;
+
 use anyhow::{Context, Result};
 use window_core::{target, Rect, SizeSpec, SizerPick, WinId, WindowHistory, WindowOps};
 

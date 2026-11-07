@@ -1,0 +1,2 @@
+# window-mouse-drag.toml — changes apply on Reload.
+dragModifier = "win"

@@ -167,7 +167,7 @@ pub fn keysym_of(key: Key) -> Option<u32> {
     })
 }
 
-pub use window_core::Mods;
+pub use crate::Mods;
 
 impl fmt::Display for Combo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

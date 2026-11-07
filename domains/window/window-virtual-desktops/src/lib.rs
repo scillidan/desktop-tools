@@ -5,6 +5,8 @@
 //! and move windows. Windows 11 keeps the same vtable but uses different IIDs,
 //! so both known interface pairs are queried without OS-build detection.
 
+pub mod config;
+
 use anyhow::{bail, Context, Result};
 use kit::win::com_init;
 use std::ffi::c_void;

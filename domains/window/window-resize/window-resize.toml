@@ -1,0 +1,2 @@
+# window-resize.toml — changes apply on Reload.
+"ctrl+win+alt+s" = "sizerMenu"

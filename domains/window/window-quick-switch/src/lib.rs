@@ -6,6 +6,8 @@
 //! bar (`Ctrl+L`, path, Enter). Only the most recently active Explorer window
 //! is used, like QuickSwitch's auto mode; no menu, no per-dialog lists.
 
+pub mod config;
+
 use anyhow::{bail, Context, Result};
 use kit::win::com_init;
 use std::path::{Path, PathBuf};

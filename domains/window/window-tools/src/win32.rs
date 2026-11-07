@@ -1248,6 +1248,21 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                         tray.set_status(&format!("window-tools — {e:#}"));
                     }
                 }
+                Cmd::EditModule(module) => {
+                    match config::ensure_module_config(&cfg_path, module, &cfg) {
+                        Ok(path) => {
+                            if let Err(e) = tray::edit_config(&path) {
+                                eprintln!("warn: edit module config: {e:#}");
+                                tray.set_status(&format!("window-tools — {e:#}"));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("warn: edit module config: {e:#}");
+                            tray.set_status(&format!("window-tools — {e:#}"));
+                        }
+                    }
+                    mtime = config::modified(&cfg_path);
+                }
                 Cmd::EditResize => {
                     if let Err(e) = tray::edit_config(&presets_path) {
                         eprintln!("warn: edit resize.toml: {e:#}");

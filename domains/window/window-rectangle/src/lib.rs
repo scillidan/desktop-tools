@@ -1,5 +1,6 @@
 //! Rectangle-style window geometry and snapping.
 
+pub mod config;
 pub mod geometry;
 #[cfg(windows)]
 mod state;

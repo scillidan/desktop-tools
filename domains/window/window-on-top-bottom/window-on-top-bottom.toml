@@ -1,0 +1,4 @@
+# window-on-top-bottom.toml — changes apply on Reload.
+bottomReassertMs = 250
+"ctrl+win+alt+b" = "toggleAlwaysOnBottom"
+"ctrl+win+alt+t" = "toggleAlwaysOnTop"

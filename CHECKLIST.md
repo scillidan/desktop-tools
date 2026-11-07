@@ -54,39 +54,45 @@ Build under test: `stage\desktop-tools.exe`, SHA-256
 
 Automated before handoff:
 
-- [x] `scripts\verify.ps1`: fmt, 125 tests, clippy with warnings denied,
+- [x] `scripts\verify.ps1`: fmt, 131 tests, clippy with warnings denied,
       release and repo-local staging. Eight original real-desktop tests remain
       intentionally ignored by their own attributes.
-- [x] Window is split into `window-core`, `window-rectangle`,
-      `window-switcher`, `window-quick-switch`, `window-vdesk` and the
-      `window-tools` composition root. Geometry, state-machine, mouse, COM and
-      original dispatch tests all pass.
+- [x] Window is split into `window-core`, Rectangle, Resize, Mouse Drag,
+      On Top/Bottom, Maximize/Minimize, App Window Switch, Quick Switch,
+      Virtual Desktops and the `window-tools` composition root. Geometry,
+      state-machine, mouse, COM and original dispatch tests all pass.
+- [x] Each feature owns its schema/default file and edit entry. Fresh profiles
+      use split defaults; imported legacy configs keep their effective values.
+      Cross-file duplicate hotkeys and invalid reloads retain the old config.
 - [x] Wire v3 nested menu validation/rendering and hosted id routing pass;
       hosted and standalone use the same module menu model.
 - [x] Final-build isolated smoke: six children, occupied `Ctrl+Alt+L` and
       `Ctrl+Alt+Shift+G`, duplicate hosted locker exit 1 without a modal, and
       zero children after a hard host kill.
-- [x] Hosted Window IPC: Suspend → Resume → Reload → host Exit, with normal
-      `code=0` plugin shutdown.
+- [x] Hosted Window IPC on the final staged binary: a real Quick Switch config
+      edit released Ctrl+Alt+L and occupied Ctrl+Alt+O; an invalid reload kept
+      the previous config; restoring the file restored the original key.
+      Suspend → Resume → Quit also passed with normal `code=0` shutdown.
 - [x] The `desktop-tools-rs`, `desktop-tools-rs-ex`, `taskbar-tools-rs` and
       superseded `keytools-rs` source repositories have no modifications;
       keyboard-tools-rs contains only the already reviewed P1/P2 changes.
 - [x] Staging compares host/plugin SHA-256 with the release binaries. The actual
-      staged window plugin was wire-probed and returned all four nested module
+      staged window plugin was wire-probed and returned all eight nested feature
       submenus, then exited normally on Quit.
-- [x] Agent started the final staged host as PID 3756 with the existing
+- [x] Agent started the final staged host as PID 10436 with the existing
       keyboard profile; six children are running and no build step is pending.
       A corrected wire-v3 IPC harness also passed Suspend/Resume/Quit after
       reading the actual staged menu/status event order.
 
 ### Physical pass A — hosted Window + Keyboard
 
-- [ ] **Structure:** one host tray has Window before Keyboard. Window directly
-      opens Rectangle / Window switcher / QuickSwitch / Virtual desktops in
-      that order, with no intermediate Window (running) submenu. Rectangle
-      contains Unpin all and Edit resize presets; below are Suspend, Reload,
-      Disable/Restart, one host-owned Edit config and Open log. There is no
-      duplicate plugin-owned Edit config and no second Window tray.
+- [ ] **Structure/config entries:** one host tray has Window before Keyboard.
+      Window directly opens Rectangle / Resize / Mouse Drag / On Top/Bottom /
+      Maximize/Minimize / App Window Switch / Quick Switch / Virtual Desktops.
+      Each has its own Edit config; Resize also has Edit resize presets, and
+      On Top/Bottom has Clear all pins. Window root has Undo, Suspend and Reload,
+      plus host Disable/Restart/config/log. No intermediate Window (running),
+      duplicate plugin config entry or second Window tray.
 - [ ] **Rectangle edges/corners:** on a normal window, each Win+Alt+H/L/K/J
       cycles 1/2 → 2/3 → 1/3. Check all four Ctrl+Win+Alt+H/K/J/L corners and
       Ctrl+Win+Alt+C centering. Repeating an edge must not open a shell action.
@@ -97,7 +103,7 @@ Automated before handoff:
       toggles off; Ctrl+Win+Alt+B keeps a window behind after another window is
       activated and toggles off; Ctrl+Win+Alt+M minimizes; Ctrl+Win+Alt+S opens
       Sizer and applies a preset. Ctrl+Win+Alt+U successively restores Sizer,
-      snap, maximize and minimize states. Rectangle → Unpin all clears pins.
+      snap, maximize and minimize states. On Top/Bottom → Clear all pins clears pins.
 - [ ] **Mouse drag:** hold the configured drag modifier and left-drag a normal
       window across a monitor boundary; repeat on a maximized window. The first
       movement restores it without jumping, a modifier-click without movement
@@ -119,15 +125,17 @@ Automated before handoff:
       the exhaustive suppression matrix after moving it to keyboard-shell, and
       P6c moves monitor power to screen-power.
 - [ ] **Lifecycle/config:** Window → Suspend disables its hotkeys/drag while
-      keyboard tools still work; Resume restores them. Open both config links,
-      make a harmless gap edit, Reload, and confirm the new snap margin. Host
-      Restart preserves Running + Disable `window-tools` with no duplicate hook
-      or tray.
+      keyboard tools still work; Resume restores them. Open all eight module
+      config entries and confirm each opens its matching TOML with the existing
+      effective bindings/settings (the original full legacy file is unchanged).
+      Make one harmless gap edit in Rectangle, Reload, confirm the new snap
+      margin, then restore it and Reload. Host Restart preserves Running +
+      Disable `window-tools` with no duplicate hook or tray.
 
 ### Physical pass B — standalone Window (agent will restart between modes)
 
 - [ ] With the host stopped by the agent, standalone `window-tools` shows the
-      same four module submenus and state icons, performs one snap and mouse
+      same eight module submenus and state icons, performs one snap and mouse
       drag, and its own Quit exits cleanly without killing other applications.
 - [ ] Toggle standalone Start with Windows on/off. Agent will verify the Run
       value names/paths and that no legacy `desktop-tools-rs` host or new host

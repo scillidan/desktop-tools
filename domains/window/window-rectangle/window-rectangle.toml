@@ -1,0 +1,13 @@
+# window-rectangle.toml — changes apply on Reload.
+gap = 0
+"ctrl+win+alt+c" = "moveToCenter"
+"ctrl+win+alt+h" = "moveToTopLeft"
+"ctrl+win+alt+j" = "moveToBottomLeft"
+"ctrl+win+alt+k" = "moveToTopRight"
+"ctrl+win+alt+l" = "moveToBottomRight"
+"ctrl+win+alt+n" = "nextDisplay"
+"ctrl+win+alt+p" = "prevDisplay"
+"win+alt+h" = "moveToLeft"
+"win+alt+j" = "moveToBottom"
+"win+alt+k" = "moveToTop"
+"win+alt+l" = "moveToRight"

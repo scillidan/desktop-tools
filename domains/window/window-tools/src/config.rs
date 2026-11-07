@@ -8,6 +8,14 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
+use window_app_switch::config::{AppSwitchAction, AppSwitchConfig};
+use window_maximize_minimize::config::MaximizeMinimizeConfig;
+use window_mouse_drag::config::MouseDragConfig;
+use window_on_top_bottom::config::OnTopBottomConfig;
+use window_quick_switch::config::{QuickSwitchAction, QuickSwitchConfig};
+use window_rectangle::config::RectangleConfig;
+use window_resize::config::ResizeConfig;
+use window_virtual_desktops::config::{VirtualDesktopAction, VirtualDesktopConfig};
 
 /// Everything a hotkey can do. Names match RectangleWin(Plus) actions.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -165,14 +173,238 @@ impl Default for Settings {
     }
 }
 
+pub type Binding = window_core::Binding<Action>;
+
 pub struct Config {
     pub bindings: Vec<Binding>,
     pub settings: Settings,
+    pub modules: Modules,
+    pub global: Vec<Binding>,
 }
 
-pub struct Binding {
-    pub combo: Combo,
-    pub action: Action,
+pub struct Modules {
+    pub rectangle: RectangleConfig,
+    pub resize: ResizeConfig,
+    pub mouse_drag: MouseDragConfig,
+    pub on_top_bottom: OnTopBottomConfig,
+    pub maximize_minimize: MaximizeMinimizeConfig,
+    pub app_switch: AppSwitchConfig,
+    pub quick_switch: QuickSwitchConfig,
+    pub virtual_desktops: VirtualDesktopConfig,
+}
+
+fn legacy_modules(bindings: &[Binding], settings: Settings) -> Modules {
+    Modules {
+        rectangle: RectangleConfig {
+            bindings: bindings
+                .iter()
+                .filter_map(|b| {
+                    use window_rectangle::RectangleAction as A;
+                    let action = match b.action {
+                        Action::MoveToLeft => A::MoveToLeft,
+                        Action::MoveToRight => A::MoveToRight,
+                        Action::MoveToTop => A::MoveToTop,
+                        Action::MoveToBottom => A::MoveToBottom,
+                        Action::MoveToTopLeft => A::MoveToTopLeft,
+                        Action::MoveToTopRight => A::MoveToTopRight,
+                        Action::MoveToBottomLeft => A::MoveToBottomLeft,
+                        Action::MoveToBottomRight => A::MoveToBottomRight,
+                        Action::MoveToCenter => A::MoveToCenter,
+                        Action::NextDisplay => A::NextDisplay,
+                        Action::PrevDisplay => A::PrevDisplay,
+                        _ => return None,
+                    };
+                    Some(window_core::Binding {
+                        combo: b.combo,
+                        action,
+                    })
+                })
+                .collect(),
+            settings: window_rectangle::config::RectangleSettings { gap: settings.gap },
+        },
+        resize: ResizeConfig {
+            bindings: bindings
+                .iter()
+                .filter(|b| b.action == Action::SizerMenu)
+                .map(|b| window_core::Binding {
+                    combo: b.combo,
+                    action: window_resize::ResizeAction::SizerMenu,
+                })
+                .collect(),
+        },
+        mouse_drag: MouseDragConfig {
+            settings: window_mouse_drag::config::MouseDragSettings {
+                drag_modifier: settings.drag_modifier,
+            },
+        },
+        on_top_bottom: OnTopBottomConfig {
+            bindings: bindings
+                .iter()
+                .filter_map(|b| {
+                    use window_on_top_bottom::OnTopBottomAction as A;
+                    let action = match b.action {
+                        Action::ToggleAlwaysOnTop => A::ToggleAlwaysOnTop,
+                        Action::ToggleAlwaysOnBottom => A::ToggleAlwaysOnBottom,
+                        Action::UnpinAll => A::ClearAllPins,
+                        _ => return None,
+                    };
+                    Some(window_core::Binding {
+                        combo: b.combo,
+                        action,
+                    })
+                })
+                .collect(),
+            settings: window_on_top_bottom::config::OnTopBottomSettings {
+                bottom_reassert_ms: settings.bottom_reassert_ms,
+            },
+        },
+        maximize_minimize: MaximizeMinimizeConfig {
+            bindings: bindings
+                .iter()
+                .filter_map(|b| {
+                    use window_maximize_minimize::MaximizeMinimizeAction as A;
+                    let action = match b.action {
+                        Action::Maximize => A::Maximize,
+                        Action::Minimize => A::Minimize,
+                        _ => return None,
+                    };
+                    Some(window_core::Binding {
+                        combo: b.combo,
+                        action,
+                    })
+                })
+                .collect(),
+        },
+        app_switch: AppSwitchConfig {
+            bindings: bindings
+                .iter()
+                .filter_map(|b| {
+                    let action = match b.action {
+                        Action::NextWindow => AppSwitchAction::NextWindow,
+                        Action::PrevWindow => AppSwitchAction::PrevWindow,
+                        _ => return None,
+                    };
+                    Some(window_core::Binding {
+                        combo: b.combo,
+                        action,
+                    })
+                })
+                .collect(),
+        },
+        quick_switch: QuickSwitchConfig {
+            bindings: bindings
+                .iter()
+                .filter(|b| b.action == Action::FileDialog)
+                .map(|b| window_core::Binding {
+                    combo: b.combo,
+                    action: QuickSwitchAction::FileDialog,
+                })
+                .collect(),
+            settings: window_quick_switch::config::QuickSwitchSettings {
+                enabled: settings.quick_switch,
+            },
+        },
+        virtual_desktops: VirtualDesktopConfig {
+            bindings: bindings
+                .iter()
+                .filter_map(|b| {
+                    let action = match b.action {
+                        Action::NextDesktop => VirtualDesktopAction::NextDesktop,
+                        Action::PrevDesktop => VirtualDesktopAction::PrevDesktop,
+                        Action::SwitchToDesktop(n) => VirtualDesktopAction::SwitchToDesktop(n),
+                        Action::MoveToDesktop(n) => VirtualDesktopAction::MoveToDesktop(n),
+                        _ => return None,
+                    };
+                    Some(window_core::Binding {
+                        combo: b.combo,
+                        action,
+                    })
+                })
+                .collect(),
+        },
+    }
+}
+
+fn assemble(modules: Modules, global: Vec<Binding>) -> Result<Config> {
+    let mut bindings = global.clone();
+    bindings.extend(modules.rectangle.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            window_rectangle::RectangleAction::MoveToLeft => Action::MoveToLeft,
+            window_rectangle::RectangleAction::MoveToRight => Action::MoveToRight,
+            window_rectangle::RectangleAction::MoveToTop => Action::MoveToTop,
+            window_rectangle::RectangleAction::MoveToBottom => Action::MoveToBottom,
+            window_rectangle::RectangleAction::MoveToTopLeft => Action::MoveToTopLeft,
+            window_rectangle::RectangleAction::MoveToTopRight => Action::MoveToTopRight,
+            window_rectangle::RectangleAction::MoveToBottomLeft => Action::MoveToBottomLeft,
+            window_rectangle::RectangleAction::MoveToBottomRight => Action::MoveToBottomRight,
+            window_rectangle::RectangleAction::MoveToCenter => Action::MoveToCenter,
+            window_rectangle::RectangleAction::NextDisplay => Action::NextDisplay,
+            window_rectangle::RectangleAction::PrevDisplay => Action::PrevDisplay,
+        },
+    }));
+    bindings.extend(modules.resize.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: Action::SizerMenu,
+    }));
+    bindings.extend(modules.on_top_bottom.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            window_on_top_bottom::OnTopBottomAction::ToggleAlwaysOnTop => Action::ToggleAlwaysOnTop,
+            window_on_top_bottom::OnTopBottomAction::ToggleAlwaysOnBottom => {
+                Action::ToggleAlwaysOnBottom
+            }
+            window_on_top_bottom::OnTopBottomAction::ClearAllPins => Action::UnpinAll,
+        },
+    }));
+    bindings.extend(modules.maximize_minimize.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            window_maximize_minimize::MaximizeMinimizeAction::Maximize => Action::Maximize,
+            window_maximize_minimize::MaximizeMinimizeAction::Minimize => Action::Minimize,
+        },
+    }));
+    bindings.extend(modules.app_switch.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            AppSwitchAction::NextWindow => Action::NextWindow,
+            AppSwitchAction::PrevWindow => Action::PrevWindow,
+        },
+    }));
+    bindings.extend(modules.quick_switch.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: Action::FileDialog,
+    }));
+    bindings.extend(modules.virtual_desktops.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            VirtualDesktopAction::NextDesktop => Action::NextDesktop,
+            VirtualDesktopAction::PrevDesktop => Action::PrevDesktop,
+            VirtualDesktopAction::SwitchToDesktop(n) => Action::SwitchToDesktop(n),
+            VirtualDesktopAction::MoveToDesktop(n) => Action::MoveToDesktop(n),
+        },
+    }));
+    bindings.sort_by_key(|b| b.combo);
+    for pair in bindings.windows(2) {
+        if pair[0].combo == pair[1].combo {
+            anyhow::bail!(
+                "hotkey `{}` is assigned by more than one module",
+                pair[0].combo
+            );
+        }
+    }
+    let settings = Settings {
+        gap: modules.rectangle.settings.gap,
+        drag_modifier: modules.mouse_drag.settings.drag_modifier,
+        quick_switch: modules.quick_switch.settings.enabled,
+        bottom_reassert_ms: modules.on_top_bottom.settings.bottom_reassert_ms,
+    };
+    Ok(Config {
+        bindings,
+        settings,
+        modules,
+        global,
+    })
 }
 
 /// `path` if it exists, else the default TOML written to `path` first.
@@ -226,6 +458,54 @@ pub fn parse_presets(text: &str) -> Result<Vec<SizeSpec>> {
 
 /// `<profile>/window-tools.toml`, imported once from the legacy window daemon.
 pub const CONFIG_NAME: &str = "window-tools.toml";
+pub const DEFAULT_CONFIG: &str = include_str!("../window-tools.toml");
+#[cfg(test)]
+pub const LEGACY_DEFAULT_CONFIG: &str = include_str!("../window-tools.legacy.toml");
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConfigModule {
+    Rectangle,
+    Resize,
+    MouseDrag,
+    OnTopBottom,
+    MaximizeMinimize,
+    AppSwitch,
+    QuickSwitch,
+    VirtualDesktops,
+}
+
+pub const MODULES: [ConfigModule; 8] = [
+    ConfigModule::Rectangle,
+    ConfigModule::Resize,
+    ConfigModule::MouseDrag,
+    ConfigModule::OnTopBottom,
+    ConfigModule::MaximizeMinimize,
+    ConfigModule::AppSwitch,
+    ConfigModule::QuickSwitch,
+    ConfigModule::VirtualDesktops,
+];
+
+impl ConfigModule {
+    pub fn file_name(self) -> &'static str {
+        match self {
+            Self::Rectangle => "window-rectangle.toml",
+            Self::Resize => "window-resize.toml",
+            Self::MouseDrag => "window-mouse-drag.toml",
+            Self::OnTopBottom => "window-on-top-bottom.toml",
+            Self::MaximizeMinimize => "window-maximize-minimize.toml",
+            Self::AppSwitch => "window-app-switch.toml",
+            Self::QuickSwitch => "window-quick-switch.toml",
+            Self::VirtualDesktops => "window-virtual-desktops.toml",
+        }
+    }
+
+    pub fn path(self, global: &Path) -> Result<PathBuf> {
+        Ok(global
+            .parent()
+            .context("config path has no parent")?
+            .join(self.file_name()))
+    }
+}
 const OLD_CONFIG_NAMES: &[&str] = &[
     "desktop-tools.toml",
     "window-tools.toml",
@@ -241,18 +521,194 @@ pub fn default_config_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Re-read at runtime. Unlike startup this never creates the file, so a
-/// deleted config keeps the old bindings.
+fn module_file<T>(
+    global: &Path,
+    module: ConfigModule,
+    fallback: T,
+    parse: fn(&str) -> Result<T>,
+) -> Result<T> {
+    let path = module.path(global)?;
+    if !path.exists() {
+        return Ok(fallback);
+    }
+    let text = std::fs::read_to_string(&path)
+        .with_context(|| format!("cannot read {}", path.display()))?;
+    parse(&text).with_context(|| format!("invalid {}", path.display()))
+}
+
+fn with_legacy(path: &Path, legacy: Config) -> Result<Config> {
+    let Modules {
+        rectangle,
+        resize,
+        mouse_drag,
+        on_top_bottom,
+        maximize_minimize,
+        app_switch,
+        quick_switch,
+        virtual_desktops,
+    } = legacy.modules;
+    let modules = Modules {
+        rectangle: module_file(
+            path,
+            ConfigModule::Rectangle,
+            rectangle,
+            window_rectangle::config::parse,
+        )?,
+        resize: module_file(
+            path,
+            ConfigModule::Resize,
+            resize,
+            window_resize::config::parse,
+        )?,
+        mouse_drag: module_file(
+            path,
+            ConfigModule::MouseDrag,
+            mouse_drag,
+            window_mouse_drag::config::parse,
+        )?,
+        on_top_bottom: module_file(
+            path,
+            ConfigModule::OnTopBottom,
+            on_top_bottom,
+            window_on_top_bottom::config::parse,
+        )?,
+        maximize_minimize: module_file(
+            path,
+            ConfigModule::MaximizeMinimize,
+            maximize_minimize,
+            window_maximize_minimize::config::parse,
+        )?,
+        app_switch: module_file(
+            path,
+            ConfigModule::AppSwitch,
+            app_switch,
+            window_app_switch::config::parse,
+        )?,
+        quick_switch: module_file(
+            path,
+            ConfigModule::QuickSwitch,
+            quick_switch,
+            window_quick_switch::config::parse,
+        )?,
+        virtual_desktops: module_file(
+            path,
+            ConfigModule::VirtualDesktops,
+            virtual_desktops,
+            window_virtual_desktops::config::parse,
+        )?,
+    };
+    assemble(modules, legacy.global)
+}
+
+/// Materialize the effective module config only when the user opens its edit
+/// entry. The legacy file is never rewritten; subsequent reloads prefer this file.
+pub fn ensure_module_config(
+    global_path: &Path,
+    module: ConfigModule,
+    cfg: &Config,
+) -> Result<PathBuf> {
+    let path = module.path(global_path)?;
+    if path.exists() {
+        return Ok(path);
+    }
+    let mut text = format!("# {} — changes apply on Reload.\n", module.file_name());
+    macro_rules! bindings {
+        ($items:expr) => {
+            for b in $items {
+                text.push_str(&format!("\"{}\" = \"{}\"\n", b.combo, b.action.as_str()));
+            }
+        };
+    }
+    match module {
+        ConfigModule::Rectangle => {
+            bindings!(&cfg.modules.rectangle.bindings);
+            text.push_str(&format!("gap = {}\n", cfg.modules.rectangle.settings.gap));
+        }
+        ConfigModule::Resize => bindings!(&cfg.modules.resize.bindings),
+        ConfigModule::MouseDrag => {
+            let m = cfg.modules.mouse_drag.settings.drag_modifier;
+            let mut parts = Vec::new();
+            if m.ctrl {
+                parts.push("ctrl");
+            }
+            if m.shift {
+                parts.push("shift");
+            }
+            if m.alt {
+                parts.push("alt");
+            }
+            if m.win {
+                parts.push("win");
+            }
+            text.push_str(&format!("dragModifier = \"{}\"\n", parts.join("+")));
+        }
+        ConfigModule::OnTopBottom => {
+            bindings!(&cfg.modules.on_top_bottom.bindings);
+            text.push_str(&format!(
+                "bottomReassertMs = {}\n",
+                cfg.modules.on_top_bottom.settings.bottom_reassert_ms
+            ));
+        }
+        ConfigModule::MaximizeMinimize => bindings!(&cfg.modules.maximize_minimize.bindings),
+        ConfigModule::AppSwitch => bindings!(&cfg.modules.app_switch.bindings),
+        ConfigModule::QuickSwitch => {
+            bindings!(&cfg.modules.quick_switch.bindings);
+            text.push_str(&format!(
+                "quickSwitch = {}\n",
+                cfg.modules.quick_switch.settings.enabled
+            ));
+        }
+        ConfigModule::VirtualDesktops => bindings!(&cfg.modules.virtual_desktops.bindings),
+    }
+    std::fs::write(&path, text).with_context(|| format!("cannot create {}", path.display()))?;
+    Ok(path)
+}
+
+/// Load the global/legacy file, then overlay only module files that exist.
+pub fn load(path: &Path) -> Result<Config> {
+    if !path.exists() {
+        std::fs::write(path, DEFAULT_CONFIG)
+            .with_context(|| format!("cannot create {}", path.display()))?;
+        for module in MODULES {
+            let module_path = module.path(path)?;
+            if !module_path.exists() {
+                let default = match module {
+                    ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
+                    ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
+                    ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
+                    ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
+                    ConfigModule::MaximizeMinimize => {
+                        window_maximize_minimize::config::DEFAULT_CONFIG
+                    }
+                    ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
+                    ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
+                    ConfigModule::VirtualDesktops => {
+                        window_virtual_desktops::config::DEFAULT_CONFIG
+                    }
+                };
+                std::fs::write(&module_path, default)
+                    .with_context(|| format!("cannot create {}", module_path.display()))?;
+            }
+        }
+    }
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+    with_legacy(path, parse(&text)?)
+}
+
+/// Re-read every file before replacing any active config.
 pub fn reload(path: &Path) -> Result<Config> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-    parse(&text)
+    with_legacy(path, parse(&text)?)
 }
 
-/// Modification time for the 1 s hot-reload poll. mtime only: FAT/exFAT has
-/// 2 s granularity, so a second save inside that window can be missed.
+/// Latest mtime across the global and existing module files.
 pub fn modified(path: &Path) -> Option<SystemTime> {
-    std::fs::metadata(path).ok()?.modified().ok()
+    std::iter::once(path.to_path_buf())
+        .chain(MODULES.iter().filter_map(|m| m.path(path).ok()))
+        .filter_map(|p| std::fs::metadata(p).ok()?.modified().ok())
+        .max()
 }
 
 /// One message listing every hotkey that could not be registered.
@@ -324,10 +780,17 @@ pub fn parse(text: &str) -> Result<Config> {
     // TOML tables iterate in key order, not file order; sort so hotkey ids
     // are stable across runs and edits.
     out.sort_by_key(|b| b.combo);
-    Ok(Config {
-        bindings: out,
-        settings,
-    })
+    let global = out
+        .iter()
+        .copied()
+        .filter(|b| {
+            matches!(
+                b.action,
+                Action::Undo | Action::ToggleScreen | Action::Suppress | Action::Quit
+            )
+        })
+        .collect();
+    assemble(legacy_modules(&out, settings), global)
 }
 
 #[cfg(test)]
@@ -337,7 +800,7 @@ mod tests {
 
     #[test]
     fn parses_default_config() {
-        let cfg = parse(include_str!("../window-tools.toml")).unwrap();
+        let cfg = parse(LEGACY_DEFAULT_CONFIG).unwrap();
         assert_eq!(cfg.bindings.len(), 108);
         assert_eq!(cfg.settings.gap, 0);
         assert!(cfg.settings.quick_switch);
@@ -517,6 +980,129 @@ mod tests {
         std::fs::write(&path, "y = 2\n").unwrap();
         assert_eq!(load_or_create(&path, "x = 1\n").unwrap(), "y = 2\n");
 
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn test_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("desktop-tools-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn module_default(module: ConfigModule) -> &'static str {
+        match module {
+            ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
+            ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
+            ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
+            ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
+            ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
+            ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
+            ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
+            ConfigModule::VirtualDesktops => window_virtual_desktops::config::DEFAULT_CONFIG,
+        }
+    }
+
+    #[test]
+    fn module_defaults_match_legacy_defaults() {
+        let dir = test_dir("module-defaults");
+        let global = dir.join(CONFIG_NAME);
+        std::fs::write(&global, LEGACY_DEFAULT_CONFIG).unwrap();
+        for module in MODULES {
+            std::fs::write(module.path(&global).unwrap(), module_default(module)).unwrap();
+        }
+        let split = load(&global).unwrap();
+        let legacy = parse(LEGACY_DEFAULT_CONFIG).unwrap();
+        assert_eq!(split.bindings, legacy.bindings);
+        assert_eq!(split.settings.gap, legacy.settings.gap);
+        assert_eq!(split.settings.drag_modifier, legacy.settings.drag_modifier);
+        assert_eq!(split.settings.quick_switch, legacy.settings.quick_switch);
+        assert_eq!(
+            split.settings.bottom_reassert_ms,
+            legacy.settings.bottom_reassert_ms
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn module_edit_materializes_effective_config_without_rewriting_legacy() {
+        let dir = test_dir("module-overlay");
+        let global = dir.join(CONFIG_NAME);
+        let original = "gap = 7\n\"ctrl+alt+x\" = \"moveToLeft\"\n\"win+e\" = \"suppress\"\n";
+        std::fs::write(&global, original).unwrap();
+        let cfg = load(&global).unwrap();
+        let path = ensure_module_config(&global, ConfigModule::Rectangle, &cfg).unwrap();
+        assert_eq!(std::fs::read_to_string(&global).unwrap(), original);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("gap = 7"));
+        std::fs::write(&path, "gap = 9\n\"ctrl+alt+x\" = \"moveToRight\"\n").unwrap();
+        let updated = reload(&global).unwrap();
+        assert_eq!(updated.settings.gap, 9);
+        assert!(updated
+            .bindings
+            .iter()
+            .any(|b| b.action == Action::MoveToRight));
+        assert!(updated
+            .bindings
+            .iter()
+            .any(|b| b.action == Action::Suppress));
+        std::fs::write(&path, "\"ctrl+alt+x\" = \"unknownAction\"\n").unwrap();
+        assert!(reload(&global).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fresh_profile_uses_split_module_defaults() {
+        let dir = test_dir("fresh-split");
+        let global = dir.join(CONFIG_NAME);
+        let cfg = load(&global).unwrap();
+        assert_eq!(cfg.bindings.len(), 108);
+        for module in MODULES {
+            assert!(module.path(&global).unwrap().exists());
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reload_reads_changed_module_file() {
+        let dir = test_dir("reload-module");
+        let global = dir.join(CONFIG_NAME);
+        load(&global).unwrap();
+        let path = ConfigModule::QuickSwitch.path(&global).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, text.replace("ctrl+alt+l", "ctrl+alt+o")).unwrap();
+        let cfg = reload(&global).unwrap();
+        let changed: Combo = "ctrl+alt+o".parse().unwrap();
+        let original: Combo = "ctrl+alt+l".parse().unwrap();
+        assert!(cfg
+            .modules
+            .quick_switch
+            .bindings
+            .iter()
+            .any(|b| b.combo == changed));
+        assert!(!cfg
+            .modules
+            .quick_switch
+            .bindings
+            .iter()
+            .any(|b| b.combo == original));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn duplicate_hotkeys_across_module_files_are_rejected() {
+        let dir = test_dir("module-conflict");
+        let global = dir.join(CONFIG_NAME);
+        std::fs::write(&global, "\"ctrl+alt+x\" = \"undo\"\n").unwrap();
+        std::fs::write(
+            ConfigModule::Rectangle.path(&global).unwrap(),
+            "\"ctrl+alt+x\" = \"moveToLeft\"\n",
+        )
+        .unwrap();
+        let error = match load(&global) {
+            Ok(_) => panic!("duplicate hotkey unexpectedly accepted"),
+            Err(e) => e.to_string(),
+        };
+        assert!(error.contains("more than one module"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -1,0 +1,3 @@
+# window-maximize-minimize.toml — changes apply on Reload.
+"ctrl+win+alt+f" = "maximize"
+"ctrl+win+alt+m" = "minimize"

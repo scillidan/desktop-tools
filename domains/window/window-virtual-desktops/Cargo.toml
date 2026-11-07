@@ -7,4 +7,5 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 kit = { path = "../../../crates/kit" }
+window-core = { path = "../window-core" }
 windows.workspace = true

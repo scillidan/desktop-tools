@@ -10,6 +10,8 @@ use anyhow::{Context, Result};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::{Mutex, MutexGuard};
 use window_core::win::{focus_window, hwnd_of, id_of, rect_of, zonable};
+pub mod config;
+
 use window_core::Rect;
 use window_core::{Mods, WinId};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
