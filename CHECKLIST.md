@@ -235,3 +235,12 @@ rebuilt and restarted as PID 43336 with nine plugins. Verified items:
 - [x] Standalone stable MenuId events reach Suspend, autostart, Edit and Exit;
       worker shutdown completes and no taskbar-tools.exe remains.
 - [x] Host was restored after standalone testing.
+
+## P6a Physical — passed
+
+- [x] Tray tooltip and Quit item identify Screen Tools; only one Screen tray is present.
+- [x] Ctrl+Alt+D draws a frame, Ctrl+Alt+S resizes it, and Ctrl+Enter captures/copies and OCRs ordinary on-screen text.
+- [x] Ctrl+Alt+R starts/stops a short recording; output and existing media are intact.
+- [x] Screen was stopped and the desktop host restored with nine plugins.
+
+Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-instance duplicate rejection, legacy config byte preservation, and real `screen-tools-rs.*` window classes pass. The documented `tools/physical.ps1` does not exist and was not claimed as run.

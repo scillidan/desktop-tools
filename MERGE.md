@@ -816,7 +816,12 @@ one host tray and one autostart entry.
 ### P6 — Rename and import screen
 
 - P6a: perform the complete `screen-tools-rs` rename in the old repo and verify
-  the existing OCR/capture/recording physical suite.
+  the existing OCR/capture/recording physical suite. **Code/automated checks
+  completed 2026-11-07** in old-repo commit `034d0e7`: 116 tests, clippy,
+  release, hotkey occupation, new-instance mutex, config byte preservation and
+  real renamed window classes pass. The documented `tools/physical.ps1` is
+  absent; standalone tray, draw/resize, capture/OCR and Ctrl+Alt+R recording
+  were physically signed on 2026-11-07.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the
