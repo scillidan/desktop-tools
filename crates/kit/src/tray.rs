@@ -70,6 +70,8 @@ pub enum Event {
     /// hook or timer thread). The `usize` is the message's `WPARAM.0` — apps
     /// use it to tell wakeup reasons apart.
     Wakeup(usize),
+    /// `WM_TIMER` posted to the loop's thread; carries the timer id.
+    Timer(usize),
 }
 
 pub struct Tray {
@@ -171,6 +173,9 @@ impl Tray {
                 if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_APP {
                     on_event(self, Event::Wakeup(msg.wParam.0));
                 }
+                if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_TIMER {
+                    on_event(self, Event::Timer(msg.wParam.0));
+                }
                 if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY {
                     if let Some(hotkeys) = hotkeys {
                         if let Some(label) = hotkeys.label_of(msg.wParam.0 as i32) {
@@ -234,6 +239,9 @@ pub fn run_headless(hotkeys: Option<&Hotkeys>, mut on_event: impl FnMut(Event)) 
             DispatchMessageW(&msg);
             if msg.message == WM_APP {
                 on_event(Event::Wakeup(msg.wParam.0));
+            }
+            if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_TIMER {
+                on_event(Event::Timer(msg.wParam.0));
             }
             if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY {
                 if let Some(hotkeys) = hotkeys {

@@ -1,0 +1,8 @@
+# Exact, case-sensitive, immediate static replacements.
+# No end character is needed; the complete trigger is removed.
+[keymap]
+"#alpha" = "α"
+"#Alpha" = "Α"
+"#->" = "→"
+">>star" = "★"
+";em" = "—"

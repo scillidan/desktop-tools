@@ -206,6 +206,11 @@ Single-plugin primary groups render native items first and external integrations
 last. Keyboard uses one nested submenu per tool. The host continues to namespace
 item ids by plugin; two plugins may use the same local item id.
 
+Native plugins and Window feature submenus sort alphabetically by display name;
+external integrations remain after all native entries. Keyboard therefore reads
+Key Map / Keyboard Auto Switch Back / Keyboard Locker / Keyboard Switch /
+Shell Keys, then GoldenDict.
+
 `screen-tools` is installed and enabled in the full suite so `toggleScreen`
 keeps working by default. Its external OCR engines remain optional runtime
 dependencies. A suite variant without the screen package may omit it from
@@ -363,7 +368,12 @@ native plugins own the new behavior:
   independent `Suspend Shell Keys` menu toggle which really removes/reinstalls
   its hook. It has no text-replacement responsibility.
 - **Key Map** (`keyboard-keymap`, `keyboard-keymap.toml`) owns only user-defined
-  literal trigger → Unicode replacement mappings in P4b.
+  literal trigger → Unicode replacement mappings. Its hook consumes the final
+  trigger character, deletes exactly the preceding trigger characters, and sends
+  static UTF-16 replacement input while ignoring injected events. Focus, mouse,
+  non-text and unrecognized input reset bounded history. Ambiguous prefix/suffix
+  pairs are rejected. A same-process timer reload preserves the previous valid
+  recognizer on any error instead of restarting or partially applying mappings.
 
 The generic low-level Win-combo hook implementation belongs in `crates/kit`,
 not in a cross-process hotkey broker. `window-tools` and `keyboard-shell`
@@ -744,7 +754,9 @@ plus hosted Reload/Restart/Exit and standalone parity.
 shared hook, 67-binding import and Window ownership removal pass 140 tests,
 clippy, release/staging and seven-plugin smoke. Wire probes verify both suspend
 transitions and clean Quit; the real profile preserves 67/67 rows. Physical
-re-test with Shell Keys explicitly Enabled is pending; P4b remains gated.
+re-test with Shell Keys explicitly Enabled is included in the P4 physical pass;
+P4b code and automated verification are complete, physical replacement sign-off
+is pending.
 
 Split into reviewable substeps:
 

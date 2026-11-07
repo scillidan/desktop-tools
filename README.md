@@ -14,8 +14,9 @@ external integrations in documentation, code registration and tray menus.
   module reload, invalid-config rollback and lifecycle. Hosted and standalone
   physical passes are signed off. P4a moves all 67 legacy shell suppressions into
   the independent **Shell Keys** plugin (`keyboard-shell.toml`), with a real
-  Suspend Shell Keys toggle. **Key Map** static Unicode replacement is a separate
-  plugin arriving in P4b.
+  Suspend Shell Keys toggle. **Key Map** is a separate plugin with immediate
+  static Unicode replacement and same-process automatic config reload. Native
+  plugins and Window feature menus sort by display name; external tools follow.
   Screen, taskbar and application toggles are not imported yet.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.

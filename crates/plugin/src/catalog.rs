@@ -48,6 +48,12 @@ impl Catalog {
                 .unwrap_or(GROUPS.len())
                 .cmp(&group_index(&b.manifest.group).unwrap_or(GROUPS.len()))
                 .then_with(|| a.manifest.external.cmp(&b.manifest.external))
+                .then_with(|| {
+                    a.manifest
+                        .name
+                        .to_lowercase()
+                        .cmp(&b.manifest.name.to_lowercase())
+                })
                 .then_with(|| a.manifest.id.cmp(&b.manifest.id))
         });
         catalog
@@ -77,6 +83,12 @@ pub fn enabled_plugins<'a>(
             .unwrap_or(GROUPS.len())
             .cmp(&group_index(&b.manifest.group).unwrap_or(GROUPS.len()))
             .then_with(|| a.manifest.external.cmp(&b.manifest.external))
+            .then_with(|| {
+                a.manifest
+                    .name
+                    .to_lowercase()
+                    .cmp(&b.manifest.name.to_lowercase())
+            })
             .then_with(|| a.manifest.id.cmp(&b.manifest.id))
     });
     unknown.sort();
@@ -131,6 +143,33 @@ mod tests {
         assert_eq!(catalog.plugins[2].manifest.id, "b-tool");
         assert_eq!(catalog.plugins[3].manifest.id, "a-external");
         assert_eq!(catalog.errors.len(), 1);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn native_plugins_sort_by_display_name_before_external_tools() {
+        let root = temp_root("display-order");
+        for (id, name, external) in [
+            ("z-native", "Alpha", false),
+            ("a-native", "Zulu", false),
+            ("a-external", "A External", true),
+        ] {
+            let dir = root.join(id);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(format!("{id}.exe")), b"x").unwrap();
+            std::fs::write(
+                dir.join("plugin.toml"),
+                format!("id = \"{id}\"\nname = \"{name}\"\nversion = \"0.1\"\napi = 1\nexe = \"{id}.exe\"\ngroup = \"keyboard\"\nexternal = {external}\n"),
+            )
+            .unwrap();
+        }
+        let catalog = Catalog::discover(&root);
+        let names: Vec<&str> = catalog
+            .plugins
+            .iter()
+            .map(|plugin| plugin.manifest.name.as_str())
+            .collect();
+        assert_eq!(names, ["Alpha", "Zulu", "A External"]);
         let _ = std::fs::remove_dir_all(&root);
     }
 

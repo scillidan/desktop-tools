@@ -1,0 +1,7 @@
+id = "keyboard-keymap"
+name = "Key Map"
+version = "0.1.0"
+api = 1
+exe = "keyboard-keymap.exe"
+group = "keyboard"
+external = false

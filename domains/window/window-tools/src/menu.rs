@@ -116,6 +116,14 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
             enabled: true,
         },
     ];
+    let feature_end = items
+        .iter()
+        .position(|item| matches!(item, MenuItem::Separator))
+        .unwrap_or(items.len());
+    items[..feature_end].sort_by_key(|item| match item {
+        MenuItem::Submenu { label, .. } => label.to_lowercase(),
+        _ => String::new(),
+    });
     if standalone {
         items.push(MenuItem::Item {
             id: "edit".into(),
@@ -179,6 +187,26 @@ mod tests {
         assert_eq!(
             hosted.id_for_label("Edit Rectangle config"),
             Some("edit-rectangle")
+        );
+        let feature_names: Vec<&str> = hosted.items[..8]
+            .iter()
+            .map(|item| match item {
+                MenuItem::Submenu { label, .. } => label.as_str(),
+                _ => panic!("feature must be a submenu"),
+            })
+            .collect();
+        assert_eq!(
+            feature_names,
+            [
+                "App Window Switch",
+                "Maximize/Minimize",
+                "Mouse Drag",
+                "On Top/Bottom",
+                "Quick Switch",
+                "Rectangle",
+                "Resize",
+                "Virtual Desktops"
+            ]
         );
 
         let standalone = model(false, true, true);

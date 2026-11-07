@@ -69,7 +69,28 @@ P2 signed off on 2026-11-06; this unlocked P3.
 - [ ] Ordinary Ctrl+C and Win+Alt+H window snap still work. Host Exit closes all
       seven plugins without leftover processes/hooks.
 
-Do not advance to P4b until this pass is signed off.
+The follow-up review requested the separate Key Map entry before signing P4a;
+P4a/P4b physical verification is therefore combined below.
+
+## P4b — Key Map and alphabetical menus
+
+- [ ] Native Keyboard order is **Key Map, Keyboard Auto Switch Back, Keyboard
+       Locker, Keyboard Switch, Shell Keys**; both GoldenDict tools remain after
+       them. Window feature submenus
+       are also alphabetical.
+- [ ] `Keyboard > Key Map > Edit keyboard-keymap config` opens only the static
+       `[keymap]` table. The old shell-only content is preserved separately as
+       `keyboard-keymap.legacy-shell.toml`.
+- [ ] In Notepad and WezTerm, type `#alpha`, `#Alpha`, `#alpha.`, `>>star`,
+       `#->` and `;em`: expect `α`, `Α`, `α.`, `★`, `→` and `—`, with no residual
+       trigger character, no extra space and no recursive replacement.
+- [ ] Type `#alphx`, Backspace, then `a`: expect `α`. Type `#al`, click elsewhere,
+       then type `pha`: expect literal `pha` because mouse/focus resets history.
+- [ ] Disable Key Map and type `#alpha`: it stays literal. Enable it and repeat:
+       replacement resumes. Normal typing, Backspace and Ctrl+C remain usable.
+- [ ] Automated wire verification (already run, not a physical substitute):
+       invalid prefix config notifies once and keeps the process/old recognizer;
+       a subsequent valid config reloads; Quit exits 0; 8-plugin smoke passes.
 
 ## P3 — native window import and module split
 

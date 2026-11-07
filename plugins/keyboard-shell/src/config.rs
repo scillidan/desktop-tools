@@ -16,6 +16,16 @@ struct FileConfig {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct PreviousKeymapConfig {
+    #[serde(default)]
+    shell: Option<ShellConfig>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    keymap: Option<toml::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ShellConfig {
     suppress: Vec<String>,
 }
@@ -71,9 +81,9 @@ fn import_previous_keymap(profile: &Path) -> Result<Option<String>> {
     }
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read previous {}", path.display()))?;
-    let raw: FileConfig = toml::from_str(&text)
+    let raw: PreviousKeymapConfig = toml::from_str(&text)
         .with_context(|| format!("cannot parse previous {}", path.display()))?;
-    Ok(Some(render(&raw.shell.suppress)))
+    Ok(raw.shell.map(|shell| render(&shell.suppress)))
 }
 
 /// Import effective Window suppressions once; never rewrite either file later.
@@ -177,5 +187,20 @@ mod tests {
         assert!(cfg.suppress.contains(&"win+ctrl+d".parse().unwrap()));
         assert!(dir.join("keyboard-keymap.toml").exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn new_keymap_config_does_not_replace_shell_defaults() {
+        let dir = test_dir("new-keymap");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("keyboard-keymap.toml"),
+            "[keymap]\n\"#alpha\" = \"α\"\n",
+        )
+        .unwrap();
+        let (_, cfg) = load_in_profile(&dir).unwrap();
+        assert_eq!(cfg.suppress.len(), 67);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

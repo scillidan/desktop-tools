@@ -19,7 +19,8 @@ if ((Get-FileHash $hostSource).Hash -ne (Get-FileHash $hostStaged).Hash) {
 $plugins = @(
     @{ id = 'window-tools'; source = 'domains\window\window-tools' },
     @{ id = 'keyboard-shell'; source = 'plugins\keyboard-shell' },
-    @{ id = 'keyboard-locker'; source = 'plugins\keyboard-locker' },
+    @{ id = 'keyboard-keymap'; source = 'plugins\keyboard-keymap' }
+@{ id = 'keyboard-locker'; source = 'plugins\keyboard-locker' },
     @{ id = 'keyboard-switch'; source = 'plugins\keyboard-switch' },
     @{ id = 'keyboard-auto-switch-back'; source = 'plugins\keyboard-auto-switch-back' },
     @{ id = 'goldendict-search-in-group'; source = 'plugins\goldendict-search-in-group' },

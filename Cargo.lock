@@ -660,6 +660,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyboard-keymap"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kit",
+ "serde",
+ "toml 0.8.2",
+ "windows",
+]
+
+[[package]]
 name = "keyboard-locker"
 version = "0.1.0"
 dependencies = [
