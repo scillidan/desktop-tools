@@ -74,6 +74,10 @@ P4a/P4b physical verification is therefore combined below.
 
 ## P4b — Key Map and alphabetical menus
 
+- [x] Reproduced the reported Shift failure through `ToUnicodeEx`: left-Shift-only
+      state produced `3 / . / a`; synchronized generic modifier state produces
+      `# / > / A`. Rebuilt and restarted the real eight-plugin profile.
+
 - [ ] Native Keyboard order is **Key Map, Keyboard Auto Switch Back, Keyboard
        Locker, Keyboard Switch, Shell Keys**; both GoldenDict tools remain after
        them. Window feature submenus

@@ -189,11 +189,7 @@ fn handle_key(kb: &KBDLLHOOKSTRUCT, msg: u32) -> bool {
         st.engine.reset();
         return false;
     }
-    for (index, is_down) in st.down.iter().enumerate() {
-        if *is_down {
-            keys[index] |= 0x80;
-        }
-    }
+    apply_tracked_modifiers(&mut keys, &st.down);
     keys[vk as usize] |= 0x80;
     let mut buffer = [0u16; 8];
     let count = unsafe {
@@ -236,6 +232,21 @@ fn handle_key(kb: &KBDLLHOOKSTRUCT, msg: u32) -> bool {
         return true;
     }
     false
+}
+
+fn apply_tracked_modifiers(keys: &mut [u8; 256], down: &[bool; 256]) {
+    for (index, is_down) in down.iter().enumerate() {
+        if *is_down {
+            keys[index] |= 0x80;
+        }
+    }
+    // Low-level hooks report left/right keys, while ToUnicodeEx also reads the
+    // generic modifier entries. Without this, Shift+3 is translated as `3`.
+    for (generic, left, right) in [(0x10, 0xA0, 0xA1), (0x11, 0xA2, 0xA3), (0x12, 0xA4, 0xA5)] {
+        if down[left] || down[right] {
+            keys[generic] |= 0x80;
+        }
+    }
 }
 
 fn is_shift(vk: u8) -> bool {
@@ -315,5 +326,23 @@ fn unicode(unit: u16, up: bool) -> INPUT {
                 ..Default::default()
             },
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_tracked_modifiers;
+
+    #[test]
+    fn left_and_right_modifiers_populate_generic_to_unicode_state() {
+        let mut down = [false; 256];
+        down[0xA0] = true;
+        down[0xA3] = true;
+        down[0xA5] = true;
+        let mut keys = [0u8; 256];
+        apply_tracked_modifiers(&mut keys, &down);
+        assert_eq!(keys[0x10] & 0x80, 0x80);
+        assert_eq!(keys[0x11] & 0x80, 0x80);
+        assert_eq!(keys[0x12] & 0x80, 0x80);
     }
 }
