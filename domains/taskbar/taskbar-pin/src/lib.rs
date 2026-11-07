@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use anyhow::{Context, Result};
 #[cfg(windows)]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 #[cfg(windows)]
 use std::time::Duration;
 #[cfg(windows)]
@@ -12,6 +12,35 @@ use taskbar_core::pin::pin_order;
 #[cfg(windows)]
 const APP: &str = "taskbar-pin";
 
+pub const FILE_NAME: &str = "taskbar-pin.toml";
+pub const SECTION: &str = "taskbar-pin";
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Config {
+    pub enabled: bool,
+    pub poll_ms: u32,
+    pub pin: Vec<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            poll_ms: 750,
+            pin: Vec::new(),
+        }
+    }
+}
+
+pub fn load() -> Result<Config> {
+    taskbar_core::config::load(FILE_NAME, SECTION, None)
+}
+
+pub fn materialize() -> Result<std::path::PathBuf> {
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None)
+}
+
 #[cfg(windows)]
 #[derive(Serialize)]
 struct Dump {
@@ -19,13 +48,13 @@ struct Dump {
 }
 
 #[cfg(windows)]
-pub fn run() -> Result<()> {
+pub fn run(shutting_down: impl Fn() -> bool, pins_paused: impl Fn() -> bool) -> Result<()> {
     let automation = taskbar_core::shell::Automation::new()?;
-    let mut cfg = crate::config::load()?.taskbar_pin;
-    while !crate::shutting_down() {
+    let mut cfg = load()?;
+    while !shutting_down() {
         let result = (|| -> Result<()> {
-            cfg = crate::config::load()?.taskbar_pin;
-            if cfg.enabled && !crate::pins_paused() {
+            cfg = load()?;
+            if cfg.enabled && !pins_paused() {
                 tick(&automation, &cfg)?;
             }
             Ok(())
@@ -33,14 +62,14 @@ pub fn run() -> Result<()> {
         if let Err(error) = result {
             taskbar_core::win::log(APP, &format!("{error:#}"));
         }
-        crate::wait_ms(u64::from(cfg.poll_ms.max(100)));
+        taskbar_core::win::wait_ms(u64::from(cfg.poll_ms.max(100)), &shutting_down);
     }
     Ok(())
 }
 
 #[cfg(windows)]
 pub fn once(automation: &taskbar_core::shell::Automation) -> Result<()> {
-    let cfg = crate::config::load()?.taskbar_pin;
+    let cfg = load()?;
     for _ in 0..100 {
         if !tick(automation, &cfg)? {
             break;
@@ -86,10 +115,7 @@ pub fn inspect(automation: &taskbar_core::shell::Automation) -> Result<()> {
 
 /// Check every taskbar and perform at most one physical move per group.
 #[cfg(windows)]
-fn tick(
-    automation: &taskbar_core::shell::Automation,
-    cfg: &crate::config::TaskbarPin,
-) -> Result<bool> {
+fn tick(automation: &taskbar_core::shell::Automation, cfg: &Config) -> Result<bool> {
     let mut moved = false;
     for group in taskbar_groups(automation)? {
         if group.items.is_empty() || cfg.pin.is_empty() {

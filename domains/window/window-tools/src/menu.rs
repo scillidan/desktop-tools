@@ -130,12 +130,12 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
         MenuItem::Submenu { label, .. } => label.to_lowercase(),
         _ => String::new(),
     });
+    items.push(MenuItem::Item {
+        id: "edit".into(),
+        label: "Edit Window actions config".into(),
+        enabled: true,
+    });
     if standalone {
-        items.push(MenuItem::Item {
-            id: "edit".into(),
-            label: "Edit window-tools.toml".into(),
-            enabled: true,
-        });
         items.push(MenuItem::Toggle {
             id: "autostart".into(),
             label: "Start with Windows".into(),
@@ -190,6 +190,10 @@ mod tests {
         assert_eq!(hosted.id_for_label("Reload window configs"), None);
         assert_eq!(hosted.id_for_label("Exit window-tools"), None);
         assert_eq!(hosted.id_for_label("Edit window-tools.toml"), None);
+        assert_eq!(
+            hosted.id_for_label("Edit Window actions config"),
+            Some("edit")
+        );
         assert_eq!(
             hosted.id_for_label("Edit Rectangle config"),
             Some("edit-rectangle")

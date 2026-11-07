@@ -28,7 +28,7 @@ impl Resize {
     ) -> Result<()> {
         anyhow::ensure!(
             !self.sizer.is_empty(),
-            "no sizer presets; add entries to resize.toml next to window-tools.toml"
+            "no sizer presets; add entries to resize.toml next to window-actions.toml"
         );
         let idx = match p.pick_sizer(&self.sizer) {
             SizerPick::Picked(i) => i,

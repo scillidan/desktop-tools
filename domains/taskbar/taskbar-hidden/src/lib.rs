@@ -5,23 +5,56 @@ mod platform;
 
 #[cfg(windows)]
 const APP: &str = "hidden-taskbar";
+
+pub const FILE_NAME: &str = "taskbar-hidden.toml";
+pub const SECTION: &str = "hidden-taskbar";
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct Config {
+    pub enabled: bool,
+    pub hotkey: String,
+    pub resize_snapped: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            hotkey: "ctrl+alt+f9".into(),
+            resize_snapped: true,
+        }
+    }
+}
+
+pub fn load() -> anyhow::Result<Config> {
+    taskbar_core::config::load(FILE_NAME, SECTION, Some("general"))
+}
+
+pub fn materialize() -> anyhow::Result<std::path::PathBuf> {
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, Some("general"))
+}
 #[cfg(windows)]
 static THREAD_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 #[cfg(windows)]
-pub fn run() -> anyhow::Result<()> {
+pub fn run(
+    shutting_down: impl Fn() -> bool,
+    hotkeys_suspended: impl Fn() -> bool,
+    report: impl Fn(&str, &str),
+) -> anyhow::Result<()> {
     use kit::hotkey::Hotkeys;
     use kit::keys::Combo;
     use taskbar_core::message::Event;
     use windows::Win32::UI::WindowsAndMessaging::{KillTimer, PostQuitMessage, SetTimer};
 
-    while !crate::shutting_down() {
-        let cfg = crate::config::load()?.hidden_taskbar;
+    while !shutting_down() {
+        let cfg = load()?;
         let enabled = cfg.enabled;
         let combo: Combo = cfg.hotkey.parse()?;
         let resize_snapped = cfg.resize_snapped;
         if !enabled {
-            crate::wait_ms(500);
+            taskbar_core::win::wait_ms(500, &shutting_down);
             continue;
         }
         THREAD_ID.store(
@@ -36,12 +69,12 @@ pub fn run() -> anyhow::Result<()> {
         }
         taskbar_core::message::run(Some(&hotkeys), |event| match event {
             Event::Wakeup(usize::MAX) => unsafe { PostQuitMessage(0) },
-            Event::Hotkey(label) if label == "toggle" && !crate::hotkeys_suspended() => {
-                report_result(app.toggle_foreground());
+            Event::Hotkey(label) if label == "toggle" && !hotkeys_suspended() => {
+                report_result(app.toggle_foreground(), &report);
             }
             Event::Timer(1) => {
                 let result = (|| -> anyhow::Result<()> {
-                    let cfg = crate::config::load()?.hidden_taskbar;
+                    let cfg = load()?;
                     let new_combo: Combo = cfg.hotkey.parse()?;
                     if !cfg.enabled || new_combo != combo || cfg.resize_snapped != resize_snapped {
                         unsafe { PostQuitMessage(0) };
@@ -57,7 +90,7 @@ pub fn run() -> anyhow::Result<()> {
         unsafe {
             let _ = KillTimer(None, timer);
         }
-        report_warnings(app.restore_all());
+        report_warnings(app.restore_all(), &report);
         THREAD_ID.store(0, std::sync::atomic::Ordering::Relaxed);
     }
     Ok(())
@@ -72,25 +105,22 @@ pub fn wake_for_shutdown() {
 }
 
 #[cfg(windows)]
-fn report_result(result: anyhow::Result<Vec<String>>) {
+fn report_result(result: anyhow::Result<Vec<String>>, report: &dyn Fn(&str, &str)) {
     match result {
-        Ok(warnings) => report_warnings(warnings),
-        Err(e) => report(&format!("Operation failed:\n{e:#}")),
+        Ok(warnings) => report_warnings(warnings, report),
+        Err(e) => report(APP, &format!("Operation failed:\n{e:#}")),
     }
 }
 
 #[cfg(windows)]
-fn report_warnings(warnings: Vec<String>) {
+fn report_warnings(warnings: Vec<String>, report: &dyn Fn(&str, &str)) {
     if !warnings.is_empty() {
-        report(&format!(
-            "Some changes could not be applied:\n{}",
-            warnings.join("\n")
-        ));
+        report(
+            APP,
+            &format!(
+                "Some changes could not be applied:\n{}",
+                warnings.join("\n")
+            ),
+        );
     }
-}
-
-#[cfg(windows)]
-fn report(text: &str) {
-    eprintln!("{APP}: {text}");
-    crate::report(APP, text);
 }

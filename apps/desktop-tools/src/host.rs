@@ -202,7 +202,9 @@ impl Host {
                 sub.push(Entry::ItemOwned(format!("Enable {id}")));
             }
             sub.push(Entry::ItemOwned(format!("Restart {id}")));
-            sub.push(Entry::ItemOwned(format!("Edit {id} config")));
+            if hosted.plugin.manifest.config {
+                sub.push(Entry::ItemOwned(format!("Edit {id} config")));
+            }
             sub.push(Entry::ItemOwned(format!("Open {id} log")));
             push_group_entry(
                 &mut grouped[group],
@@ -1041,6 +1043,7 @@ mod tests {
                     optional: false,
                     external: false,
                     description: None,
+                    config: true,
                     tray: "host".into(),
                 },
                 dir: root.clone(),

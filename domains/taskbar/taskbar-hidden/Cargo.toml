@@ -1,0 +1,16 @@
+[package]
+name = "taskbar-hidden"
+description = "Hide and restore taskbars with a global hotkey"
+license.workspace = true
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+taskbar-core = { path = "../taskbar-core" }
+
+[target.'cfg(windows)'.dependencies]
+kit = { path = "../../../crates/kit" }
+windows.workspace = true

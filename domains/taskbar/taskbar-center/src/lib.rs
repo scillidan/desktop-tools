@@ -6,13 +6,51 @@ mod platform;
 #[cfg(windows)]
 use anyhow::Result;
 #[cfg(windows)]
+use serde::{Deserialize, Serialize};
+#[cfg(windows)]
 use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 const APP_NAME: &str = "center-taskbar";
 
+pub const FILE_NAME: &str = "taskbar-center.toml";
+pub const SECTION: &str = "center-taskbar";
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Config {
+    pub enabled: bool,
+    pub poll_ms: u64,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            poll_ms: 100,
+        }
+    }
+}
+
+impl Config {
+    pub fn validate(&self) -> Result<()> {
+        if self.poll_ms < 10 {
+            anyhow::bail!("center-taskbar poll_ms must be at least 10");
+        }
+        Ok(())
+    }
+}
+
+pub fn load() -> Result<Config> {
+    taskbar_core::config::load(FILE_NAME, SECTION, None)
+}
+
+pub fn materialize() -> Result<std::path::PathBuf> {
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None)
+}
+
 #[cfg(windows)]
-pub fn run() -> Result<()> {
+pub fn run(shutting_down: impl Fn() -> bool, suspended: impl Fn() -> bool) -> Result<()> {
     taskbar_core::win::log(APP_NAME, "starting");
     let mut poll_ms = 100;
     let mut legacy = false;
@@ -21,12 +59,12 @@ pub fn run() -> Result<()> {
     let mut native_check = Instant::now();
     platform::with_com(|| {
         taskbar_core::win::log(APP_NAME, "COM initialized");
-        while !crate::shutting_down() {
+        while !shutting_down() {
             let result = (|| -> Result<()> {
-                let config = crate::config::load()?.center_taskbar;
+                let config = load()?;
                 config.validate()?;
                 poll_ms = config.poll_ms;
-                if !config.enabled {
+                if !centering_active(config.enabled, suspended()) {
                     platform::restore_legacy(&legacy_lists);
                     legacy_lists.clear();
                     legacy = false;
@@ -65,11 +103,15 @@ pub fn run() -> Result<()> {
             if let Err(error) = result {
                 taskbar_core::win::log(APP_NAME, &format!("{error:#}"));
             }
-            crate::wait_ms(poll_ms);
+            taskbar_core::win::wait_ms(poll_ms, &shutting_down);
         }
         platform::restore_legacy(&legacy_lists);
         Ok(())
     })
+}
+
+fn centering_active(configured: bool, suspended: bool) -> bool {
+    configured && !suspended
 }
 
 #[cfg(windows)]
@@ -77,4 +119,14 @@ pub fn inspect() -> Result<()> {
     let discovery = platform::with_com(platform::discover)?;
     platform::print_discovery(&discovery);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn group_suspend_pauses_centering_without_changing_configuration() {
+        assert!(super::centering_active(true, false));
+        assert!(!super::centering_active(true, true));
+        assert!(!super::centering_active(false, false));
+    }
 }

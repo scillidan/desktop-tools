@@ -416,7 +416,7 @@ pub fn load_or_create(path: &Path, default_toml: &str) -> Result<String> {
     std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))
 }
 
-/// Sizer presets live next to `window-tools.toml`, in their own file.
+/// Sizer presets live next to `window-actions.toml`, in their own file.
 pub fn load_or_create_presets(path: &Path, default_toml: &str) -> Result<Vec<SizeSpec>> {
     let exe = std::env::current_exe().context("cannot locate own executable")?;
     let legacy = exe.parent().context("executable has no parent directory")?;
@@ -456,9 +456,10 @@ pub fn parse_presets(text: &str) -> Result<Vec<SizeSpec>> {
     Ok(out)
 }
 
-/// `<profile>/window-tools.toml`, imported once from the legacy window daemon.
-pub const CONFIG_NAME: &str = "window-tools.toml";
-pub const DEFAULT_CONFIG: &str = include_str!("../window-tools.toml");
+/// `<profile>/window-actions.toml`; feature bindings live in their own files.
+pub const CONFIG_NAME: &str = "window-actions.toml";
+pub const LEGACY_CONFIG_NAME: &str = "window-tools.toml";
+pub const DEFAULT_CONFIG: &str = include_str!("../window-actions.toml");
 #[cfg(test)]
 pub const LEGACY_DEFAULT_CONFIG: &str = include_str!("../window-tools.legacy.toml");
 
@@ -515,89 +516,62 @@ const OLD_CONFIG_NAMES: &[&str] = &[
 
 pub fn default_config_path() -> Result<PathBuf> {
     let path = kit::config::profile_file(CONFIG_NAME)?;
-    let exe = std::env::current_exe().context("cannot locate own executable")?;
-    let legacy = exe.parent().context("executable has no parent directory")?;
-    kit::config::import_legacy_once(&path, legacy, OLD_CONFIG_NAMES)?;
+    let legacy_path = path.with_file_name(LEGACY_CONFIG_NAME);
+    if !path.exists() && !legacy_path.exists() {
+        let exe = std::env::current_exe().context("cannot locate own executable")?;
+        let legacy = exe.parent().context("executable has no parent directory")?;
+        kit::config::import_legacy_once(&legacy_path, legacy, OLD_CONFIG_NAMES)?;
+    }
     Ok(path)
 }
 
-fn module_file<T>(
-    global: &Path,
-    module: ConfigModule,
-    fallback: T,
-    parse: fn(&str) -> Result<T>,
-) -> Result<T> {
+fn module_file<T>(global: &Path, module: ConfigModule, parse: fn(&str) -> Result<T>) -> Result<T> {
     let path = module.path(global)?;
-    if !path.exists() {
-        return Ok(fallback);
-    }
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read {}", path.display()))?;
     parse(&text).with_context(|| format!("invalid {}", path.display()))
 }
 
-fn with_legacy(path: &Path, legacy: Config) -> Result<Config> {
-    let Modules {
-        rectangle,
-        resize,
-        mouse_drag,
-        on_top_bottom,
-        maximize_minimize,
-        app_switch,
-        quick_switch,
-        virtual_desktops,
-    } = legacy.modules;
+fn load_modules(path: &Path, global: Vec<Binding>) -> Result<Config> {
     let modules = Modules {
         rectangle: module_file(
             path,
             ConfigModule::Rectangle,
-            rectangle,
             window_rectangle::config::parse,
         )?,
-        resize: module_file(
-            path,
-            ConfigModule::Resize,
-            resize,
-            window_resize::config::parse,
-        )?,
+        resize: module_file(path, ConfigModule::Resize, window_resize::config::parse)?,
         mouse_drag: module_file(
             path,
             ConfigModule::MouseDrag,
-            mouse_drag,
             window_mouse_drag::config::parse,
         )?,
         on_top_bottom: module_file(
             path,
             ConfigModule::OnTopBottom,
-            on_top_bottom,
             window_on_top_bottom::config::parse,
         )?,
         maximize_minimize: module_file(
             path,
             ConfigModule::MaximizeMinimize,
-            maximize_minimize,
             window_maximize_minimize::config::parse,
         )?,
         app_switch: module_file(
             path,
             ConfigModule::AppSwitch,
-            app_switch,
             window_app_switch::config::parse,
         )?,
         quick_switch: module_file(
             path,
             ConfigModule::QuickSwitch,
-            quick_switch,
             window_quick_switch::config::parse,
         )?,
         virtual_desktops: module_file(
             path,
             ConfigModule::VirtualDesktops,
-            virtual_desktops,
             window_virtual_desktops::config::parse,
         )?,
     };
-    assemble(modules, legacy.global)
+    assemble(modules, global)
 }
 
 /// Materialize the effective module config only when the user opens its edit
@@ -664,43 +638,93 @@ pub fn ensure_module_config(
     Ok(path)
 }
 
-/// Load the global/legacy file, then overlay only module files that exist.
+fn actions_text(bindings: &[Binding]) -> String {
+    let mut text =
+        String::from("# Global Window actions; feature bindings live in their own files.\n");
+    for binding in bindings {
+        let action = match binding.action {
+            Action::Undo => "undo",
+            Action::ToggleScreen => "toggleScreen",
+            Action::Quit => "quit",
+            _ => continue,
+        };
+        text.push_str(&format!("\"{}\" = \"{}\"\n", binding.combo, action));
+    }
+    text
+}
+
+fn default_module(module: ConfigModule) -> &'static str {
+    match module {
+        ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
+        ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
+        ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
+        ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
+        ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
+        ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
+        ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
+        ConfigModule::VirtualDesktops => window_virtual_desktops::config::DEFAULT_CONFIG,
+    }
+}
+
+fn archive_legacy(path: &Path) -> Result<()> {
+    let base = path.with_file_name("window-tools.legacy.toml");
+    let mut backup = base.clone();
+    for index in 1.. {
+        if !backup.exists() {
+            break;
+        }
+        backup = path.with_file_name(format!("window-tools.legacy-{index}.toml"));
+    }
+    std::fs::rename(path, &backup).with_context(|| {
+        format!(
+            "cannot archive legacy config {} as {}",
+            path.display(),
+            backup.display()
+        )
+    })
+}
+
+fn migrate_legacy(path: &Path) -> Result<()> {
+    let legacy_path = path.with_file_name(LEGACY_CONFIG_NAME);
+    if !legacy_path.exists() {
+        return Ok(());
+    }
+    let text = std::fs::read_to_string(&legacy_path)
+        .with_context(|| format!("cannot read {}", legacy_path.display()))?;
+    let legacy = parse(&text)?;
+    for module in MODULES {
+        ensure_module_config(path, module, &legacy)?;
+    }
+    if !path.exists() {
+        std::fs::write(path, actions_text(&legacy.global))
+            .with_context(|| format!("cannot create {}", path.display()))?;
+    }
+    archive_legacy(&legacy_path)
+}
+
+/// Create split files, migrate any old aggregate once, then load only split files.
 pub fn load(path: &Path) -> Result<Config> {
+    migrate_legacy(path)?;
     if !path.exists() {
         std::fs::write(path, DEFAULT_CONFIG)
             .with_context(|| format!("cannot create {}", path.display()))?;
-        for module in MODULES {
-            let module_path = module.path(path)?;
-            if !module_path.exists() {
-                let default = match module {
-                    ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
-                    ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
-                    ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
-                    ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
-                    ConfigModule::MaximizeMinimize => {
-                        window_maximize_minimize::config::DEFAULT_CONFIG
-                    }
-                    ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
-                    ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
-                    ConfigModule::VirtualDesktops => {
-                        window_virtual_desktops::config::DEFAULT_CONFIG
-                    }
-                };
-                std::fs::write(&module_path, default)
-                    .with_context(|| format!("cannot create {}", module_path.display()))?;
-            }
+    }
+    for module in MODULES {
+        let module_path = module.path(path)?;
+        if !module_path.exists() {
+            std::fs::write(&module_path, default_module(module))
+                .with_context(|| format!("cannot create {}", module_path.display()))?;
         }
     }
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-    with_legacy(path, parse(&text)?)
+    reload(path)
 }
 
-/// Re-read every file before replacing any active config.
+/// Re-read every split file before replacing any active config.
 pub fn reload(path: &Path) -> Result<Config> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-    with_legacy(path, parse(&text)?)
+    let global = parse(&text)?.global;
+    load_modules(path, global)
 }
 
 /// Latest mtime across the global and existing module files.
@@ -717,7 +741,7 @@ pub fn conflict_message(failed: &[String]) -> Option<String> {
         return None;
     }
     Some(format!(
-        "These hotkeys could not be registered (in use by another process, or unsupported):\n\n  - {}\n\nClose the other process or edit window-tools.toml.",
+        "These hotkeys could not be registered (in use by another process, or unsupported):\n\n  - {}\n\nClose the other process or edit the relevant window-*.toml file.",
         failed.join("\n  - ")
     ))
 }
@@ -1023,14 +1047,22 @@ mod tests {
     }
 
     #[test]
-    fn module_edit_materializes_effective_config_without_rewriting_legacy() {
+    fn legacy_aggregate_migrates_to_split_files_and_backup() {
         let dir = test_dir("module-overlay");
         let global = dir.join(CONFIG_NAME);
-        let original = "gap = 7\n\"ctrl+alt+x\" = \"moveToLeft\"\n\"win+e\" = \"suppress\"\n";
-        std::fs::write(&global, original).unwrap();
-        let cfg = load(&global).unwrap();
-        let path = ensure_module_config(&global, ConfigModule::Rectangle, &cfg).unwrap();
-        assert_eq!(std::fs::read_to_string(&global).unwrap(), original);
+        let legacy_path = dir.join(LEGACY_CONFIG_NAME);
+        let original = "gap = 7\n\"ctrl+alt+x\" = \"moveToLeft\"\n\"ctrl+alt+z\" = \"undo\"\n\"win+e\" = \"suppress\"\n";
+        std::fs::write(&legacy_path, original).unwrap();
+        load(&global).unwrap();
+        let path = ConfigModule::Rectangle.path(&global).unwrap();
+        assert!(!legacy_path.exists());
+        assert_eq!(
+            std::fs::read_to_string(dir.join("window-tools.legacy.toml")).unwrap(),
+            original
+        );
+        assert!(std::fs::read_to_string(&global)
+            .unwrap()
+            .contains("ctrl+alt+z"));
         assert!(std::fs::read_to_string(&path).unwrap().contains("gap = 7"));
         std::fs::write(&path, "gap = 9\n\"ctrl+alt+x\" = \"moveToRight\"\n").unwrap();
         let updated = reload(&global).unwrap();

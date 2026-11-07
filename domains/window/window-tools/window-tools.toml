@@ -1,4 +1,0 @@
-# Global window actions and temporary shell/screen compatibility bindings.
-"ctrl+win+alt+u" = "undo"
-"dragModifier" = "win"
-"win+f2" = "toggleScreen"

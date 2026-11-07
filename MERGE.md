@@ -142,7 +142,7 @@ The full suite is the host plus ten plugins (eleven processes):
 | keyboard | `keyboard-keymap` | `keyboard-keymap.exe` | `keyboard-keymap.toml` |
 | keyboard | `goldendict-search-in-group` | `goldendict-search-in-group.exe` | `goldendict-search-in-group.toml` |
 | keyboard | `goldendict-auto-search` | `goldendict-auto-search.exe` | `goldendict-auto-search.toml` |
-| taskbar | `taskbar-tools` | `taskbar-tools-rs.exe` | `taskbar-tools.toml` |
+| taskbar | `taskbar-tools` | `taskbar-tools-rs.exe` | `taskbar-center.toml` / `taskbar-hidden.toml` / `taskbar-pin.toml` |
 
 `window-tools` loads `app-toggle` and `screen-tools` loads
 `flameshot-handoff`; neither adds a process. App toggles use window's local
@@ -411,8 +411,10 @@ duplicate plugin wrapper. Multi-plugin groups keep status on each plugin.
 Suspend is temporary hook/feature suspension while the process remains running.
 Disable is persistent lifecycle removal with graceful cleanup. Keep both where
 their meanings differ; do not turn them into aliases. Feature config entries
-edit split files. Window's root `Edit window-tools config` remains only for the
-legacy aggregate source until that compatibility path is retired.
+edit split files. Window and Taskbar no longer expose or load aggregate TOMLs.
+Window's root-only bindings live in `window-actions.toml`. A one-time migration
+preserves existing feature files, materializes missing effective settings, then
+renames the old aggregate to a non-overwriting `.legacy.toml` backup.
 
 ### 4.6 External integrations and ordering
 
@@ -789,12 +791,19 @@ trigger/replacement text appears in logs and expansion never touches clipboard.
 
 ### P5 — Import taskbar
 
-**Code/automated status 2026-11-07:** `taskbar-core` and `taskbar-tools` retain
-all 27 original tests, hosted Suspend/Unpin/Quit and the hidden-taskbar hotkey
-are wire-verified, diagnostics run against the real Explorer, and nine-plugin
-smoke passes. A real hidden-taskbar graceful Disable restored the taskbar;
-Enable restored its hotkey and the original core file. Physical taskbar behavior
-and standalone parity remain pending.
+**Signed 2026-11-07:** hosted and standalone physical passes are complete; 177
+workspace tests and clippy pass.
+Taskbar is now one process with `taskbar-center` / `taskbar-hidden` /
+`taskbar-pin` crates, three alphabetically ordered feature submenus and separate
+TOMLs. Existing aggregates migrate to split files plus backups; neither Window
+nor Taskbar exposes a runtime aggregate config entry. Real wire verifies nested
+descriptions/separators, Suspend/Unpin/Quit and hotkey ownership; diagnostics
+run against the real Explorer and nine-plugin smoke passes. A real hidden-taskbar
+graceful Disable restored the taskbar; Enable restored its hotkey and original
+core file. Hosted and standalone physical acceptance is signed. Standalone
+regression testing exposed and fixed stable MenuId dispatch; group Suspend now
+pauses Center/Pin and restores Center's saved layout in addition to suspending
+the Hidden hotkey. Standalone Exit and worker cleanup were physically verified.
 
 - Add profile/hosted menu/IPC while preserving diagnostics and standalone mode.
 - Keep existing taskbar algorithms unchanged.

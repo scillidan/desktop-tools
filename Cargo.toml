@@ -15,6 +15,9 @@ members = [
   "domains/window/window-app-switch",
   "domains/window/window-virtual-desktops",
   "domains/taskbar/taskbar-core",
+  "domains/taskbar/taskbar-center",
+  "domains/taskbar/taskbar-hidden",
+  "domains/taskbar/taskbar-pin",
   "domains/taskbar/taskbar-tools",
 ]
 

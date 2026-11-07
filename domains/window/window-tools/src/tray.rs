@@ -407,7 +407,7 @@ fn set_autostart(on: bool) -> Result<()> {
     Ok(())
 }
 
-/// Open window-tools.toml: `EDITOR` / `VISUAL` when set, else the default handler.
+/// Open a config file: `EDITOR` / `VISUAL` when set, else the default handler.
 pub fn edit_config(path: &Path) -> Result<()> {
     if let Some(editor) = std::env::var_os("EDITOR").or_else(|| std::env::var_os("VISUAL")) {
         if !editor.is_empty() {

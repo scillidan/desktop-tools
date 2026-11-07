@@ -3,6 +3,8 @@
 pub mod pin;
 
 #[cfg(windows)]
+pub mod config;
+#[cfg(windows)]
 pub mod drag;
 #[cfg(windows)]
 pub mod message;

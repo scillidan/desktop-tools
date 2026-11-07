@@ -1,10 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-mod center_taskbar;
 #[cfg(any(windows, test))]
 mod config;
-mod hidden_taskbar;
-mod taskbar_pin;
 
 const APP: &str = "taskbar-tools";
 const SUSPEND: &str = "Suspend Group \"Taskbar\"";
@@ -14,7 +11,7 @@ static SHUTDOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 #[cfg(windows)]
 static PINS_PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[cfg(windows)]
-static HOTKEYS_SUSPENDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static SUSPENDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[cfg(windows)]
 static NOTIFIER: std::sync::OnceLock<kit::ipc::PluginNotifier> = std::sync::OnceLock::new();
 
@@ -29,8 +26,8 @@ pub fn pins_paused() -> bool {
 }
 
 #[cfg(windows)]
-pub fn hotkeys_suspended() -> bool {
-    HOTKEYS_SUSPENDED.load(std::sync::atomic::Ordering::Relaxed)
+pub fn suspended() -> bool {
+    SUSPENDED.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 #[cfg(windows)]
@@ -40,15 +37,6 @@ pub(crate) fn report(title: &str, text: &str) {
         let _ = notifier.notify(title, text);
     } else {
         kit::win::message_box(title, text);
-    }
-}
-
-#[cfg(windows)]
-pub fn wait_ms(mut milliseconds: u64) {
-    while milliseconds > 0 && !shutting_down() {
-        let step = milliseconds.min(50);
-        std::thread::sleep(std::time::Duration::from_millis(step));
-        milliseconds -= step;
     }
 }
 
@@ -107,7 +95,7 @@ fn run() -> anyhow::Result<()> {
             Action::Inspect => {
                 taskbar_pin::inspect(&automation)?;
                 drop(automation);
-                center_taskbar::inspect()
+                taskbar_center::inspect()
             }
             Action::Once => taskbar_pin::once(&automation),
             Action::Daemon => unreachable!(),
@@ -125,22 +113,27 @@ fn run_daemon() -> anyhow::Result<()> {
     let _instance = kit::win::ensure_single_instance(APP)?;
     taskbar_core::win::hide_owned_console();
     unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)? };
-    let _ = config::load()?;
-    let config_path = config::path()?;
+    config::load()?;
     let hosted = kit::win::hosted() && std::env::args().any(|arg| arg == "--no-tray");
     if hosted {
         run_hosted()
     } else {
-        run_standalone(config_path)
+        run_standalone()
     }
 }
 
 #[cfg(windows)]
 fn workers() -> anyhow::Result<Vec<std::thread::JoinHandle<()>>> {
     [
-        spawn("taskbar-pin", taskbar_pin::run),
-        spawn("center-taskbar", center_taskbar::run),
-        spawn("hidden-taskbar", hidden_taskbar::run),
+        spawn("center-taskbar", || {
+            taskbar_center::run(shutting_down, suspended)
+        }),
+        spawn("hidden-taskbar", || {
+            taskbar_hidden::run(shutting_down, suspended, report)
+        }),
+        spawn("taskbar-pin", || {
+            taskbar_pin::run(shutting_down, || pins_paused() || suspended())
+        }),
     ]
     .into_iter()
     .collect()
@@ -159,30 +152,43 @@ fn run_hosted() -> anyhow::Result<()> {
         if let Event::Wakeup(4) = event {
             while let Some(command) = link.try_recv() {
                 match command {
-                    HostCommand::Invoke { id, .. } if id == "unpin" => {
-                        PINS_PAUSED.store(true, std::sync::atomic::Ordering::Relaxed);
-                    }
-                    HostCommand::Invoke { id, .. } if id == "suspend" => {
-                        let value = !hotkeys_suspended();
-                        HOTKEYS_SUSPENDED.store(value, std::sync::atomic::Ordering::Relaxed);
-                        let _ = link.menu(&menu_model(true, value));
+                    HostCommand::Invoke { id, .. } => {
+                        let result = match id.as_str() {
+                            "unpin" => {
+                                PINS_PAUSED.store(true, std::sync::atomic::Ordering::Relaxed);
+                                Ok(())
+                            }
+                            "suspend" => {
+                                let value = !suspended();
+                                SUSPENDED.store(value, std::sync::atomic::Ordering::Relaxed);
+                                let _ = link.menu(&menu_model(true, value));
+                                Ok(())
+                            }
+                            "edit-center" => config::edit(config::Module::Center),
+                            "edit-hidden" => config::edit(config::Module::Hidden),
+                            "edit-pin" => config::edit(config::Module::Pin),
+                            _ => Ok(()),
+                        };
+                        if let Err(error) = result {
+                            report(APP, &format!("Edit config failed:\n{error:#}"));
+                        }
                     }
                     HostCommand::Reload { .. } => {
                         PINS_PAUSED.store(false, std::sync::atomic::Ordering::Relaxed);
                     }
                     HostCommand::Quit { .. } => shutdown(),
-                    _ => {}
                 }
             }
         }
     });
     join_workers(handles);
+    taskbar_core::win::log(APP, "shutdown complete");
     Ok(())
 }
 
 #[cfg(windows)]
-fn run_standalone(config_path: std::path::PathBuf) -> anyhow::Result<()> {
-    use kit::tray::{Event, Tray};
+fn run_standalone() -> anyhow::Result<()> {
+    use kit::tray::Tray;
 
     let mut tray = Tray::new(
         APP,
@@ -191,12 +197,12 @@ fn run_standalone(config_path: std::path::PathBuf) -> anyhow::Result<()> {
     tray.set_menu(&menu_model(false, false).render());
     let handles = workers()?;
     tray.run(None, |tray, event| {
-        if let Event::Menu(id) = event {
+        if let Some(id) = standalone_event_id(event) {
             match id.as_str() {
                 "unpin" => PINS_PAUSED.store(true, std::sync::atomic::Ordering::Relaxed),
                 "suspend" => {
-                    let value = !hotkeys_suspended();
-                    HOTKEYS_SUSPENDED.store(value, std::sync::atomic::Ordering::Relaxed);
+                    let value = !suspended();
+                    SUSPENDED.store(value, std::sync::atomic::Ordering::Relaxed);
                     tray.set_menu(&menu_model(false, value).render());
                 }
                 "autostart" => {
@@ -204,9 +210,18 @@ fn run_standalone(config_path: std::path::PathBuf) -> anyhow::Result<()> {
                     if let Err(e) = kit::win::set_autostart(APP, value) {
                         report(APP, &format!("Autostart failed:\n{e:#}"));
                     }
-                    tray.set_menu(&menu_model(false, hotkeys_suspended()).render());
+                    tray.set_menu(&menu_model(false, suspended()).render());
                 }
-                "edit" => kit::win::edit_config(&config_path),
+                "edit-center" | "edit-hidden" | "edit-pin" => {
+                    let module = match id.as_str() {
+                        "edit-center" => config::Module::Center,
+                        "edit-hidden" => config::Module::Hidden,
+                        _ => config::Module::Pin,
+                    };
+                    if let Err(error) = config::edit(module) {
+                        report(APP, &format!("Edit config failed:\n{error:#}"));
+                    }
+                }
                 "quit" => {
                     shutdown();
                     tray.quit();
@@ -216,13 +231,23 @@ fn run_standalone(config_path: std::path::PathBuf) -> anyhow::Result<()> {
         }
     });
     join_workers(handles);
+    taskbar_core::win::log(APP, "shutdown complete");
     Ok(())
 }
 
 #[cfg(windows)]
+fn standalone_event_id(event: kit::tray::Event) -> Option<String> {
+    match event {
+        kit::tray::Event::Menu(id) | kit::tray::Event::MenuId(id) => Some(id),
+        _ => None,
+    }
+}
+
+#[cfg(windows)]
 fn shutdown() {
+    taskbar_core::win::log(APP, "shutdown requested");
     SHUTDOWN.store(true, std::sync::atomic::Ordering::Relaxed);
-    hidden_taskbar::wake_for_shutdown();
+    taskbar_hidden::wake_for_shutdown();
     kit::tray::quit();
 }
 
@@ -236,18 +261,18 @@ fn join_workers(handles: Vec<std::thread::JoinHandle<()>>) {
 #[cfg(windows)]
 fn spawn(
     name: &'static str,
-    run: fn() -> anyhow::Result<()>,
+    run: impl Fn() -> anyhow::Result<()> + Send + 'static + std::panic::RefUnwindSafe,
 ) -> anyhow::Result<std::thread::JoinHandle<()>> {
     std::thread::Builder::new()
         .name(name.to_string())
         .spawn(move || {
             while !shutting_down() {
-                match std::panic::catch_unwind(run) {
+                match std::panic::catch_unwind(&run) {
                     Ok(Ok(())) => {}
                     Ok(Err(error)) => taskbar_core::win::log(name, &format!("{error:#}")),
                     Err(_) => taskbar_core::win::log(name, "worker panicked"),
                 }
-                wait_ms(1000);
+                taskbar_core::win::wait_ms(1000, shutting_down);
             }
         })
         .map_err(Into::into)
@@ -255,12 +280,49 @@ fn spawn(
 
 fn menu_model(hosted: bool, suspended: bool) -> kit::menu::MenuModel {
     use kit::menu::MenuItem;
+
+    fn feature(label: &str, description: &str, mut actions: Vec<MenuItem>) -> MenuItem {
+        let mut items = vec![
+            MenuItem::Info {
+                label: description.into(),
+            },
+            MenuItem::Separator,
+        ];
+        items.append(&mut actions);
+        MenuItem::Submenu {
+            label: label.into(),
+            items,
+        }
+    }
+
+    let edit = |id: &str, label: &str| MenuItem::Item {
+        id: id.into(),
+        label: label.into(),
+        enabled: true,
+    };
     let mut items = vec![
-        MenuItem::Item {
-            id: "unpin".into(),
-            label: "Unpin all".into(),
-            enabled: true,
-        },
+        feature(
+            "Center Taskbar",
+            "Center taskbar buttons without changing their order.",
+            vec![edit("edit-center", "Edit Center Taskbar config")],
+        ),
+        feature(
+            "Hidden Taskbar",
+            "Hide or restore the foreground monitor taskbar.",
+            vec![edit("edit-hidden", "Edit Hidden Taskbar config")],
+        ),
+        feature(
+            "Taskbar Pin",
+            "Keep configured applications ahead of other taskbar groups.",
+            vec![
+                MenuItem::Item {
+                    id: "unpin".into(),
+                    label: "Unpin all".into(),
+                    enabled: true,
+                },
+                edit("edit-pin", "Edit Taskbar Pin config"),
+            ],
+        ),
         MenuItem::Toggle {
             id: "suspend".into(),
             label: SUSPEND.into(),
@@ -277,11 +339,6 @@ fn menu_model(hosted: bool, suspended: bool) -> kit::menu::MenuModel {
             enabled: true,
         });
         items.push(MenuItem::Item {
-            id: "edit".into(),
-            label: "Edit Config".into(),
-            enabled: true,
-        });
-        items.push(MenuItem::Item {
             id: "quit".into(),
             label: "Exit".into(),
             enabled: true,
@@ -292,9 +349,47 @@ fn menu_model(hosted: bool, suspended: bool) -> kit::menu::MenuModel {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn standalone_routes_stable_menu_ids() {
+        let event = kit::tray::Event::MenuId("quit".into());
+        assert_eq!(super::standalone_event_id(event).as_deref(), Some("quit"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "manipulates the real Explorer taskbar"]
+    fn workers_stop_cleanly() {
+        let handles = super::workers().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        super::shutdown();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            super::join_workers(handles);
+            let _ = done_tx.send(());
+        });
+        done_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("workers must finish within five seconds of shutdown");
+    }
+
     #[test]
     fn hosted_and_standalone_menu_models_are_valid() {
-        super::menu_model(true, false).validate().unwrap();
+        let hosted = super::menu_model(true, false);
+        hosted.validate().unwrap();
         super::menu_model(false, true).validate().unwrap();
+        assert_eq!(hosted.id_for_label("Unpin all"), Some("unpin"));
+        assert_eq!(hosted.id_for_label("Edit Config"), None);
+        assert_eq!(
+            hosted.id_for_label("Edit Center Taskbar config"),
+            Some("edit-center")
+        );
+        for item in &hosted.items[..3] {
+            let kit::menu::MenuItem::Submenu { items, .. } = item else {
+                panic!("feature must be a submenu")
+            };
+            assert!(matches!(items[0], kit::menu::MenuItem::Info { .. }));
+            assert!(matches!(items[1], kit::menu::MenuItem::Separator));
+        }
     }
 }

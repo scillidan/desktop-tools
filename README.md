@@ -55,18 +55,21 @@ Window menu and code are divided into native modules:
 The modules share suspend/reload/undo and do not add independent processes or
 per-module Enable/Restart switches.
 
-`taskbar-tools` retains its three worker-based features — Taskbar Pin,
-CenterTaskbar and HiddenTaskbar — with one shared `taskbar-tools.toml`, automatic
-reload, group suspend and restore-on-exit. `taskbar-core` holds shared Explorer
-primitives. Standalone retains `--dump`, `--inspect`, `--once`, its own tray and
-Start with Windows; hosted errors use the host notification path.
+`taskbar-tools` retains its three worker-based features in `taskbar-center`,
+`taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and
+restore-on-exit. Each feature has its own `taskbar-<feature>.toml`, submenu and
+edit entry. `taskbar-core` holds shared Explorer and migration primitives.
+Standalone retains `--dump`, `--inspect`, `--once`, its own tray and Start with
+Windows; hosted errors use the host notification path.
 
 Each Window module has its own schema, defaults, tests and
-`window-<module>.toml` edit entry. Fresh profiles use split defaults. An imported
-full `window-tools.toml` remains the compatibility source until a module file is
-first edited; that first edit materializes the effective module settings without
-rewriting the legacy file. All files share one hotkey namespace: duplicates are
-rejected, and an invalid file leaves the complete previous configuration active.
+`window-<module>.toml` edit entry. Root-only actions such as Undo and the temporary
+screen binding live in `window-actions.toml`. Window and Taskbar migrate an old
+aggregate TOML once: existing feature files win, missing effective settings are
+materialized, and the aggregate is renamed to a `.legacy.toml` backup. Runtime
+and menus no longer use the aggregate. Window files share one hotkey namespace:
+duplicates are rejected, and an invalid file leaves the complete previous Window
+configuration active.
 
 Each plugin still has its own `plugin.toml` and config file. `group` controls
 menu ownership; `external = true` places an integration after native tools in
@@ -78,8 +81,8 @@ duplicate plugin layer; multi-plugin groups retain per-plugin wrappers. Every
 Window feature submenu also has a separator after its grey description.
 Suspend temporarily pauses hooks without
 stopping the process; Disable persistently stops the plugin and performs normal
-cleanup. Window's root `Edit window-tools config` remains the legacy aggregate
-entry while its eight feature entries edit split configuration files.
+cleanup. Window and Taskbar have no aggregate config entry; Window instead has
+`Edit Window actions config`, while every feature entry edits its own TOML.
 Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
 submenus; host and all plugins must come from the same staged package.
 

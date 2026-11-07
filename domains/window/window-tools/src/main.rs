@@ -1,6 +1,6 @@
 //! window-tools — window management for the desktop-tools suite.
 //!
-//!   window-tools                    run as a daemon (window-tools.toml)
+//!   window-tools                    run as a daemon (window-actions.toml + feature TOMLs)
 //!   window-tools --action NAME      apply one action to the foreground window
 //!   window-tools --pid PID          target a process (with --action)
 //!   window-tools --config PATH      use a different config file

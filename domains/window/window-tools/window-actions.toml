@@ -1,0 +1,3 @@
+# Global window actions and temporary screen compatibility binding.
+"ctrl+win+alt+u" = "undo"
+"win+f2" = "toggleScreen"

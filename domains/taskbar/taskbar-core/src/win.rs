@@ -28,6 +28,15 @@ pub fn post_thread_message(thread: u32, wparam: usize, lparam: isize) -> Result<
     Ok(())
 }
 
+pub fn wait_ms(milliseconds: u64, shutting_down: impl Fn() -> bool) {
+    for _ in 0..milliseconds.div_ceil(50) {
+        if shutting_down() {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50.min(milliseconds)));
+    }
+}
+
 /// Hosted stderr is captured in the plugin log; standalone diagnostics retain
 /// the same stream instead of creating module-specific files beside the exe.
 pub fn log(app: &str, text: &str) {

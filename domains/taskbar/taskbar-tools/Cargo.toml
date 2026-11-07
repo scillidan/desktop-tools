@@ -9,9 +9,10 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 kit = { path = "../../../crates/kit" }
-serde.workspace = true
-toml.workspace = true
 taskbar-core = { path = "../taskbar-core" }
+taskbar-center = { path = "../taskbar-center" }
+taskbar-hidden = { path = "../taskbar-hidden" }
+taskbar-pin = { path = "../taskbar-pin" }
 
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true

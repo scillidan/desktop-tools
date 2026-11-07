@@ -33,6 +33,9 @@ pub struct Manifest {
     /// One-line function summary shown inside nested plugin menus.
     #[serde(default)]
     pub description: Option<String>,
+    /// Whether the host adds its conventional aggregate config edit entry.
+    #[serde(default = "default_config")]
+    pub config: bool,
     #[serde(default = "default_tray")]
     pub tray: String,
 }
@@ -44,6 +47,10 @@ fn default_group() -> String {
 
 fn default_tray() -> String {
     "host".to_string()
+}
+
+fn default_config() -> bool {
+    true
 }
 
 impl Manifest {
