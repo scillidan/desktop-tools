@@ -714,9 +714,9 @@ new host identity and grouped menu as intentional differences.
 **Status 2026-11-07:** behavior import, feature ownership and P3c config split
 have 131 passing tests (plus eight intentionally ignored real-desktop tests),
 clean fmt/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
-module reload, invalid-config rollback and Suspend/Resume/Quit. Physical sign-off
-is pending. Wire v3 adds nested submenus; use one staged package for host and all
-plugins.
+module reload, invalid-config rollback and Suspend/Resume/Quit. Hosted and
+standalone physical passes are signed off. Wire v3 adds nested submenus; use one
+staged package for host and all plugins.
 
 - P3a: import `desktop-tools-rs` as `window-tools`; add profile/plugin/no-tray and
   menu IPC.
@@ -802,6 +802,10 @@ one-step undo pass physically.
 
 ### P9 — Consolidate, package and retire old products
 
+- Unify every suite/standalone executable and tray `.ico` in one visual style,
+  including normal/suspended/error/disabled states. Keep hosted and standalone
+  identities aligned and physically compare the final assets at common DPIs;
+  do not mix this cosmetic pass into behavior migrations.
 - Apply shared-kit extraction one consumer per commit, repeating affected
   physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.

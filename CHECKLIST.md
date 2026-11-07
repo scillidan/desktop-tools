@@ -79,8 +79,9 @@ Automated before handoff:
 - [x] Staging compares host/plugin SHA-256 with the release binaries. The actual
       staged window plugin was wire-probed and returned all eight nested feature
       submenus, then exited normally on Quit.
-- [x] Agent started the final staged host as PID 16744 with the existing
-      keyboard profile; six children are running and no build step is pending.
+- [x] Agent restored the final staged host as PID 28640 after standalone sign-off,
+      using the existing keyboard profile; six children are running and no build
+      step is pending.
       A corrected wire-v3 IPC harness also passed Suspend/Resume/Quit after
       reading the actual staged menu/status event order.
 
@@ -141,11 +142,11 @@ Window / no-manual-Reload menu was additionally verified through real wire v3.
 Agent stopped the host and started only the final staged standalone
 `window-tools.exe` as PID 3044; host count is zero.
 
-- [ ] With the host stopped by the agent, standalone `window-tools` shows the
+- [x] With the host stopped by the agent, standalone `window-tools` shows the
       same eight module submenus and state icons, performs one snap and mouse
       drag, and its own Quit exits cleanly without killing other applications.
-- [ ] Toggle standalone Start with Windows on/off. Agent will verify the Run
-      value names/paths and that no legacy `desktop-tools-rs` host or new host
-      was started accidentally.
+      User signed off on 2026-11-07.
+- [x] Toggle standalone Start with Windows on/off. Agent verified that all six
+      current/legacy Run values are absent and no host/window process remains.
 
-Do not advance to P4 until both P3 physical passes are signed off.
+P3 is signed off; P4 may proceed.

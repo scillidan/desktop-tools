@@ -11,8 +11,8 @@ external integrations in documentation, code registration and tray menus.
 - P2 is signed off, including hosted and standalone checks.
 - P3 window import, feature ownership and per-module configuration have clean
   fmt/tests/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
-  module reload, invalid-config rollback and lifecycle. Physical sign-off is
-  pending. Screen, taskbar, KeyMap and application toggles are not imported yet.
+  module reload, invalid-config rollback and lifecycle. Hosted and standalone
+  physical passes are signed off. Screen, taskbar, KeyMap and application toggles are not imported yet.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
