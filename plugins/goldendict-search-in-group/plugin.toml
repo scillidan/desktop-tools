@@ -1,0 +1,9 @@
+id = "goldendict-search-in-group"
+name = "GoldenDict Search In Group"
+version = "0.1.0"
+api = 1
+exe = "goldendict-search-in-group.exe"
+group = "keyboard"
+optional = false
+external = true
+tray = "host"

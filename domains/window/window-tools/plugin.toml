@@ -1,0 +1,7 @@
+id = "window-tools"
+name = "Window"
+version = "0.1.0"
+group = "window"
+api = 1
+exe = "window-tools.exe"
+tray = "host"

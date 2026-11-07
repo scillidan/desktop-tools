@@ -1,0 +1,49 @@
+[package]
+name = "window-tools"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "window-tools"
+path = "src/main.rs"
+
+[build-dependencies]
+winresource = "0.1"
+
+[dependencies]
+kit = { path = "../../../crates/kit" }
+window-core = { path = "../window-core" }
+window-quick-switch = { path = "../window-quick-switch" }
+window-rectangle = { path = "../window-rectangle" }
+window-switcher = { path = "../window-switcher" }
+window-vdesk = { path = "../window-vdesk" }
+anyhow.workspace = true
+toml.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+windows = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_System_Com",
+  "Win32_System_DataExchange",
+  "Win32_System_Environment",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_System_Performance",
+  "Win32_System_Power",
+  "Win32_System_Registry",
+  "Win32_System_SystemServices",
+  "Win32_System_Threading",
+  "Win32_System_Variant",
+  "Win32_UI_Accessibility",
+  "Win32_UI_Controls",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_WindowsAndMessaging",
+] }

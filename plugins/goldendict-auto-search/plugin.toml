@@ -1,0 +1,9 @@
+id = "goldendict-auto-search"
+name = "GoldenDict Auto Search"
+version = "0.1.0"
+api = 1
+exe = "goldendict-auto-search.exe"
+group = "keyboard"
+optional = false
+external = true
+tray = "host"

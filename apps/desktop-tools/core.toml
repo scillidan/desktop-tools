@@ -1,0 +1,16 @@
+# desktop-tools — suite host and plugin enable list.
+# Profile/User/core.toml is created from this file on first run.
+
+[host]
+start_with_windows = false
+log_level = "info"
+tray = "host"
+
+[plugins]
+enabled = [
+  "keyboard-locker",
+  "keyboard-switch",
+  "keyboard-auto-switch-back",
+  "goldendict-search-in-group",
+  "goldendict-auto-search",
+]

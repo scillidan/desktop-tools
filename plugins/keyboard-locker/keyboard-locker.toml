@@ -1,0 +1,23 @@
+# keyboard-locker — press the shortcut to lock the keyboard (all keys are
+# swallowed); type the password to unlock. In password mode the lock shortcut
+# is swallowed while locked; set unlock_with_shortcut = true to let it toggle.
+# The mouse still moves, but its buttons are swallowed; set lock_mouse = false
+# to keep them usable. Clean-room rewrite of sophice/ahk-keyboard-locker (MIT).
+# Combo syntax: ctrl+alt+shift+insert, win+l, ...
+# The password is typed as a key sequence in the active layout; use letters.
+
+[general]
+shortcut = "ctrl+alt+shift+insert"
+password = "unlock"
+lock_mouse = true
+unlock_with_shortcut = false
+
+[notify]
+# system  — Windows balloon/toast (default)
+# command — run a custom command; {title} and {body} are replaced
+# silent  — no notification
+mode = "system"
+# Examples:
+# command = 'snoretoast -t "{title}" -m "{body}"'
+# command = 'notify-send "{title}" "{body}"'   # Linux/dunst, when ported
+command = ""
