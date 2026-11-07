@@ -849,7 +849,9 @@ one host tray and one autostart entry.
   existing tests moved with it. The composition root no longer contains those
   Win32 implementations; real OCR and hosted lifecycle checks remain green.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
-  draw/capture/OCR/record/power one module per commit with tests after each.
+  draw/capture/OCR/record one module per commit with tests after each. Code and
+  automated checks are complete; hosted physical sign-off is pending. Power is
+  deliberately transferred from Window in P6c, not invented during this import.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the
   Flameshot bridge to `domains/screen/flameshot-handoff` as separate commits.
   Keep these calls in their current owning processes; add no frame IPC.
