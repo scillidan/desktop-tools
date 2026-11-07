@@ -660,7 +660,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyboard-keymap"
+name = "keyboard-locker"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -671,7 +671,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyboard-locker"
+name = "keyboard-shell"
 version = "0.1.0"
 dependencies = [
  "anyhow",

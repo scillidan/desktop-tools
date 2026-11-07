@@ -5,21 +5,49 @@ use crate::config::Config;
 
 pub const HOOK_WAKEUP_BASE: usize = 0x4b4d_0000;
 
-pub struct HookGuard;
+pub struct Shell {
+    bindings: Vec<kit::lowkey::Binding>,
+    suspended: bool,
+}
 
-impl Drop for HookGuard {
-    fn drop(&mut self) {
-        kit::lowkey::uninstall();
+impl Shell {
+    pub fn install(config: &Config) -> Result<Self> {
+        let shell = Self {
+            bindings: bindings(config)?,
+            suspended: false,
+        };
+        shell.install_hook()?;
+        Ok(shell)
+    }
+
+    pub fn is_suspended(&self) -> bool {
+        self.suspended
+    }
+
+    pub fn toggle_suspended(&mut self) -> Result<()> {
+        if self.suspended {
+            self.install_hook()?;
+            self.suspended = false;
+        } else {
+            kit::lowkey::uninstall();
+            self.suspended = true;
+        }
+        Ok(())
+    }
+
+    fn install_hook(&self) -> Result<()> {
+        kit::lowkey::set_bindings(&self.bindings);
+        if !self.bindings.is_empty() {
+            kit::lowkey::install(WM_APP, HOOK_WAKEUP_BASE)?;
+        }
+        Ok(())
     }
 }
 
-pub fn install(config: &Config) -> Result<HookGuard> {
-    let bindings = bindings(config)?;
-    kit::lowkey::set_bindings(&bindings);
-    if !bindings.is_empty() {
-        kit::lowkey::install(WM_APP, HOOK_WAKEUP_BASE)?;
+impl Drop for Shell {
+    fn drop(&mut self) {
+        kit::lowkey::uninstall();
     }
-    Ok(HookGuard)
 }
 
 fn bindings(config: &Config) -> Result<Vec<kit::lowkey::Binding>> {
@@ -53,6 +81,12 @@ mod tests {
         let bindings = bindings(&cfg).unwrap();
         assert_eq!(bindings.len(), 67);
         assert!(bindings.iter().all(|binding| binding.win));
+        assert!(bindings.iter().any(|binding| {
+            binding.vk == windows::Win32::UI::Input::KeyboardAndMouse::VK_D.0 as u8
+                && binding.ctrl
+                && !binding.shift
+                && !binding.alt
+        }));
         assert!(
             bindings
                 .iter()

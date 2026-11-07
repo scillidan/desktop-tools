@@ -1,4 +1,4 @@
-# Windows shell keys owned by keyboard-keymap, not window-tools.
+# Windows shell keys owned by Shell Keys, not window-tools or Key Map.
 [shell]
 suppress = [
     "win+shift+=",

@@ -98,7 +98,8 @@ desktop-tools/
 │   │   ├── keyboard-locker/
 │   │   ├── keyboard-switch/
 │   │   ├── keyboard-auto-switch-back/
-│   │   ├── keyboard-keymap/    # KeyMap + shell-shortcut suppression
+│   │   ├── keyboard-shell/     # Shell Keys suppression and suspension
+│   │   ├── keyboard-keymap/    # Key Map static Unicode replacement (P4b)
 │   │   ├── goldendict-search-in-group/
 │   │   └── goldendict-auto-search/
 │   └── taskbar/
@@ -127,7 +128,7 @@ plugin discovery.
 
 ### 3.2 Runtime processes
 
-The full suite is the host plus nine plugins (ten processes):
+The full suite is the host plus ten plugins (eleven processes):
 
 | Primary group | Plugin id | Executable | Default profile |
 |---|---|---|---|
@@ -136,6 +137,7 @@ The full suite is the host plus nine plugins (ten processes):
 | keyboard | `keyboard-locker` | `keyboard-locker.exe` | `keyboard-locker.toml` |
 | keyboard | `keyboard-switch` | `keyboard-switch.exe` | `keyboard-switch.toml` |
 | keyboard | `keyboard-auto-switch-back` | `keyboard-auto-switch-back.exe` | `keyboard-auto-switch-back.toml` |
+| keyboard | `keyboard-shell` | `keyboard-shell.exe` | `keyboard-shell.toml` |
 | keyboard | `keyboard-keymap` | `keyboard-keymap.exe` | `keyboard-keymap.toml` |
 | keyboard | `goldendict-search-in-group` | `goldendict-search-in-group.exe` | `goldendict-search-in-group.toml` |
 | keyboard | `goldendict-auto-search` | `goldendict-auto-search.exe` | `goldendict-auto-search.toml` |
@@ -270,7 +272,7 @@ Window
 ├── Virtual Desktops
 ├── (P7) Double Commander / WezTerm — external, after native modules
 ├── Undo Window Action
-├── Suspend Window
+├── Suspend Group "Window"
 ├── Disable / Restart window-tools
 ├── Edit window-tools config (one host-owned entry)
 └── Open window-tools log
@@ -353,17 +355,18 @@ protocol and its physical test matrix.
 
 ### 4.3 Keyboard
 
-The five current `keyboard-tools-rs` plugins move unchanged first. The new
-`keyboard-keymap` plugin then owns:
+The five current `keyboard-tools-rs` plugins move unchanged first. Two separate
+native plugins own the new behavior:
 
-- user-defined literal trigger → Unicode replacement mappings;
-- shell shortcuts formerly written as `"combo" = "suppress"` in
-  `desktop-tools.toml`, isolated as the **Shell Keys** module in the same
-  process, with its own editable `keyboard-shell.toml`; no new process or
-  top-level Others group is introduced.
+- **Shell Keys** (`keyboard-shell`, `keyboard-shell.toml`) owns shell shortcuts
+  formerly written as `"combo" = "suppress"` in `desktop-tools.toml` and has an
+  independent `Suspend Shell Keys` menu toggle which really removes/reinstalls
+  its hook. It has no text-replacement responsibility.
+- **Key Map** (`keyboard-keymap`, `keyboard-keymap.toml`) owns only user-defined
+  literal trigger → Unicode replacement mappings in P4b.
 
 The generic low-level Win-combo hook implementation belongs in `crates/kit`,
-not in a cross-process hotkey broker. `window-tools` and `keyboard-keymap`
+not in a cross-process hotkey broker. `window-tools` and `keyboard-shell`
 each install it for their own local binding table and execute their own
 actions. There is no hook → host IPC → plugin round trip on a hotkey path.
 
@@ -575,12 +578,12 @@ Notepad, WezTerm, a browser edit control and an Office-style rich edit, includin
 fast typing and Chinese IME/German layout where available. CopyQ should confirm
 that expansion never touches the clipboard.
 
-### 7.3 Shell suppression is separate from KeyMap
+### 7.3 Shell Keys is separate from Key Map
 
-The same executable may host the small shell-suppression module so keyboard
-hook infrastructure is shared without adding another process. It has its own
-`[shell]` config section, validation, menu state and tests; it is not a KeyMap
-trigger feature and shares no recognizer state.
+`keyboard-shell.exe` and `keyboard-shell.toml` own suppression independently of
+`keyboard-keymap`. `Suspend Shell Keys` is an immediate, non-persistent menu
+toggle: suspend uninstalls the hook, resume restores the configured bindings.
+The two plugins share only kit code, never recognizer or suspension state.
 
 - Existing suppress-only Win bindings move here from `desktop-tools.toml`.
 - `Win+C` remains suppressed; the reference's calculator mapping is not ported.
@@ -734,17 +737,18 @@ staged package for host and all plugins.
 Gate: all current window/desktop/QuickSwitch/mouse/undo physical checks pass,
 plus hosted Reload/Restart/Exit and standalone parity.
 
-### P4 — Add KeyMap and move shell suppression
+### P4 — Add Key Map and move shell suppression
 
-**P4a status 2026-11-07:** shared exact-combo hook, `keyboard-keymap` shell module,
-67-binding default/custom import and Window ownership removal pass 138 tests,
-clippy, release/staging and seven-plugin smoke. The real profile imported 67/67
-rows. Physical suppression and plugin-lifecycle sign-off are pending; P4b remains
-gated.
+**P4a status 2026-11-07:** after physical feedback, suppression is a separate
+`keyboard-shell` / **Shell Keys** plugin with a real suspend/resume menu. The
+shared hook, 67-binding import and Window ownership removal pass 140 tests,
+clippy, release/staging and seven-plugin smoke. Wire probes verify both suspend
+transitions and clean Quit; the real profile preserves 67/67 rows. Physical
+re-test with Shell Keys explicitly Enabled is pending; P4b remains gated.
 
 Split into reviewable substeps:
 
-- P4a: the separate shell module owns suppression; window ignores migrated
+- P4a: the separate Shell Keys plugin owns suppression; window ignores migrated
   suppress rows. It temporarily retains `Win+E` suppression until P7 installs
   the app toggle, so Explorer never regains that key during migration. `Win+C`
   stays suppressed. Verify every default Win binding, not a spot check, and
@@ -787,7 +791,7 @@ owned overlay class and that Flameshot still receives the current live frame.
 - Implement `window/app-toggle`: `ToggleDoubleCommander` on `Win+E` and
   `ToggleWezTerm` on ``Ctrl+` `` with the §5 state machine. `window-tools`
   links the module and exposes the actions after native window actions. In the
-  same phase, remove KeyMap's temporary `Win+E` suppression so there is neither
+  same phase, remove Shell Keys' temporary `Win+E` suppression so there is neither
   a gap nor a duplicate owner.
 - Test absent/minimized/background/foreground/pending-launch states, multiple
   WezTerm windows, auto-repeat, elevated focus failure and lock state.
@@ -874,7 +878,7 @@ out in the approval rather than silently accepted:
    deferred until independent lifecycle/fault isolation justifies the
    selection-session protocol described in §4.2.
 2. ``Ctrl+Win+Alt+X`` as the default `swapWindows` binding.
-3. KeyMap matches immediately without an ending character and rejects maps
+3. Key Map matches immediately without an ending character and rejects maps
    where one complete trigger prefixes another. This avoids timing/look-ahead
    ambiguity and is the design intended to eliminate Espanso's residual trigger
    symbol rather than reproduce AHK's unrelated features.

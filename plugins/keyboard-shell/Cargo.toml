@@ -1,6 +1,6 @@
 [package]
-name = "keyboard-keymap"
-description = "Exact static Unicode key mappings and Windows shell-key suppression"
+name = "keyboard-shell"
+description = "Suspendible Windows shell-key suppression"
 license.workspace = true
 authors.workspace = true
 version.workspace = true

@@ -766,7 +766,7 @@ pub fn parse(text: &str) -> Result<Config> {
         }
         if let Some(t) = action.as_str() {
             if t == "suppress" {
-                continue; // Owned by keyboard-keymap since P4a.
+                continue; // Owned by keyboard-shell since P4a.
             }
             match (combo.parse::<Combo>(), t.parse::<Action>()) {
                 (Ok(c), Ok(a)) => out.push(Binding {

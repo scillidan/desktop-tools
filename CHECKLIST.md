@@ -47,22 +47,27 @@ Physical:
 
 P2 signed off on 2026-11-06; this unlocked P3.
 
-## P4a — shell suppression moved to KeyMap
+## P4a — independent Shell Keys suppression
 
-- [x] 138 tests, clippy, release/staging and seven-plugin isolated smoke passed;
-      the real profile imported all 67 existing suppressions, including Win+E.
-- [x] Agent started the final staged host as PID 27344 with seven children.
+- [x] 140 tests, clippy, release/staging and seven-plugin isolated smoke passed;
+      the real Shell Keys profile preserved all 67 previous suppressions.
+- [x] Real wire IPC verified Suspend Shell Keys checked=false → true → false and
+      a clean Quit. Agent started the staged host as PID 20404 with Shell Keys
+      explicitly Enabled and seven children.
+- [x] The earlier Win+Ctrl+D failure was observed while KeyMap was Disabled;
+      no hook-code change was made without a failing enabled-state signal.
 
-- [ ] Keyboard contains native **KeyMap** before GoldenDict; its config entry opens
-      `keyboard-keymap.toml` and Window's legacy TOML remains unchanged.
-- [ ] With KeyMap enabled, physically try **Win+E**, **Win+Shift+S**, **Win+.**
-      and **Win+Ctrl+D**: Explorer, Snipping Tool, emoji panel and desktop creation
-      must not appear. Releasing Win must not open Start. Ordinary Ctrl+C and
-      Win+Alt+H window snap must continue working.
-- [ ] Window → Suspend Window must not disable shell suppression. Then Disable
-      KeyMap from Keyboard and confirm Win+E now opens Explorer (Window must not
-      take it back); Enable KeyMap and confirm Win+E is suppressed again.
-- [ ] Host Exit must close all seven plugins without leftover processes/hooks.
+- [ ] Keyboard contains native **Shell Keys** before GoldenDict; its config entry
+      opens `keyboard-shell.toml`. The legacy Window TOML remains unchanged.
+- [ ] With Shell Keys visibly Enabled, try **Win+Ctrl+D** first: it must not create
+      or switch to a virtual desktop. Then Win+E, Win+Shift+S and Win+. must not
+      open their shell UI, and releasing Win must not open Start.
+- [ ] Keyboard → Shell Keys → **Suspend Shell Keys** must become checked and allow
+      Win+E / Win+Ctrl+D normally. Select it again to resume; it becomes unchecked
+      and both combinations are suppressed. Window → Suspend Group "Window"
+      must remain a separate state and must not suspend Shell Keys.
+- [ ] Ordinary Ctrl+C and Win+Alt+H window snap still work. Host Exit closes all
+      seven plugins without leftover processes/hooks.
 
 Do not advance to P4b until this pass is signed off.
 
@@ -113,7 +118,7 @@ Window / no-manual-Reload menu was additionally verified through real wire v3.
       Window directly opens Rectangle / Resize / Mouse Drag / On Top/Bottom /
       Maximize/Minimize / App Window Switch / Quick Switch / Virtual Desktops.
       Each has its own Edit config; Resize also has Edit resize presets, and
-      On Top/Bottom has Clear all pins. Window root has Undo and Suspend Window
+      On Top/Bottom has Clear all pins. Window root has Undo and Suspend Group "Window"
       (no manual Reload), plus host Disable/Restart/config/log. No intermediate Window (running),
       duplicate plugin config entry or second Window tray.
 - [ ] **Rectangle edges/corners:** on a normal window, each Win+Alt+H/L/K/J
@@ -147,7 +152,7 @@ Window / no-manual-Reload menu was additionally verified through real wire v3.
       and input wakes them. These are temporary P3-owned behaviors: P4 performs
       the exhaustive suppression matrix after moving it to keyboard-shell, and
       P6c moves monitor power to screen-power.
-- [ ] **Lifecycle/config:** Window → Suspend Window disables its hotkeys/drag while
+- [ ] **Lifecycle/config:** Window → Suspend Group "Window" disables its hotkeys/drag while
       keyboard tools still work; Resume restores them. Open all eight module
       config entries and confirm each opens its matching TOML with the existing
       effective bindings/settings (the original full legacy file is unchanged).
