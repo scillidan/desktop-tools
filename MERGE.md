@@ -400,7 +400,19 @@ internals:
 Standalone diagnostics keep their working console behavior. In hosted mode,
 logs and errors go to stderr, never to stdout or a modal message box.
 
-### 4.5 External integrations and ordering
+### 4.5 Menu semantics
+
+Nested plugin wrappers own the `(running)` status. Their inner menu starts with
+one grey manifest `description` and a separator; it does not repeat status,
+version or restart counters. Single-plugin groups remain inline.
+
+Suspend is temporary hook/feature suspension while the process remains running.
+Disable is persistent lifecycle removal with graceful cleanup. Keep both where
+their meanings differ; do not turn them into aliases. Feature config entries
+edit split files. Window's root `Edit window-tools config` remains only for the
+legacy aggregate source until that compatibility path is retired.
+
+### 4.6 External integrations and ordering
 
 External applications do not require a separate top-level group. Window owns
 Double Commander/WezTerm toggles, screen owns the Flameshot bridge, and keyboard
@@ -778,7 +790,9 @@ trigger/replacement text appears in logs and expansion never touches clipboard.
 **Code/automated status 2026-11-07:** `taskbar-core` and `taskbar-tools` retain
 all 27 original tests, hosted Suspend/Unpin/Quit and the hidden-taskbar hotkey
 are wire-verified, diagnostics run against the real Explorer, and nine-plugin
-smoke passes. Physical taskbar behavior and standalone parity remain pending.
+smoke passes. A real hidden-taskbar graceful Disable restored the taskbar;
+Enable restored its hotkey and the original core file. Physical taskbar behavior
+and standalone parity remain pending.
 
 - Add profile/hosted menu/IPC while preserving diagnostics and standalone mode.
 - Keep existing taskbar algorithms unchanged.

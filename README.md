@@ -53,7 +53,7 @@ Window menu and code are divided into native modules:
 - `window-tools`: composition root, hooks, configuration, CLI, host IPC and tray.
 
 The modules share suspend/reload/undo and do not add independent processes or
-per-module Enable/Restart switches. Each has its own schema, defaults, tests and
+per-module Enable/Restart switches.
 
 `taskbar-tools` retains its three worker-based features — Taskbar Pin,
 CenterTaskbar and HiddenTaskbar — with one shared `taskbar-tools.toml`, automatic
@@ -70,7 +70,13 @@ rejected, and an invalid file leaves the complete previous configuration active.
 
 Each plugin still has its own `plugin.toml` and config file. `group` controls
 menu ownership; `external = true` places an integration after native tools in
-the same group. Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
+the same group. Nested plugin wrappers show process status in their labels;
+inside, an optional manifest `description` and separator replace duplicate
+status, version and restart counters. Suspend temporarily pauses hooks without
+stopping the process; Disable persistently stops the plugin and performs normal
+cleanup. Window's root `Edit window-tools config` remains the legacy aggregate
+entry while its eight feature entries edit split configuration files.
+Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
 submenus; host and all plugins must come from the same staged package.
 
 ## Build and test

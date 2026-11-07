@@ -182,27 +182,10 @@ impl Host {
         let mut targets = HashMap::new();
         for hosted in &self.plugins {
             let id = &hosted.plugin.manifest.id;
-            let status = hosted
-                .ipc_status
-                .as_deref()
-                .unwrap_or(hosted.status.label());
             let group = group_index(&hosted.plugin.manifest.group)
                 .expect("catalog accepts only known groups");
             let inline = group_sizes[group] == 1;
-            let mut sub = if inline {
-                Vec::new()
-            } else {
-                vec![
-                    Entry::Info(format!("Status: {status}")),
-                    Entry::Info(format!("Version: {}", hosted.plugin.manifest.version)),
-                ]
-            };
-            if !inline && hosted.restarts > 0 {
-                sub.push(Entry::Info(format!("Restarts: {}", hosted.restarts)));
-            }
-            if !inline {
-                sub.push(Entry::Sep);
-            }
+            let mut sub = plugin_menu_header(hosted.plugin.manifest.description.as_deref(), inline);
             let contributed = render_plugin_items(id, &hosted.menu, &mut targets);
             let has_contributed = !contributed.is_empty();
             sub.extend(contributed);
@@ -739,6 +722,13 @@ impl Host {
     }
 }
 
+fn plugin_menu_header(description: Option<&str>, inline: bool) -> Vec<Entry> {
+    match (inline, description) {
+        (false, Some(description)) => vec![Entry::Info(description.into()), Entry::Sep],
+        _ => Vec::new(),
+    }
+}
+
 fn push_group_entry(
     entries: &mut Vec<Entry>,
     name: &str,
@@ -1036,6 +1026,7 @@ mod tests {
                     group: "keyboard".into(),
                     optional: false,
                     external: false,
+                    description: None,
                     tray: "host".into(),
                 },
                 dir: root.clone(),
@@ -1129,6 +1120,18 @@ mod tests {
         assert!(
             matches!(multi.as_slice(), [Entry::SubmenuOwned(label, _)] if label == "Window (running)")
         );
+    }
+
+    #[test]
+    fn nested_plugin_header_is_description_only() {
+        assert!(plugin_menu_header(None, false).is_empty());
+        assert!(plugin_menu_header(Some("ignored for inline groups"), true).is_empty());
+        let entries = plugin_menu_header(Some("Replaces exact text triggers."), false);
+        assert_eq!(entries.len(), 2);
+        assert!(
+            matches!(&entries[0], Entry::Info(label) if label == "Replaces exact text triggers.")
+        );
+        assert!(matches!(entries[1], Entry::Sep));
     }
 
     #[test]

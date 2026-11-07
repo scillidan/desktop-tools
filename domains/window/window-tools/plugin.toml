@@ -1,5 +1,6 @@
 id = "window-tools"
 name = "Window"
+description = "Native window layout, switching, pinning, drag and virtual desktop tools."
 version = "0.1.0"
 group = "window"
 api = 1

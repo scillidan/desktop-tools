@@ -206,14 +206,14 @@ P3 is signed off; P4 may proceed.
 
 Automated before handoff:
 
-- [x] `scripts\verify.ps1`: 176 tests, clippy, release and hash-verified staging.
+- [x] `scripts\verify.ps1`: 177 tests, clippy, release and hash-verified staging.
 - [x] Taskbar retains all 27 original geometry/pin/config tests. Real wire v3
       verifies Ready, `Ctrl+Alt+F9` occupancy, Suspend on/off, Unpin and Quit=0.
 - [x] Real Explorer `--dump`, `--inspect` and `--once` return successfully.
 - [x] Isolated host starts nine children; Window, GoldenDict and Taskbar hotkey
       probes pass; duplicate hosted locker and hard-kill cleanup still pass.
 
-Physical pass A — hosted Taskbar (agent started host PID 27268):
+Physical pass A — hosted Taskbar (agent restarted final host PID 28156):
 
 - [ ] One host tray contains **Taskbar** after Keyboard. Taskbar has Unpin all,
       Suspend Group "Taskbar" and host
@@ -223,12 +223,18 @@ Physical pass A — hosted Taskbar (agent started host PID 27268):
       with an incorrect work area.
 - [ ] Suspend Group "Taskbar" disables `Ctrl+Alt+F9` without suspending Window
       or Keyboard; resume restores it.
-- [ ] With the taskbar hidden, use host **Restart taskbar-tools**: the taskbar
-      must be restored during stop, then HiddenTaskbar must work again. Repeat
-      with Disable, then Enable. Check for duplicate processes in Task Manager.
-- [ ] Taskbar Pin defaults to `pin = []` and therefore does not reorder anything.
-      If a custom order is desired, record it explicitly before testing; do not
-      infer or overwrite the user's preferred order.
+- [x] Agent executed the hidden-state case without requiring an inaccessible
+      tray menu: real Ctrl+Alt+F9 hide → graceful Disable through core reload →
+      taskbar visible again → Enable → hotkey occupied again. Original core
+      configuration was restored exactly.
+- [ ] With the taskbar visible, use **Restart taskbar-tools**, then Disable and
+      Enable; each final state and menu label must agree, with no duplicates.
+- [ ] Current profile has `pin = ["brave"]`; only Brave is moved ahead of other
+      groups while their relative order is preserved. Do not infer a different
+      preferred order or overwrite this setting.
+- [ ] Keyboard plugin wrappers retain `(running)` but their inner menus have no
+      Status/Version/Restarts rows. A grey function description is followed by a
+      separator; Window root still exposes its legacy aggregate config entry.
 - [ ] Host Exit restores centered/hidden taskbar state and leaves no taskbar
       worker, process or registered hotkey behind.
 

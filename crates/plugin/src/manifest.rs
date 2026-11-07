@@ -30,6 +30,9 @@ pub struct Manifest {
     /// External integrations are presented after native tools.
     #[serde(default)]
     pub external: bool,
+    /// One-line function summary shown inside nested plugin menus.
+    #[serde(default)]
+    pub description: Option<String>,
     #[serde(default = "default_tray")]
     pub tray: String,
 }
