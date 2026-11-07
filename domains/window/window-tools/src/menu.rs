@@ -111,13 +111,8 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
         },
         MenuItem::Toggle {
             id: "suspend".into(),
-            label: "Suspend all hotkeys".into(),
+            label: "Suspend Window".into(),
             checked: suspended,
-            enabled: true,
-        },
-        MenuItem::Item {
-            id: "reload".into(),
-            label: "Reload window configs".into(),
             enabled: true,
         },
     ];
@@ -174,6 +169,8 @@ mod tests {
         hosted.validate().unwrap();
         assert_eq!(hosted.id_for_label("Clear all pins"), Some("clear-pins"));
         assert_eq!(hosted.id_for_label("Undo Window Action"), Some("undo"));
+        assert_eq!(hosted.id_for_label("Suspend Window"), Some("suspend"));
+        assert_eq!(hosted.id_for_label("Reload window configs"), None);
         assert_eq!(hosted.id_for_label("Exit window-tools"), None);
         assert_eq!(hosted.id_for_label("Edit window-tools.toml"), None);
         assert_eq!(

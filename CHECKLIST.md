@@ -79,19 +79,22 @@ Automated before handoff:
 - [x] Staging compares host/plugin SHA-256 with the release binaries. The actual
       staged window plugin was wire-probed and returned all eight nested feature
       submenus, then exited normally on Quit.
-- [x] Agent started the final staged host as PID 10436 with the existing
+- [x] Agent started the final staged host as PID 16744 with the existing
       keyboard profile; six children are running and no build step is pending.
       A corrected wire-v3 IPC harness also passed Suspend/Resume/Quit after
       reading the actual staged menu/status event order.
 
 ### Physical pass A — hosted Window + Keyboard
 
+User reported the hosted behavior "基本ok" on 2026-11-07; the final Suspend
+Window / no-manual-Reload menu was additionally verified through real wire v3.
+
 - [ ] **Structure/config entries:** one host tray has Window before Keyboard.
       Window directly opens Rectangle / Resize / Mouse Drag / On Top/Bottom /
       Maximize/Minimize / App Window Switch / Quick Switch / Virtual Desktops.
       Each has its own Edit config; Resize also has Edit resize presets, and
-      On Top/Bottom has Clear all pins. Window root has Undo, Suspend and Reload,
-      plus host Disable/Restart/config/log. No intermediate Window (running),
+      On Top/Bottom has Clear all pins. Window root has Undo and Suspend Window
+      (no manual Reload), plus host Disable/Restart/config/log. No intermediate Window (running),
       duplicate plugin config entry or second Window tray.
 - [ ] **Rectangle edges/corners:** on a normal window, each Win+Alt+H/L/K/J
       cycles 1/2 → 2/3 → 1/3. Check all four Ctrl+Win+Alt+H/K/J/L corners and
@@ -124,15 +127,19 @@ Automated before handoff:
       and input wakes them. These are temporary P3-owned behaviors: P4 performs
       the exhaustive suppression matrix after moving it to keyboard-shell, and
       P6c moves monitor power to screen-power.
-- [ ] **Lifecycle/config:** Window → Suspend disables its hotkeys/drag while
+- [ ] **Lifecycle/config:** Window → Suspend Window disables its hotkeys/drag while
       keyboard tools still work; Resume restores them. Open all eight module
       config entries and confirm each opens its matching TOML with the existing
       effective bindings/settings (the original full legacy file is unchanged).
-      Make one harmless gap edit in Rectangle, Reload, confirm the new snap
-      margin, then restore it and Reload. Host Restart preserves Running +
+      Make one harmless gap edit in Rectangle, save, and confirm auto-reload
+      applies the new snap margin within about a second; restore and save again.
+      Host Restart preserves Running +
       Disable `window-tools` with no duplicate hook or tray.
 
 ### Physical pass B — standalone Window (agent will restart between modes)
+
+Agent stopped the host and started only the final staged standalone
+`window-tools.exe` as PID 3044; host count is zero.
 
 - [ ] With the host stopped by the agent, standalone `window-tools` shows the
       same eight module submenus and state icons, performs one snap and mouse

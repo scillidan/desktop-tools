@@ -270,8 +270,7 @@ Window
 ├── Virtual Desktops
 ├── (P7) Double Commander / WezTerm — external, after native modules
 ├── Undo Window Action
-├── Suspend all hotkeys
-├── Reload window configs
+├── Suspend Window
 ├── Disable / Restart window-tools
 ├── Edit window-tools config (one host-owned entry)
 └── Open window-tools log
@@ -279,11 +278,14 @@ Window
 
 Clear all pins is a feature-scoped action, not Restart/Reload. Stop/Restart
 share its cleanup primitive so no pinned HWND is orphaned; Reload preserves
-pins. Global Undo can reverse both geometry and window-state actions.
+pins. Global Undo can reverse both geometry and window-state actions. Config
+files auto-reload about one second after saving; no manual Reload menu is needed.
+Restart remains the root-level process/hook recovery action.
 
 A small internal `window-core` crate owns only domain primitives (`WinId`,
-`Rect`, `Monitor`) and narrow window-query traits. It has no tray, IPC, config
-or host knowledge; feature crates must not depend back on `window-tools`.
+`Rect`, `Monitor`), narrow window-query traits and the shared binding parser.
+It has no tray, IPC, feature policy or host knowledge; feature crates must not
+depend back on `window-tools`.
 
 The nested module menu requires an explicit menu-model/host rendering change;
 it must not be emulated with fake plugin ids or extra processes. Standalone
