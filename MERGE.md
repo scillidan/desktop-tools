@@ -822,6 +822,14 @@ one host tray and one autostart entry.
   real renamed window classes pass. The documented `tools/physical.ps1` is
   absent; standalone tray, draw/resize, capture/OCR and Ctrl+Alt+R recording
   were physically signed on 2026-11-07.
+- P6b baseline: `screen-tools` is a hosted Screen plugin with shared profile
+  and config migration, native-before-external registration, host notifications,
+  custom Win32 IPC wakeup and no legacy hosted Quit hotkey. The original capture,
+  OCR, recording, overlay and CLI code remains intact for subsequent per-module
+  commits. Kit now owns the shared layout primitives; `window-core` re-exports
+  them. Hosted Suspend releases/re-registers Screen hotkeys independently.
+  Quit drops COM-owning frames before `CoUninitialize`; the real wire probe
+  verifies exit code 0 rather than mere process disappearance.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the

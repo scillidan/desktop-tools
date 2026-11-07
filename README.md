@@ -9,34 +9,31 @@ external integrations in documentation, code registration and tray menus.
 
 - Merge P1 (host readiness in `keyboard-tools-rs`) is signed off.
 - P2 is signed off, including hosted and standalone checks.
-- P3 window import, feature ownership and per-module configuration have clean
-  fmt/tests/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
-  module reload, invalid-config rollback and lifecycle. Hosted and standalone
-  physical passes are signed off. P4a moves all 67 legacy shell suppressions into
-  the independent **Shell Keys** plugin (`keyboard-shell.toml`), with a real
-  Suspend Shell Keys toggle. **Key Map** is a separate plugin with immediate
-  static Unicode replacement and same-process automatic config reload. Native
-  plugins and Window feature menus sort by display name; external tools follow.
-  Screen and application toggles are not imported yet. P5 imports the native
-  taskbar tools with profile/host IPC and clean worker restoration; its physical
-  pass is pending.
+- P1-P5 are signed off, including hosted/standalone lifecycle and physical
+  checks. P4 splits **Shell Keys** (67 suppressions) from **Key Map** (immediate
+  static Unicode replacement). P6a renamed the screen source to **Screen Tools**
+  and passed standalone draw, capture/OCR and recording acceptance. P6b imports
+  Screen into the shared profile and host with clean wire-v3
+  Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
+  physical acceptance and feature-crate extraction are still in progress.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
 
 ## Current plugins
 
-Native window/keyboard/taskbar tools first, then external GoldenDict integrations:
+Native window/screen/keyboard/taskbar tools first, then external GoldenDict integrations:
 
 1. `window-tools`
-2. `taskbar-tools`
-3. `keyboard-keymap`
-4. `keyboard-auto-switch-back`
-5. `keyboard-locker`
-6. `keyboard-switch`
-7. `keyboard-shell`
-8. `goldendict-auto-search` (external)
-9. `goldendict-search-in-group` (external)
+2. `screen-tools`
+3. `taskbar-tools`
+4. `keyboard-keymap`
+5. `keyboard-auto-switch-back`
+6. `keyboard-locker`
+7. `keyboard-switch`
+8. `keyboard-shell`
+9. `goldendict-auto-search` (external)
+10. `goldendict-search-in-group` (external)
 
 `window-tools` is one hosted process and one standalone executable, but its
 Window menu and code are divided into native modules:
@@ -54,6 +51,14 @@ Window menu and code are divided into native modules:
 
 The modules share suspend/reload/undo and do not add independent processes or
 per-module Enable/Restart switches.
+
+`screen-tools` retains the frame, Draw, Capture, OCR, Record, Scale and
+Flameshot handoff behavior from Screen Tools. Hosted mode uses the shared
+`screen-tools.toml` compatibility profile, no second tray or legacy Quit hotkey,
+and the original Win32 loop with a custom IPC wakeup. Suspend releases Screen
+hotkeys without changing Window/Keyboard/Taskbar. Hosted notifications use the
+host; standalone retains its tray and autostart. Feature extraction preserves
+one process and coordinated capture/overlay/recording lifecycle.
 
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
 `taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and
@@ -103,6 +108,7 @@ stage\
   desktop-tools.exe
   plugins\
     window-tools\...
+    screen-tools\...
     taskbar-tools\...
     keyboard-keymap\...
     keyboard-shell\...

@@ -125,6 +125,10 @@ pub fn load_or_create(path: &Path, default_toml: &str) -> Result<String> {
     std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))
 }
 
+pub fn modified(path: &Path) -> Option<std::time::SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
 /// Spawn a fresh copy with the same profile override, then let the caller quit.
 pub fn restart_self() {
     let Ok(me) = std::env::current_exe() else {

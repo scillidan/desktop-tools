@@ -1,0 +1,835 @@
+//! screen-tools-rs — OCR frame window + overlay (Text-Grab model).
+//!
+//! P0.2: a borderless always-on-top hollow frame marks a fixed OCR region.
+//! Draw it with the draw binding, resize it by typed SizeSpec, pin it
+//! click-through, and capture its region to the clipboard. OCR lands in P1.
+
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
+mod audio;
+mod capture;
+mod config;
+mod desktops;
+mod flameshot;
+mod frame;
+mod host;
+mod hotkeys;
+mod icon;
+mod interaction;
+mod mask;
+mod menu;
+mod ocr;
+mod overlay;
+mod pin;
+mod record;
+mod scale;
+mod text;
+mod tray;
+
+use anyhow::Result;
+use std::io::Write;
+use std::os::windows::process::CommandExt;
+use std::time::SystemTime;
+
+use config::Action;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::HiDpi::{
+    SetProcessDpiAwareness, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
+    DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, PROCESS_DPI_AWARENESS,
+};
+
+fn main() -> std::process::ExitCode {
+    match run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(e) => {
+            // `{:#}` is anyhow's Display chain, not Debug.
+            eprintln!("error: {e:#}");
+            logline(&format!("error: {e:#}"));
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn set_dpi_aware() {
+    // Provenance: desktop-tools-rs src/win32.rs set_dpi_aware.
+    unsafe {
+        for ctx in [
+            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
+        ] {
+            if SetProcessDpiAwarenessContext(ctx).is_ok() {
+                return;
+            }
+        }
+        // Fallback for pre-Win10: system-DPI-aware beats nothing.
+        let _ = SetProcessDpiAwareness(PROCESS_DPI_AWARENESS(1));
+    }
+}
+
+fn run() -> Result<()> {
+    let hosted = std::env::args().any(|arg| arg == "--plugin");
+    set_dpi_aware();
+    unsafe {
+        use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
+    }
+    // One resident daemon only. Several instances each own a frame and cannot
+    // register the same hotkeys; quitting the tray of one leaves the others
+    // running, which looks like the app refuses to exit.
+    let _single = unsafe {
+        use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+        use windows::Win32::System::Threading::CreateMutexW;
+        match CreateMutexW(None, true, windows::core::w!("Local\\screen-tools.single")) {
+            Ok(handle) => {
+                if GetLastError() == ERROR_ALREADY_EXISTS {
+                    logline("another screen-tools instance is already running; exiting");
+                    return Ok(());
+                }
+                Some(handle)
+            }
+            Err(e) => {
+                logline(&format!("warn: single-instance mutex unavailable: {e}"));
+                None
+            }
+        }
+    };
+    // Hold the legacy mutex too, so old and renamed executables cannot run together.
+    let _legacy_single = unsafe {
+        use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+        use windows::Win32::System::Threading::CreateMutexW;
+        match CreateMutexW(
+            None,
+            true,
+            windows::core::w!("Local\\screen-tools-rs.single"),
+        ) {
+            Ok(handle) => {
+                if GetLastError() == ERROR_ALREADY_EXISTS {
+                    logline("legacy screen-tools-rs instance is already running; exiting");
+                    return Ok(());
+                }
+                Some(handle)
+            }
+            Err(e) => {
+                logline(&format!(
+                    "warn: legacy single-instance mutex unavailable: {e}"
+                ));
+                None
+            }
+        }
+    };
+    let (cfg_path, text) = kit::config::load_profile_with_legacy(
+        config::CONFIG_NAME,
+        &["dt-ocr.toml"],
+        include_str!("../screen-tools.toml"),
+    )?;
+    let mut cfg = config::parse(&text)?;
+    ocr::set_engine(cfg.ocr_engine);
+    ocr::set_auto(cfg.ocr_auto);
+    mask::set_fill(cfg.mask_fill);
+    mask::set_style(cfg.mask_font.clone(), cfg.mask_size, cfg.mask_mode);
+    set_capture_dir(&cfg.capture_dir);
+    tray::set_notify(cfg.notify_enabled);
+    flameshot::set_path(cfg.flameshot.clone());
+    set_external_editor(&cfg.external_editor);
+    set_record_cfg(&cfg);
+    cleanup_temp_captures();
+    set_pin_style(cfg.pin_border, cfg.pin_line_color, cfg.pin_hatch_color);
+    logline(&format!(
+        "config loaded from {} (frame {}x{})",
+        cfg_path.display(),
+        cfg.frame_w,
+        cfg.frame_h
+    ));
+
+    let host = host::Host::new()?;
+    let plugin = if hosted {
+        let hwnd = host.hwnd().0 as isize;
+        let link = kit::ipc::PluginLink::new_with_wakeup(move |_| unsafe {
+            let hwnd = HWND(hwnd as *mut core::ffi::c_void);
+            let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                Some(hwnd),
+                windows::Win32::UI::WindowsAndMessaging::WM_APP + 70,
+                windows::Win32::Foundation::WPARAM(0),
+                windows::Win32::Foundation::LPARAM(0),
+            );
+        })?;
+        tray::set_notifier(link.notifier());
+        link.ready(hosted_menu(false), Some("screen-tools: running".into()))?;
+        Some(link)
+    } else {
+        None
+    };
+    let mut frames = desktops::Frames::new(&cfg)?;
+    let _tray = if hosted {
+        None
+    } else {
+        match tray::Tray::new(host.hwnd()) {
+            Ok(tray) => Some(tray),
+            Err(e) => {
+                logline(&format!("warn: tray unavailable: {e:#}"));
+                None
+            }
+        }
+    };
+    let mut suspended = false;
+
+    let mut hotkeys = register_hotkeys(host.hwnd(), &cfg);
+    let mut mtime = kit::config::modified(&cfg_path);
+
+    // 1 s timer drives config hot-reload (bindings only; the desktop-tools-rs
+    // pattern — mtime polling, no notify dependency).
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{SetTimer, TIMERPROC};
+        let _ = SetTimer(Some(host.hwnd()), 1, 250, Some(TIMERPROC::None));
+    }
+
+    let mut msg = windows::Win32::UI::WindowsAndMessaging::MSG::default();
+    let mut last_config_poll = std::time::Instant::now();
+    loop {
+        let got =
+            unsafe { windows::Win32::UI::WindowsAndMessaging::GetMessageW(&mut msg, None, 0, 0) };
+        if !got.as_bool() {
+            break; // WM_QUIT
+        }
+        if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_APP + 70 {
+            if let Some(link) = &plugin {
+                while let Some(command) = link.try_recv() {
+                    match command {
+                        kit::ipc::HostCommand::Invoke { id, .. } if id == "suspend" => {
+                            suspended = !suspended;
+                            if suspended {
+                                hotkeys.unregister_all(host.hwnd());
+                                ocr::disable_auto();
+                                unsafe { mask::dismiss() };
+                            } else {
+                                hotkeys = register_hotkeys(host.hwnd(), &cfg);
+                            }
+                            let _ = link.menu(&hosted_menu(suspended));
+                            logline(&format!("screen group suspended={suspended}"));
+                        }
+                        kit::ipc::HostCommand::Reload { .. } => {
+                            mtime = None;
+                            last_config_poll =
+                                std::time::Instant::now() - std::time::Duration::from_secs(1);
+                            unsafe {
+                                let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                                    Some(host.hwnd()),
+                                    windows::Win32::UI::WindowsAndMessaging::WM_TIMER,
+                                    windows::Win32::Foundation::WPARAM(1),
+                                    windows::Win32::Foundation::LPARAM(0),
+                                );
+                            }
+                        }
+                        kit::ipc::HostCommand::Quit { .. } => unsafe {
+                            windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0)
+                        },
+                        _ => logline("warn: unknown host menu command"),
+                    }
+                }
+            }
+        }
+        if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY {
+            if let Some(action) = hotkeys.action_of(msg.wParam.0 as i32) {
+                // MOD_NOREPEAT already suppresses held-key repeats; this also
+                // swallows duplicate injected messages before they stack pins.
+                let mut last = LAST_HOTKEY
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner());
+                let repeated = hotkey_repeat(&mut last, action, std::time::Instant::now());
+                drop(last);
+                if repeated {
+                    logline(&format!("hotkey repeat ignored: {action:?}"));
+                    continue;
+                }
+                logline(&format!("hotkey: {action:?}"));
+                match frames.current(&cfg) {
+                    Ok(current) => dispatch(action, current),
+                    Err(e) => logline(&format!("warn: cannot select desktop frame: {e:#}")),
+                }
+            }
+        }
+        if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_TIMER
+            && msg.wParam.0 == 1
+            && last_config_poll.elapsed() >= std::time::Duration::from_secs(1)
+        {
+            last_config_poll = std::time::Instant::now();
+            let now = kit::config::modified(&cfg_path);
+            if now != mtime {
+                mtime = now;
+                match reload(&cfg_path) {
+                    Ok(new_cfg) => {
+                        logline("config reloaded, hotkeys re-registered");
+                        ocr::set_engine(new_cfg.ocr_engine);
+                        ocr::set_auto(new_cfg.ocr_auto);
+                        hotkeys.unregister_all(host.hwnd());
+                        if !suspended {
+                            hotkeys = register_hotkeys(host.hwnd(), &new_cfg);
+                        }
+                        for &current in frames.all() {
+                            unsafe {
+                                frame::set_prefs(
+                                    current,
+                                    new_cfg.work_area,
+                                    new_cfg.show_hint,
+                                    new_cfg.font.clone(),
+                                    new_cfg.ocr_scale,
+                                    new_cfg.ocr_language.clone(),
+                                )
+                            };
+                        }
+                        mask::set_fill(new_cfg.mask_fill);
+                        set_capture_dir(&new_cfg.capture_dir);
+                        tray::set_notify(new_cfg.notify_enabled);
+                        flameshot::set_path(new_cfg.flameshot.clone());
+                        set_external_editor(&new_cfg.external_editor);
+                        set_record_cfg(&new_cfg);
+                        set_pin_style(
+                            new_cfg.pin_border,
+                            new_cfg.pin_line_color,
+                            new_cfg.pin_hatch_color,
+                        );
+                        mask::set_style(
+                            new_cfg.mask_font.clone(),
+                            new_cfg.mask_size,
+                            new_cfg.mask_mode,
+                        );
+                        cfg = new_cfg;
+                    }
+                    Err(e) => logline(&format!("config reload failed, keeping old: {e:#}")),
+                }
+            }
+        }
+        unsafe {
+            if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_TIMER && msg.wParam.0 == 1
+            {
+                let visible = frames
+                    .all()
+                    .iter()
+                    .copied()
+                    .find(|&h| frame::visible_rect(h).is_some());
+                if let Some(frame) = visible {
+                    ocr::auto_tick(frame);
+                }
+            }
+            let _ = windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
+            windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
+        }
+    }
+    hotkeys.unregister_all(host.hwnd());
+    // Do not leave an ffmpeg child recording after the daemon exits.
+    if record::is_recording() {
+        if let Err(e) = record::stop() {
+            logline(&format!("record stop on exit failed: {e:#}"));
+        }
+    }
+    drop(frames);
+    unsafe { windows::Win32::System::Com::CoUninitialize() };
+    logline("message loop exited");
+    Ok(())
+}
+
+fn hosted_menu(suspended: bool) -> kit::menu::MenuModel {
+    kit::menu::MenuModel::new(vec![kit::menu::MenuItem::Toggle {
+        id: "suspend".into(),
+        label: "Suspend Group \"Screen\"".into(),
+        checked: suspended,
+        enabled: true,
+    }])
+}
+
+fn register_hotkeys(hwnd: HWND, cfg: &config::Config) -> hotkeys::Hotkeys {
+    let (hk, failed) = hotkeys::Hotkeys::register(hwnd, &cfg.bindings);
+    logline(&format!("hotkeys registered: {}", hk.len()));
+    for f in &failed {
+        logline(&format!("warn: hotkey not registered: {f}"));
+    }
+    if hk.is_empty() {
+        logline("warn: no hotkeys registered; running frame-only");
+    }
+    hk
+}
+
+/// Hot-reload re-reads the file; an unreadable or binding-less result keeps
+/// the old config, mirroring the desktop-tools-rs daemon.
+fn reload(cfg_path: &std::path::Path) -> Result<config::Config> {
+    let text = std::fs::read_to_string(cfg_path)?;
+    config::parse(&text)
+}
+
+fn dispatch(action: Action, frame: HWND) {
+    // A recording owns the screen: our own overlays (mask, dim, a moved frame)
+    // must not appear in the take, so only Record may run until it stops.
+    if crate::record::is_recording() && !matches!(action, Action::Record) {
+        logline(&format!(
+            "{} ignored: recording (stop it first)",
+            action.name()
+        ));
+        return;
+    }
+    let visible = unsafe { frame::visible_rect(frame).is_some() };
+    // Only the commands that create or place a frame may run without one.
+    if !visible
+        && matches!(
+            action,
+            Action::Resize | Action::Pin | Action::Capture | Action::Move | Action::Toggle
+        )
+    {
+        logline(&format!(
+            "{} ignored: no frame (use draw or frame_window)",
+            action.name()
+        ));
+        return;
+    }
+    unsafe {
+        match action {
+            Action::Draw => {
+                frame::hide(frame);
+                mask::dismiss();
+                if let Err(e) = overlay::begin(overlay::Intent::Frame) {
+                    logline(&format!("draw failed: {e:#}"));
+                }
+            }
+            Action::QuickOcr => {
+                frame::hide(frame);
+                mask::dismiss();
+                if let Err(e) = overlay::begin(overlay::Intent::QuickOcr) {
+                    logline(&format!("quick OCR draw failed: {e:#}"));
+                }
+            }
+            Action::AutoOcr => {
+                // Second press ends the session: no more refreshes, frame gone.
+                if ocr::auto_enabled() {
+                    if ocr::auto_paused() {
+                        mask::dismiss();
+                        frame::prepare_ocr(frame, ocr::Intent::Auto, true);
+                        ocr::resume_auto(frame);
+                        if let Err(e) = ocr::start(frame) {
+                            logline(&format!("auto OCR resume failed: {e:#}"));
+                            frame::clear_flash(frame);
+                            ocr::disable_auto();
+                        } else {
+                            logline("auto OCR: resumed");
+                        }
+                        return;
+                    }
+                    ocr::disable_auto();
+                    mask::dismiss();
+                    frame::hide(frame);
+                    logline("auto OCR: off");
+                    return;
+                }
+                if !visible {
+                    if let Err(e) = overlay::begin(overlay::Intent::AutoOcr) {
+                        logline(&format!("auto OCR draw failed: {e:#}"));
+                    }
+                    return;
+                }
+                mask::dismiss();
+                frame::prepare_ocr(frame, ocr::Intent::Auto, true);
+                ocr::enable_auto(frame);
+                if let Err(e) = ocr::start(frame) {
+                    logline(&format!("auto OCR failed: {e:#}"));
+                    frame::clear_flash(frame);
+                    ocr::disable_auto();
+                }
+                logline("auto OCR: on");
+            }
+            Action::Resize => {
+                // Pause any OCR session and drop an in-flight result: the
+                // user is adjusting the frame, not reading it.
+                mask::dismiss();
+                frame::pause_ocr(frame);
+                frame::ensure_visible(frame);
+                frame::begin_spec(frame);
+            }
+            Action::Pin => {
+                frame::ensure_visible(frame);
+                frame::toggle_pin(frame);
+            }
+            Action::Move => {
+                frame::ensure_visible(frame);
+                frame::to_move(frame);
+            }
+            Action::Toggle => mask::toggle(),
+            // Ctrl+Alt+Z: fullscreen DWM-thumbnail zoom of the focused window.
+            Action::Scale => scale::toggle(),
+            // Ctrl+Alt+R: record the frame rect, or stop the running session.
+            // The frame stays on screen with a red REC border, but the capture
+            // rect is inset past that border so the red edge never lands in the
+            // video.
+            Action::Record => {
+                if record::is_recording() {
+                    if let Err(e) = record::stop() {
+                        logline(&format!("record stop failed: {e:#}"));
+                    }
+                    frame::set_recording(frame, false);
+                    frame::ensure_visible(frame);
+                    frame::focus(frame);
+                } else {
+                    match frame::visible_rect(frame) {
+                        Some(rect) => {
+                            let inner = kit::layout::inset(frame::rect_of(rect), 2);
+                            let settings = record_cfg();
+                            match record::start(inner, &settings) {
+                                Ok(()) => {
+                                    // Our own overlays must not end up in the
+                                    // take: drop the OCR result and keep OCR
+                                    // from popping up again while it runs.
+                                    mask::dismiss();
+                                    logline(
+                                        "record: dismissed OCR result; OCR paused while recording",
+                                    );
+                                    frame::ensure_visible(frame);
+                                    frame::set_recording(frame, true);
+                                }
+                                Err(e) => {
+                                    logline(&format!("record failed: {e:#}"));
+                                    frame::set_recording(frame, false);
+                                    frame::ensure_visible(frame);
+                                }
+                            }
+                        }
+                        None => logline("record ignored: no frame"),
+                    }
+                }
+            }
+            Action::Capture => {
+                // Read the real screen: a previous mask would be re-captured.
+                mask::dismiss();
+                if let Err(e) = capture::capture_frame(frame) {
+                    logline(&format!("capture failed: {e:#}"));
+                } else {
+                    frame::flash_capture(frame);
+                    frame::prepare_ocr(frame, ocr::Intent::Manual, true);
+                    // P0.3: copy the image (above) AND read the words into the
+                    // overlay. OCR runs on a worker thread; the frame is
+                    // click-through until the mask takes over.
+                    if let Err(e) = ocr::start(frame) {
+                        logline(&format!("ocr capture failed: {e:#}"));
+                    }
+                }
+            }
+            // Frame the window the user is looking at: the frame becomes the
+            // region for OCR/capture without a manual drag.
+            Action::FrameWindow => {
+                mask::dismiss();
+                match capture::window_target() {
+                    Ok(rect) => {
+                        frame::place(frame, frame::rect_of(rect));
+                        frame::to_move(frame);
+                        // Re-targeting keeps an armed auto session armed; it
+                        // only restarts the comparison against the new region.
+                        ocr::retarget_auto(frame);
+                        logline(&format!("frame: window at {rect:?}"));
+                    }
+                    Err(e) => logline(&format!("frame window failed: {e:#}")),
+                }
+            }
+            // Pin what the frame covers; without a frame, pin the focused
+            // window (this action intentionally needs no frame).
+            Action::PinShot => {
+                let r = match frame::visible_rect(frame) {
+                    Some(rect) => {
+                        // Hide first: our own border must not be in the image.
+                        frame::hide(frame);
+                        let r = capture::pin_rect(rect, pin_style());
+                        if r.is_err() {
+                            frame::ensure_visible(frame);
+                        }
+                        r
+                    }
+                    None => capture::pin_window(pin_style()),
+                };
+                if let Err(e) = r {
+                    logline(&format!("pin shot failed: {e:#}"));
+                }
+            }
+        }
+    }
+}
+
+/// Focused-frame Ctrl+Shift+S: straight to `[capture] dir`.
+pub(crate) fn frame_quick_save(frame: HWND) {
+    if let Err(e) = unsafe { capture::save_frame(frame, &capture_dir()) } {
+        logline(&format!("save frame failed: {e:#}"));
+    }
+}
+
+/// Focused-frame Ctrl+S: file save dialog starting in `[capture] dir` with the
+/// default timestamped name. A modal dialog leaves an animation behind, so let
+/// it fade before grabbing.
+pub(crate) fn frame_save_as(frame: HWND) {
+    let name = capture::default_capture_name();
+    let path = match unsafe { capture::choose_file(frame, &capture_dir(), &name) } {
+        Ok(Some(path)) => path,
+        Ok(None) => return,
+        Err(e) => {
+            logline(&format!("save dialog failed: {e:#}"));
+            return;
+        }
+    };
+    std::thread::sleep(std::time::Duration::from_millis(220));
+    if let Err(e) = unsafe { capture::save_frame_to(frame, &path) } {
+        logline(&format!("save frame failed: {e:#}"));
+    }
+}
+
+pub(crate) fn frame_copy(frame: HWND) {
+    let keep_open = unsafe { frame::is_pinned(frame) };
+    if let Err(e) = unsafe { capture::copy_frame(frame, keep_open) } {
+        logline(&format!("copy frame failed: {e:#}"));
+    }
+}
+
+pub(crate) fn frame_pin(frame: HWND) {
+    let r = unsafe {
+        match frame::visible_rect(frame) {
+            Some(rect) => {
+                frame::hide(frame);
+                let r = capture::pin_rect(rect, pin_style());
+                if r.is_err() {
+                    frame::ensure_visible(frame);
+                }
+                r
+            }
+            None => return,
+        }
+    };
+    if let Err(e) = r {
+        logline(&format!("pin frame failed: {e:#}"));
+    }
+}
+
+/// Temp files handed to an external editor live here; a day of files is kept.
+const TEMP_KEEP_SECS: u64 = 24 * 60 * 60;
+
+fn temp_capture_dir() -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join("screen-tools-rs");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+/// Delete handoff PNGs older than `TEMP_KEEP_SECS` from the handoff folder and
+/// from the temp root (older builds wrote there). Runs at startup and before
+/// every new handoff, so the folder cannot grow without bound.
+fn cleanup_temp_captures() {
+    let mut roots = vec![std::env::temp_dir()];
+    roots.push(temp_capture_dir());
+    roots.push(std::env::temp_dir().join("dt-ocr"));
+    let now = SystemTime::now();
+    let mut removed = 0;
+    for root in roots {
+        let Ok(entries) = std::fs::read_dir(&root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let is_capture = path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                (n.starts_with("screen-tools-rs-") || n.starts_with("dt-ocr-"))
+                    && n.ends_with(".png")
+            });
+            if !is_capture {
+                continue;
+            }
+            let stale = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| now.duration_since(t).ok())
+                .is_some_and(|age| age.as_secs() > TEMP_KEEP_SECS);
+            if stale && std::fs::remove_file(&path).is_ok() {
+                removed += 1;
+            }
+        }
+    }
+    if removed > 0 {
+        logline(&format!("temp: removed {removed} stale capture(s)"));
+    }
+}
+
+/// Focused-frame Ctrl+O: save the frame to a temp PNG and open it in the
+/// configured `[external] editor` (for example PhotoCraft). The frame is put
+/// away like the other handoffs.
+pub(crate) fn frame_open_with(frame: HWND) {
+    let editor = external_editor();
+    if editor.trim().is_empty() {
+        logline("open with: [external] editor is empty");
+        return;
+    }
+    cleanup_temp_captures();
+    let path = temp_capture_dir().join(capture::default_capture_name());
+    if let Err(e) = unsafe { capture::save_frame_to(frame, &path) } {
+        logline(&format!("open with: save failed: {e:#}"));
+        return;
+    }
+    match std::process::Command::new(&editor)
+        .arg(&path)
+        .creation_flags(0x0800_0000)
+        .spawn()
+    {
+        Ok(_) => logline(&format!("open with: {editor} <- {}", path.display())),
+        Err(e) => logline(&format!("open with failed: {e:#}")),
+    }
+}
+
+static LAST_HOTKEY: std::sync::Mutex<Option<(Action, std::time::Instant)>> =
+    std::sync::Mutex::new(None);
+
+/// `MOD_NOREPEAT` covers a held key; this also drops duplicate injected
+/// `WM_HOTKEY`s that arrive back-to-back and would stack capture/pin windows.
+fn hotkey_repeat(
+    last: &mut Option<(Action, std::time::Instant)>,
+    action: Action,
+    now: std::time::Instant,
+) -> bool {
+    if let Some((prev, at)) = *last {
+        if prev == action && now.duration_since(at).as_millis() < 150 {
+            return true;
+        }
+    }
+    *last = Some((action, now));
+    false
+}
+
+static CAPTURE_DIR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+fn capture_dir() -> String {
+    CAPTURE_DIR
+        .lock()
+        .map(|d| d.clone())
+        .unwrap_or_else(|e| e.into_inner().clone())
+}
+
+pub fn set_capture_dir(dir: &str) {
+    if let Ok(mut d) = CAPTURE_DIR.lock() {
+        *d = dir.to_string();
+    }
+}
+
+static PIN_STYLE: std::sync::Mutex<pin::Style> = std::sync::Mutex::new(pin::Style::DEFAULT);
+
+fn set_pin_style(border: config::PinBorder, line_color: u32, hatch_color: u32) {
+    if let Ok(mut style) = PIN_STYLE.lock() {
+        *style = pin::Style {
+            border,
+            line_color,
+            hatch_color,
+        };
+    }
+}
+
+fn pin_style() -> pin::Style {
+    PIN_STYLE
+        .lock()
+        .map(|style| *style)
+        .unwrap_or(pin::Style::DEFAULT)
+}
+
+static EXTERNAL_EDITOR: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+fn set_external_editor(editor: &str) {
+    if let Ok(mut e) = EXTERNAL_EDITOR.lock() {
+        *e = editor.to_string();
+    }
+}
+
+fn external_editor() -> String {
+    EXTERNAL_EDITOR
+        .lock()
+        .map(|e| e.clone())
+        .unwrap_or_else(|e| e.into_inner().clone())
+}
+
+static RECORD_CFG: std::sync::Mutex<record::Settings> = std::sync::Mutex::new(record::Settings {
+    dir: String::new(),
+    name: String::new(),
+    fps: 30,
+    ffmpeg: String::new(),
+    audio: true,
+    crf: 20,
+    max_minutes: 60,
+    min_free_mb: 500,
+});
+
+fn set_record_cfg(cfg: &config::Config) {
+    if let Ok(mut c) = RECORD_CFG.lock() {
+        *c = record::Settings {
+            dir: cfg.record_dir.clone(),
+            name: cfg.record_name.clone(),
+            fps: cfg.record_fps,
+            ffmpeg: cfg.record_ffmpeg.clone(),
+            audio: cfg.record_audio,
+            crf: cfg.record_crf,
+            max_minutes: cfg.record_max_minutes,
+            min_free_mb: cfg.record_min_free_mb,
+        };
+    }
+}
+
+fn record_cfg() -> record::Settings {
+    RECORD_CFG
+        .lock()
+        .map(|c| c.clone())
+        .unwrap_or_else(|e| e.into_inner().clone())
+}
+
+static FRAME_HWND: std::sync::atomic::AtomicIsize = std::sync::atomic::AtomicIsize::new(0);
+
+pub fn frame_hwnd() -> HWND {
+    HWND(FRAME_HWND.load(std::sync::atomic::Ordering::SeqCst) as *mut core::ffi::c_void)
+}
+
+fn set_frame_hwnd(hwnd: HWND) {
+    FRAME_HWND.store(hwnd.0 as isize, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// Append-only profile log (release builds have no console).
+fn logline(msg: &str) {
+    let Ok(dir) = kit::config::profile_dir().map(|p| p.join("logs")) else {
+        return;
+    };
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let path = dir.join("screen-tools.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let secs = SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let _ = writeln!(f, "[{secs}] {msg}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hotkey_repeat;
+    use crate::config::Action;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn duplicate_hotkeys_inside_the_gate_are_dropped() {
+        let mut last = None;
+        let t = Instant::now();
+        assert!(!hotkey_repeat(&mut last, Action::PinShot, t));
+        assert!(hotkey_repeat(
+            &mut last,
+            Action::PinShot,
+            t + Duration::from_millis(40)
+        ));
+        assert!(!hotkey_repeat(
+            &mut last,
+            Action::PinShot,
+            t + Duration::from_millis(200)
+        ));
+        // A different action is never treated as a repeat.
+        assert!(!hotkey_repeat(
+            &mut last,
+            Action::Draw,
+            t + Duration::from_millis(210)
+        ));
+    }
+}

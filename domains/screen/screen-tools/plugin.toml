@@ -1,0 +1,9 @@
+id = "screen-tools"
+name = "Screen Tools"
+description = "Selection frame, capture, drawing, OCR, recording and external-tool handoff."
+config = true
+version = "0.1.0"
+api = 1
+exe = "screen-tools.exe"
+group = "screen"
+external = false

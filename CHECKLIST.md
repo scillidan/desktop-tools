@@ -244,3 +244,16 @@ rebuilt and restarted as PID 43336 with nine plugins. Verified items:
 - [x] Screen was stopped and the desktop host restored with nine plugins.
 
 Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-instance duplicate rejection, legacy config byte preservation, and real `screen-tools-rs.*` window classes pass. The documented `tools/physical.ps1` does not exist and was not claimed as run.
+
+## P6b Screen hosted baseline
+
+Automated: 97 original Screen tests plus kit layout tests pass; full workspace
+verification and ten-plugin smoke pass. Real wire-v3 verifies Screen hotkey
+ownership, Suspend/Resume and Quit with exit code 0. Real profile is migrated
+without overwriting an existing file and host PID 42776 has ten children.
+
+- [ ] Tray shows `Screen (running)` with `Suspend Group "Screen"`, one tray only.
+- [ ] Ctrl+Alt+D, Ctrl+Alt+S, Ctrl+Enter and Ctrl+Alt+R retain draw, resize, capture/OCR and recording behavior; confirm the video output and clipboard/OCR result.
+- [ ] Suspend releases all Screen hotkeys without affecting Window/Key Map; Resume restores them.
+- [ ] Disable/Enable Screen performs graceful cleanup and restarts without a modal error or orphaned helper.
+- [ ] Final feature submenus and standalone pass remain separate gates.

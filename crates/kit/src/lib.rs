@@ -10,6 +10,7 @@ pub mod config;
 pub mod icon;
 pub mod ipc;
 pub mod keys;
+pub mod layout;
 pub mod menu;
 
 #[cfg(windows)]
