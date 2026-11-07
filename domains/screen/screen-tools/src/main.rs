@@ -6,7 +6,6 @@
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-mod audio;
 mod capture;
 mod config;
 mod desktops;
@@ -21,7 +20,6 @@ mod menu;
 mod ocr;
 mod overlay;
 mod pin;
-mod record;
 mod scale;
 mod text;
 mod tray;
@@ -32,6 +30,7 @@ use std::os::windows::process::CommandExt;
 use std::time::SystemTime;
 
 use config::Action;
+use screen_record as record;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::HiDpi::{
     SetProcessDpiAwareness, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
@@ -69,6 +68,7 @@ fn set_dpi_aware() {
 fn run() -> Result<()> {
     let hosted = std::env::args().any(|arg| arg == "--plugin");
     set_dpi_aware();
+    screen_record::set_logger(logline);
     unsafe {
         use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;

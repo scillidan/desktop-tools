@@ -830,6 +830,10 @@ one host tray and one autostart entry.
   them. Hosted Suspend releases/re-registers Screen hotkeys independently.
   Quit drops COM-owning frames before `CoUninitialize`; the real wire probe
   verifies exit code 0 rather than mere process disappearance.
+- P6b module commit 1: `screen-record` owns recording, audio, auto-stop and
+  cleanup. The composition root still owns its hotkey and frame coordination;
+  environment expansion is shared through kit. All six recording/audio tests
+  moved with the implementation, and the hosted wire/ten-plugin smoke stayed green.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record/power one module per commit with tests after each.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the

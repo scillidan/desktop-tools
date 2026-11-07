@@ -18,6 +18,7 @@ members = [
   "domains/taskbar/taskbar-center",
   "domains/taskbar/taskbar-hidden",
   "domains/taskbar/taskbar-pin",
+  "domains/screen/screen-record",
   "domains/screen/screen-tools",
   "domains/taskbar/taskbar-tools",
 ]

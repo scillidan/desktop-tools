@@ -129,6 +129,36 @@ pub fn modified(path: &Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
+/// Expand `%NAME%` variables while preserving unknown or incomplete variables.
+pub fn expand_env(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(start) = rest.find('%') {
+        out.push_str(&rest[..start]);
+        let tail = &rest[start + 1..];
+        match tail.find('%') {
+            Some(end) => {
+                let name = &tail[..end];
+                match std::env::var(name) {
+                    Ok(value) if !name.is_empty() => out.push_str(&value),
+                    _ => {
+                        out.push('%');
+                        out.push_str(name);
+                        out.push('%');
+                    }
+                }
+                rest = &tail[end + 1..];
+            }
+            None => {
+                out.push('%');
+                rest = tail;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// Spawn a fresh copy with the same profile override, then let the caller quit.
 pub fn restart_self() {
     let Ok(me) = std::env::current_exe() else {

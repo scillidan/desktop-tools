@@ -57,8 +57,9 @@ Flameshot handoff behavior from Screen Tools. Hosted mode uses the shared
 `screen-tools.toml` compatibility profile, no second tray or legacy Quit hotkey,
 and the original Win32 loop with a custom IPC wakeup. Suspend releases Screen
 hotkeys without changing Window/Keyboard/Taskbar. Hosted notifications use the
-host; standalone retains its tray and autostart. Feature extraction preserves
-one process and coordinated capture/overlay/recording lifecycle.
+host; standalone retains its tray and autostart. Recording and audio now live in
+`screen-record`; extraction preserves one process and coordinated
+capture/overlay/recording lifecycle.
 
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
 `taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and

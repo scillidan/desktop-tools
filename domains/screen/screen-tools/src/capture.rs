@@ -8,6 +8,7 @@
 
 use crate::logline;
 use anyhow::{anyhow, ensure, Context, Result};
+use kit::config::expand_env;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use windows::core::HSTRING;
@@ -231,36 +232,6 @@ pub(crate) fn record_name() -> String {
         "screen-tools-rs-{:04}{:02}{:02}-{:02}{:02}{:02}.mp4",
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond
     )
-}
-
-/// `%USERPROFILE%\Pictures` style expansion; unknown names stay literal.
-pub(crate) fn expand_env(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut rest = s;
-    while let Some(start) = rest.find('%') {
-        out.push_str(&rest[..start]);
-        let tail = &rest[start + 1..];
-        match tail.find('%') {
-            Some(end) => {
-                let name = &tail[..end];
-                match std::env::var(name) {
-                    Ok(v) if !name.is_empty() => out.push_str(&v),
-                    _ => {
-                        out.push('%');
-                        out.push_str(name);
-                        out.push('%');
-                    }
-                }
-                rest = &tail[end + 1..];
-            }
-            None => {
-                out.push('%');
-                rest = tail;
-            }
-        }
-    }
-    out.push_str(rest);
-    out
 }
 
 /// Classes we never capture: our own windows and the shell's desktop.

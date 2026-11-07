@@ -19,6 +19,20 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use kit::layout::Rect;
+
+mod audio;
+
+static LOGGER: std::sync::Mutex<Option<fn(&str)>> = std::sync::Mutex::new(None);
+
+pub fn set_logger(logger: fn(&str)) {
+    *LOGGER.lock().unwrap_or_else(|poison| poison.into_inner()) = Some(logger);
+}
+
+fn logline(message: &str) {
+    if let Some(logger) = *LOGGER.lock().unwrap_or_else(|poison| poison.into_inner()) {
+        logger(message);
+    }
+}
 use windows::core::PCWSTR;
 use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
@@ -162,7 +176,7 @@ pub fn start(rect: Rect, settings: &Settings) -> Result<()> {
     if settings.ffmpeg.trim().is_empty() {
         bail!("[record] ffmpeg is empty");
     }
-    let dir = crate::capture::expand_env(&settings.dir);
+    let dir = kit::config::expand_env(&settings.dir);
     let dir = PathBuf::from(dir);
     std::fs::create_dir_all(&dir).with_context(|| format!("cannot create {}", dir.display()))?;
     if let Some(free) = free_mb(&dir) {
@@ -187,7 +201,7 @@ pub fn start(rect: Rect, settings: &Settings) -> Result<()> {
         match crate::audio::start(&wav) {
             Ok(cap) => Some(cap),
             Err(e) => {
-                crate::logline(&format!("warn: record audio disabled: {e:#}"));
+                logline(&format!("warn: record audio disabled: {e:#}"));
                 None
             }
         }
@@ -240,7 +254,7 @@ pub fn start(rect: Rect, settings: &Settings) -> Result<()> {
         .spawn()
         .with_context(|| format!("cannot start {}", settings.ffmpeg))?;
 
-    crate::logline(&format!(
+    logline(&format!(
         "record: start {} {}x{} fps={fps} crf={crf} audio={}",
         final_path.display(),
         w,
@@ -277,9 +291,9 @@ pub fn start(rect: Rect, settings: &Settings) -> Result<()> {
                     )
                 };
                 if let Some(reason) = reason {
-                    crate::logline(&format!("record: auto-stop: {reason}"));
+                    logline(&format!("record: auto-stop: {reason}"));
                     if let Err(e) = stop() {
-                        crate::logline(&format!("record auto-stop failed: {e:#}"));
+                        logline(&format!("record auto-stop failed: {e:#}"));
                     }
                     break;
                 }
@@ -331,7 +345,7 @@ pub fn stop() -> Result<()> {
                     true
                 }
                 Err(e) => {
-                    crate::logline(&format!(
+                    logline(&format!(
                         "warn: record mux failed, keeping video only: {e:#}"
                     ));
                     false
@@ -354,7 +368,7 @@ pub fn stop() -> Result<()> {
             )
         })?;
     }
-    crate::logline(&format!(
+    logline(&format!(
         "record: stop {} ({secs:.1}s, {})",
         session.final_path.display(),
         if muxed { "video+audio" } else { "video only" }
