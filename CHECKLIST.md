@@ -292,7 +292,7 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       `window-actions.toml` byte-identical, Screen owns the migrated hotkey,
       Window releases it, both plugins Quit with code 0, and ten-plugin smoke passes.
 
-## P6c Physical — Scale transfer (current host PID 12684)
+## P6c Physical — Scale transfer (current host PID 22288)
 
 - [ ] Window → Resize contains separate **Edit Resize config**, **Edit Scale
       config** and **Edit resize presets** entries. Scale opens `window-scale.toml`
@@ -300,8 +300,9 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [ ] Focus a normal window and press `Ctrl+Alt+Z`: a fullscreen live preview of
       that window appears. Press the hotkey again (or left-click) to dismiss it;
       ordinary source-window contents remain visible in the preview.
-- [ ] With a Screen Frame active, `Ctrl+Alt+Z` zooms that Frame. Repeat without a
-      Frame and confirm the foreground application window is zoomed instead.
+- [ ] With a Screen Frame active, `Ctrl+Alt+Z` zooms the application under the
+      cursor, not the Frame itself. The preview must not contain a fullscreen cyan
+      Frame border; dismissing Scale leaves the original Frame visible and unchanged.
 - [ ] Suspend Group "Window" releases Scale; Resume restores it. Screen hotkeys
       and Window Resize/Sizer remain independently usable.
 - [x] Agent verified the final binaries: Screen releases the old action/hotkey;
@@ -309,3 +310,7 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       the real DWM overlay toggles on/off, Quit with an active overlay exits with
       code 0 and leaves no overlay, and both plugins Quit cleanly. Full workspace
       tests, clippy, OCR and ten-plugin smoke pass.
+- [x] Agent reproduced the Frame regression as a 1440-pixel cyan preview border,
+      then verified the fix with real Draw + Scale input: the fullscreen border is
+      gone, the original Frame stays visible at its original rectangle after Scale
+      closes, and both plugins Quit with code 0.

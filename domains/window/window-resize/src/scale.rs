@@ -24,6 +24,55 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 static mut OVERLAY: HWND = HWND(std::ptr::null_mut());
 
+fn class_of(hwnd: HWND) -> String {
+    unsafe {
+        let mut buf = [0u16; 128];
+        let len = GetClassNameW(hwnd, &mut buf);
+        String::from_utf16_lossy(&buf[..len as usize])
+    }
+}
+
+/// A Screen frame/overlay is a selection surface, not the app to zoom.
+unsafe fn source_window() -> HWND {
+    let foreground = GetForegroundWindow();
+    if !class_of(foreground).starts_with("screen-tools.") {
+        return foreground;
+    }
+    let mut point = POINT::default();
+    if GetCursorPos(&mut point).is_err() {
+        let pos = GetMessagePos();
+        point = POINT {
+            x: pos as i16 as i32,
+            y: (pos >> 16) as i16 as i32,
+        };
+    }
+    let mut candidate = GetTopWindow(None).unwrap_or_default();
+    while !candidate.0.is_null() {
+        let class = class_of(candidate);
+        let ex = GetWindowLongPtrW(candidate, GWL_EXSTYLE) as u32;
+        let mut rect = RECT::default();
+        let inside = GetWindowRect(candidate, &mut rect).is_ok()
+            && point.x >= rect.left
+            && point.x < rect.right
+            && point.y >= rect.top
+            && point.y < rect.bottom;
+        if inside
+            && IsWindowVisible(candidate).as_bool()
+            && !class.starts_with("screen-tools.")
+            && !class.starts_with("window-tools.")
+            && !matches!(
+                class.as_str(),
+                "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd"
+            )
+            && ex & (WS_EX_TOOLWINDOW.0 | WS_EX_NOACTIVATE.0) == 0
+        {
+            return GetAncestor(candidate, GA_ROOTOWNER);
+        }
+        candidate = GetWindow(candidate, GW_HWNDNEXT).unwrap_or_default();
+    }
+    HWND::default()
+}
+
 fn work_of(hwnd: HWND) -> Rect {
     unsafe {
         let mut rc = RECT::default();
@@ -73,7 +122,7 @@ pub fn toggle() {
             stop();
             return;
         }
-        let src = GetForegroundWindow();
+        let src = source_window();
         if src.0.is_null() {
             ACTIVE.store(false, Ordering::SeqCst);
             return;
