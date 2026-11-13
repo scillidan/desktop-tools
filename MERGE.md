@@ -908,8 +908,12 @@ one host tray and one autostart entry.
 - An active Flameshot handoff blocks other global Screen actions through the
   existing session flag, except monitor Power; host lifecycle remains available.
   Recording also rejects Frame-local Ctrl+F, so the two sessions cannot overlap.
-  Normal exit, cancellation and launch failure all release the gate. A real
-  Flameshot probe verified blocked Draw, restored Draw after exit, and clean Quit.
+  Normal exit, cancellation and launch failure all release the gate. Frame-local
+  WM_CHAR/WM_KEYDOWN also check the same session flag: hidden windows can still
+  receive posted input, so visibility alone is not an input lock. A real probe
+  reproduced posted Ctrl+A expanding the hidden Frame before the local guard,
+  then verified an unchanged rectangle, blocked global Draw, restored Draw after
+  exit, and clean Quit with the fix.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all

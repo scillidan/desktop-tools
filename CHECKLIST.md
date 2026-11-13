@@ -334,7 +334,9 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [x] Agent verified with the real external tool: while Flameshot is active,
       global Draw is ignored and opens no overlay; after Flameshot exits, Draw
       works again. Clean hosted Quit, 293 tests / 11 ignored, clippy, staging and
-      ten-plugin smoke pass. Power remains allowed by the policy test.
+      ten-plugin smoke pass. Power remains allowed by the policy test. A direct
+      posted Ctrl+A reproduced full-screen mutation of the hidden Frame before
+      the WM_CHAR/WM_KEYDOWN guard and left its rectangle unchanged afterward.
 - [ ] While Flameshot is open, press `Ctrl+Alt+D`: no new Draw overlay appears.
       Flameshot's own `Ctrl+T` still pins through Flameshot, not the hidden Frame.
 - [ ] Exit Flameshot and press `Ctrl+Alt+D`: Draw works immediately.

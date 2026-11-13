@@ -1264,6 +1264,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             LRESULT(0)
         }
         WM_CHAR => {
+            if flameshot_handoff::is_active() {
+                return LRESULT(0);
+            }
             match state(hwnd).mode {
                 Mode::Tune => {
                     let ch = wparam.0 as u8 as char;
@@ -1308,6 +1311,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             }
         }
         WM_KEYDOWN => {
+            if flameshot_handoff::is_active() {
+                return LRESULT(0);
+            }
             let mode = state(hwnd).mode;
             let key = VIRTUAL_KEY(wparam.0 as u16);
             let ch = (wparam.0 as u8 as char).to_ascii_lowercase();
