@@ -920,7 +920,8 @@ one host tray and one autostart entry.
   Real probes reproduced Screen retaining the configured global Ctrl+T before
   the fix, then verified its release and restoration, retained Power, blocked
   posted Ctrl+A and duplicate Ctrl+F, no second daemon launch, Draw restoration,
-  and clean Quit.
+  and clean Quit. Physical Ctrl+T pinning, Draw restoration and repeated handoff
+  without additional Flameshot instances are signed off; P6c is complete.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all
