@@ -73,9 +73,10 @@ fn modifiers_of(c: &kit::keys::Combo) -> HOT_KEY_MODIFIERS {
     m
 }
 
-/// Registered hotkey set. Ids are 1-based indexes into `Action::ALL`.
+/// Registered hotkey set. Ids are 1-based indexes into the registered actions.
 pub struct Hotkeys {
     combos: Vec<kit::keys::Combo>,
+    actions: Vec<Action>,
 }
 
 impl Hotkeys {
@@ -85,9 +86,26 @@ impl Hotkeys {
     /// not be registered (conflict or unsupported key); the caller warns
     /// and runs with the rest, per the desktop-tools-rs convention.
     pub fn register(hwnd: HWND, bindings: &Bindings) -> (Hotkeys, Vec<String>) {
+        Self::register_selected(hwnd, bindings, false)
+    }
+
+    /// Power remains available while Flameshot owns every other Screen chord.
+    pub fn register_for_handoff(hwnd: HWND, bindings: &Bindings) -> (Hotkeys, Vec<String>) {
+        Self::register_selected(hwnd, bindings, true)
+    }
+
+    fn register_selected(
+        hwnd: HWND,
+        bindings: &Bindings,
+        handoff_only: bool,
+    ) -> (Hotkeys, Vec<String>) {
         let mut combos = Vec::new();
+        let mut actions = Vec::new();
         let mut failed = Vec::new();
         for action in Action::ALL {
+            if handoff_only && action != Action::ToggleScreen {
+                continue;
+            }
             let combo = action.get(bindings);
             match vk_of_key(combo.key) {
                 Some(vk) => {
@@ -97,6 +115,7 @@ impl Hotkeys {
                     };
                     if ok {
                         combos.push(combo);
+                        actions.push(action);
                     } else {
                         failed.push(format!("{} = \"{}\"", action.name(), combo));
                     }
@@ -104,7 +123,17 @@ impl Hotkeys {
                 None => failed.push(format!("{} = \"{}\" (unknown key)", action.name(), combo)),
             }
         }
-        (Hotkeys { combos }, failed)
+        (Hotkeys { combos, actions }, failed)
+    }
+
+    pub fn unregister_for_handoff(&self, hwnd: HWND) {
+        for (i, action) in self.actions.iter().enumerate() {
+            if *action != Action::ToggleScreen {
+                unsafe {
+                    let _ = UnregisterHotKey(Some(hwnd), (i + 1) as i32);
+                }
+            }
+        }
     }
 
     pub fn unregister_all(&self, hwnd: HWND) {
@@ -120,7 +149,7 @@ impl Hotkeys {
         if id < 1 || id as usize > self.combos.len() {
             return None;
         }
-        Action::ALL.get((id - 1) as usize).copied()
+        self.actions.get((id - 1) as usize).copied()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -136,6 +165,15 @@ impl Hotkeys {
 mod tests {
     use super::*;
     use kit::keys::Key;
+
+    #[test]
+    fn sparse_registration_preserves_action_ids() {
+        let hotkeys = Hotkeys {
+            combos: vec!["win+f2".parse().unwrap()],
+            actions: vec![Action::ToggleScreen],
+        };
+        assert_eq!(hotkeys.action_of(1), Some(Action::ToggleScreen));
+    }
 
     #[test]
     fn vk_mapping_covers_all_combo_keys() {

@@ -23,6 +23,7 @@ mod tray;
 
 use anyhow::{Context, Result};
 use std::io::Write;
+use std::sync::atomic::{AtomicIsize, Ordering};
 use std::time::SystemTime;
 
 use config::Action;
@@ -36,6 +37,36 @@ use windows::Win32::UI::HiDpi::{
     SetProcessDpiAwareness, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE,
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, PROCESS_DPI_AWARENESS,
 };
+
+static HOST_HWND: AtomicIsize = AtomicIsize::new(0);
+const WM_HANDOFF_START: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 72;
+const WM_HANDOFF_END: u32 = windows::Win32::UI::WindowsAndMessaging::WM_APP + 73;
+
+fn post_handoff_state(end: bool) {
+    let hwnd = HOST_HWND.load(Ordering::Acquire);
+    if hwnd != 0 {
+        unsafe {
+            let _ = windows::Win32::UI::WindowsAndMessaging::PostMessageW(
+                Some(HWND(hwnd as *mut _)),
+                if end {
+                    WM_HANDOFF_END
+                } else {
+                    WM_HANDOFF_START
+                },
+                windows::Win32::Foundation::WPARAM(0),
+                windows::Win32::Foundation::LPARAM(0),
+            );
+        }
+    }
+}
+
+fn handoff_started() {
+    post_handoff_state(false);
+}
+
+fn handoff_finished() {
+    post_handoff_state(true);
+}
 
 fn main() -> std::process::ExitCode {
     match run() {
@@ -163,6 +194,8 @@ fn run() -> Result<()> {
     ));
 
     let host = host::Host::new()?;
+    HOST_HWND.store(host.hwnd().0 as isize, Ordering::Release);
+    flameshot::set_session_hooks(handoff_started, handoff_finished);
     let plugin = if hosted {
         let hwnd = host.hwnd().0 as isize;
         let link = kit::ipc::PluginLink::new_with_wakeup(move |_| unsafe {
@@ -197,8 +230,9 @@ fn run() -> Result<()> {
         }
     };
     let mut suspended = false;
+    let mut handoff_active = false;
 
-    let mut hotkeys = register_hotkeys(host.hwnd(), &cfg);
+    let mut hotkeys = register_hotkeys(host.hwnd(), &cfg, false);
     let mut mtime = config_files::modified(&cfg_path);
 
     // 1 s timer drives config hot-reload (bindings only; the desktop-tools-rs
@@ -216,12 +250,32 @@ fn run() -> Result<()> {
         if !got.as_bool() {
             break; // WM_QUIT
         }
+        if msg.message == WM_HANDOFF_START {
+            handoff_active = true;
+            hotkeys.unregister_for_handoff(host.hwnd());
+            logline("external: Screen hotkeys released (Power retained)");
+        }
+        if msg.message == WM_HANDOFF_END {
+            handoff_active = false;
+            hotkeys.unregister_all(host.hwnd());
+            if !suspended {
+                hotkeys = register_hotkeys(host.hwnd(), &cfg, false);
+            }
+            logline("external: Screen hotkeys restored");
+        }
         if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_APP + 70 {
             if let Some(link) = &plugin {
                 while let Some(command) = link.try_recv() {
                     match command {
                         kit::ipc::HostCommand::Invoke { id, .. } if id == "suspend" => {
-                            toggle_suspended(&mut suspended, &mut hotkeys, &host, &cfg, Some(link));
+                            toggle_suspended(
+                                &mut suspended,
+                                &mut hotkeys,
+                                &host,
+                                &cfg,
+                                handoff_active,
+                                Some(link),
+                            );
                             logline(&format!("screen group suspended={suspended}"));
                         }
                         kit::ipc::HostCommand::Reload { .. } => {
@@ -258,7 +312,14 @@ fn run() -> Result<()> {
             if let Some(id) = menu::command_id(msg.wParam.0) {
                 match id {
                     "suspend" => {
-                        toggle_suspended(&mut suspended, &mut hotkeys, &host, &cfg, None);
+                        toggle_suspended(
+                            &mut suspended,
+                            &mut hotkeys,
+                            &host,
+                            &cfg,
+                            handoff_active,
+                            None,
+                        );
                         logline(&format!("screen group suspended={suspended}"));
                     }
                     "quit" => unsafe {
@@ -322,7 +383,7 @@ fn run() -> Result<()> {
                         ocr::set_auto(new_cfg.ocr_auto);
                         hotkeys.unregister_all(host.hwnd());
                         if !suspended {
-                            hotkeys = register_hotkeys(host.hwnd(), &new_cfg);
+                            hotkeys = register_hotkeys(host.hwnd(), &new_cfg, handoff_active);
                         }
                         for &current in frames.all() {
                             unsafe {
@@ -431,6 +492,7 @@ fn toggle_suspended(
     hotkeys: &mut hotkeys::Hotkeys,
     host: &host::Host,
     cfg: &config::Config,
+    handoff_active: bool,
     link: Option<&kit::ipc::PluginLink>,
 ) {
     *suspended = !*suspended;
@@ -439,7 +501,7 @@ fn toggle_suspended(
         ocr::disable_auto();
         unsafe { mask::dismiss() };
     } else {
-        *hotkeys = register_hotkeys(host.hwnd(), cfg);
+        *hotkeys = register_hotkeys(host.hwnd(), cfg, handoff_active);
     }
     if let Some(link) = link {
         let _ = link.menu(&screen_menu(*suspended, false));
@@ -448,8 +510,12 @@ fn toggle_suspended(
     }
 }
 
-fn register_hotkeys(hwnd: HWND, cfg: &config::Config) -> hotkeys::Hotkeys {
-    let (hk, failed) = hotkeys::Hotkeys::register(hwnd, &cfg.bindings);
+fn register_hotkeys(hwnd: HWND, cfg: &config::Config, handoff_active: bool) -> hotkeys::Hotkeys {
+    let (hk, failed) = if handoff_active {
+        hotkeys::Hotkeys::register_for_handoff(hwnd, &cfg.bindings)
+    } else {
+        hotkeys::Hotkeys::register(hwnd, &cfg.bindings)
+    };
     logline(&format!("hotkeys registered: {}", hk.len()));
     for f in &failed {
         logline(&format!("warn: hotkey not registered: {f}"));

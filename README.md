@@ -58,7 +58,9 @@ per-module Enable/Restart switches.
 Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or
 legacy Quit hotkey and uses the original Win32 loop with a custom IPC wakeup.
 Suspend releases Screen hotkeys without changing Window/Keyboard/Taskbar.
-Hosted notifications use the host; standalone retains its own tray. Recording
+During Flameshot handoff, Screen releases its global hotkeys except Power so the
+external editor receives its own shortcuts, and reuses an existing Flameshot
+daemon. Hosted notifications use the host; standalone retains its own tray. Recording
 and audio live in `screen-record`; monitor power and window recovery live in
 `screen-power`; pixel capture, clipboard and PNG operations
 live in `screen-capture`; recognition, text layout, external engines and

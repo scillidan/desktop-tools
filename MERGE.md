@@ -905,15 +905,22 @@ one host tray and one autostart entry.
   binaries verify six wire menus, missing-executable Frame recovery, clean Quit,
   292 workspace tests, clippy and ten-plugin smoke. Successful annotation and
   the menu/config entries are physically signed.
-- An active Flameshot handoff blocks other global Screen actions through the
-  existing session flag, except monitor Power; host lifecycle remains available.
-  Recording also rejects Frame-local Ctrl+F, so the two sessions cannot overlap.
-  Normal exit, cancellation and launch failure all release the gate. Frame-local
-  WM_CHAR/WM_KEYDOWN also check the same session flag: hidden windows can still
-  receive posted input, so visibility alone is not an input lock. A real probe
-  reproduced posted Ctrl+A expanding the hidden Frame before the local guard,
-  then verified an unchanged rectangle, blocked global Draw, restored Draw after
-  exit, and clean Quit with the fix.
+- An active Flameshot handoff temporarily unregisters Screen's global hotkeys,
+  except monitor Power; ignoring a dispatched `RegisterHotKey` action is not
+  enough because Windows has already swallowed the external editor's shortcut.
+  Start/end callbacks post to the existing UI message loop, which owns hotkey
+  release/restoration. Suspend/Resume and config reload preserve the handoff
+  ownership state. Host lifecycle remains available. Recording also rejects
+  Frame-local Ctrl+F, so the two sessions cannot overlap. Normal exit,
+  cancellation and launch failure all release the gate and restore hotkeys.
+  Frame-local WM_CHAR/WM_KEYDOWN also check the same session flag: hidden windows
+  can still receive posted input, so visibility alone is not an input lock.
+  The daemon launcher reuses an existing same-name Flameshot process instead of
+  unconditionally spawning another daemon; the session flag prevents reentry.
+  Real probes reproduced Screen retaining the configured global Ctrl+T before
+  the fix, then verified its release and restoration, retained Power, blocked
+  posted Ctrl+A and duplicate Ctrl+F, no second daemon launch, Draw restoration,
+  and clean Quit.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all

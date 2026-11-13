@@ -4,12 +4,16 @@
 use anyhow::{Context, Result};
 use kit::layout::Rect;
 use std::os::windows::process::CommandExt;
+use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{CloseHandle, HWND};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MonitorFromWindow, HMONITOR, MONITORINFO, MONITOR_DEFAULTTOPRIMARY,
+};
+use windows::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::UI::WindowsAndMessaging::{IsWindow, SetCursorPos};
 
@@ -18,6 +22,20 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 static LOGGER: Mutex<Option<fn(&str)>> = Mutex::new(None);
 static PATH: Mutex<String> = Mutex::new(String::new());
 static RUNNING: AtomicBool = AtomicBool::new(false);
+static ON_START: Mutex<Option<fn()>> = Mutex::new(None);
+static ON_END: Mutex<Option<fn()>> = Mutex::new(None);
+
+pub fn set_session_hooks(on_start: fn(), on_end: fn()) {
+    *ON_START.lock().unwrap_or_else(|e| e.into_inner()) = Some(on_start);
+    *ON_END.lock().unwrap_or_else(|e| e.into_inner()) = Some(on_end);
+}
+
+fn session_hook(end: bool) {
+    let hook = if end { &ON_END } else { &ON_START };
+    if let Some(hook) = *hook.lock().unwrap_or_else(|e| e.into_inner()) {
+        hook();
+    }
+}
 
 pub fn set_logger(logger: fn(&str)) {
     *LOGGER.lock().unwrap_or_else(|e| e.into_inner()) = Some(logger);
@@ -60,6 +78,9 @@ pub fn launch(
     if RUNNING.swap(true, Ordering::SeqCst) {
         anyhow::bail!("a Flameshot session is already open");
     }
+    // RegisterHotKey consumes the chord even if dispatch ignores its action.
+    // The owner must release Screen's global keys before Flameshot opens.
+    session_hook(false);
     let frame = HWND(frame_id as *mut _);
     // Flameshot treats --region as relative to the monitor under the cursor.
     let (ox, oy) = monitor_origin(frame);
@@ -70,12 +91,17 @@ pub fn launch(
     hide_frame(frame_id);
     logline(&format!("external: flameshot {region}"));
     std::thread::spawn(move || {
-        // Pin widgets live in the Flameshot daemon; without it the CLI process
-        // exits after capture and the pinned image disappears.
-        let daemon = Command::new(&path).creation_flags(CREATE_NO_WINDOW).spawn();
-        match daemon {
-            Ok(_) => logline("external: flameshot daemon started"),
-            Err(e) => logline(&format!("warn: flameshot daemon failed: {e:#}")),
+        // Pin widgets live in the Flameshot daemon. Reuse an existing daemon
+        // instead of starting another one on every handoff.
+        match process_running(&path) {
+            Ok(true) => logline("external: flameshot daemon reused"),
+            Ok(false) => match Command::new(&path).creation_flags(CREATE_NO_WINDOW).spawn() {
+                Ok(_) => logline("external: flameshot daemon started"),
+                Err(e) => logline(&format!("warn: flameshot daemon failed: {e:#}")),
+            },
+            Err(e) => logline(&format!(
+                "warn: cannot check Flameshot daemon; not starting a duplicate: {e:#}"
+            )),
         }
         std::thread::sleep(std::time::Duration::from_millis(400));
         let result = Command::new(&path)
@@ -83,19 +109,65 @@ pub fn launch(
             .creation_flags(CREATE_NO_WINDOW)
             .status()
             .with_context(|| format!("cannot start {path}"));
-        match result {
-            Ok(status) => logline(&format!("external: flameshot exited {status}")),
+        let failed = match result {
+            Ok(status) => {
+                logline(&format!("external: flameshot exited {status}"));
+                false
+            }
             Err(e) => {
                 logline(&format!("warn: flameshot failed: {e:#}"));
-                let frame = HWND(frame_id as *mut _);
-                if unsafe { IsWindow(Some(frame)).as_bool() } {
-                    restore_frame(frame_id);
-                }
+                true
+            }
+        };
+        RUNNING.store(false, Ordering::SeqCst);
+        if failed {
+            let frame = HWND(frame_id as *mut _);
+            if unsafe { IsWindow(Some(frame)).as_bool() } {
+                restore_frame(frame_id);
             }
         }
-        RUNNING.store(false, Ordering::SeqCst);
+        session_hook(true);
     });
     Ok(())
+}
+
+fn executable_name(path: &str) -> String {
+    let name = Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("flameshot.exe");
+    if name.contains('.') {
+        name.to_owned()
+    } else {
+        format!("{name}.exe")
+    }
+}
+
+fn process_running(path: &str) -> Result<bool> {
+    let expected = executable_name(path);
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)? };
+    let result = (|| {
+        let mut entry = PROCESSENTRY32W {
+            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+            ..Default::default()
+        };
+        unsafe { Process32FirstW(snapshot, &mut entry)? };
+        loop {
+            let len = entry
+                .szExeFile
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(entry.szExeFile.len());
+            if String::from_utf16_lossy(&entry.szExeFile[..len]).eq_ignore_ascii_case(&expected) {
+                return Ok(true);
+            }
+            if unsafe { Process32NextW(snapshot, &mut entry) }.is_err() {
+                return Ok(false);
+            }
+        }
+    })();
+    unsafe { CloseHandle(snapshot)? };
+    result
 }
 
 fn monitor_origin(hwnd: HWND) -> (i32, i32) {
@@ -133,6 +205,12 @@ fn inset_from_origin(x: i32, y: i32, w: i32, h: i32) -> (i32, i32, i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn executable_name_is_normalized_for_process_lookup() {
+        assert_eq!(executable_name("flameshot"), "flameshot.exe");
+        assert_eq!(executable_name(r"C:\Tools\Flameshot.exe"), "Flameshot.exe");
+    }
 
     #[test]
     fn edge_touching_region_is_inset() {

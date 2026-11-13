@@ -331,14 +331,17 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 
 ## P6c Physical follow-up — action exclusion during Flameshot (current host)
 
-- [x] Agent verified with the real external tool: while Flameshot is active,
-      global Draw is ignored and opens no overlay; after Flameshot exits, Draw
-      works again. Clean hosted Quit, 293 tests / 11 ignored, clippy, staging and
-      ten-plugin smoke pass. Power remains allowed by the policy test. A direct
-      posted Ctrl+A reproduced full-screen mutation of the hidden Frame before
-      the WM_CHAR/WM_KEYDOWN guard and left its rectangle unchanged afterward.
+- [x] Agent verified with the real external tool: Screen releases the configured
+      global Ctrl+T during handoff and restores it afterward, including across
+      Suspend/Resume and config reload; Power remains registered. Global Draw
+      opens no overlay, posted Ctrl+A and duplicate Ctrl+F cannot mutate the
+      hidden Frame or start another session, a second handoff reuses the daemon,
+      and Draw works after exit. Clean hosted Quit, 294 tests / 11 ignored,
+      clippy, staging and ten-plugin smoke pass.
 - [ ] While Flameshot is open, press `Ctrl+Alt+D`: no new Draw overlay appears.
       Flameshot's own `Ctrl+T` still pins through Flameshot, not the hidden Frame.
 - [ ] Exit Flameshot and press `Ctrl+Alt+D`: Draw works immediately.
+- [ ] Complete two separate Frame → Flameshot handoffs: no additional Flameshot
+      daemon/tray instance appears; each GUI session opens and closes normally.
 - [ ] Optional recording guard: during Frame recording, `Ctrl+F` must not launch
       Flameshot; stop the recording normally afterward.
