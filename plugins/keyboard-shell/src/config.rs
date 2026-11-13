@@ -130,10 +130,10 @@ mod tests {
     }
 
     #[test]
-    fn default_contains_every_legacy_shell_binding() {
+    fn defaults_leave_win_e_to_the_double_commander_toggle() {
         let cfg = parse(DEFAULT_CONFIG).unwrap();
-        assert_eq!(cfg.suppress.len(), 67);
-        assert!(cfg.suppress.contains(&"win+e".parse().unwrap()));
+        assert_eq!(cfg.suppress.len(), 66);
+        assert!(!cfg.suppress.contains(&"win+e".parse().unwrap()));
         assert!(cfg.suppress.contains(&"win+shift+=".parse().unwrap()));
         assert!(cfg.suppress.contains(&"win+prtscn".parse().unwrap()));
     }
@@ -150,7 +150,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("window-tools.toml"), "\"ctrl+alt+u\"=\"undo\"").unwrap();
         let (_, cfg) = load_in_profile(&dir).unwrap();
-        assert_eq!(cfg.suppress.len(), 67);
+        assert_eq!(cfg.suppress.len(), 66);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -200,7 +200,7 @@ mod tests {
         )
         .unwrap();
         let (_, cfg) = load_in_profile(&dir).unwrap();
-        assert_eq!(cfg.suppress.len(), 67);
+        assert_eq!(cfg.suppress.len(), 66);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

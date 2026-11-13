@@ -48,11 +48,18 @@ Window menu and code are divided into native modules:
 - `window-app-switch`: same-application window cycling;
 - `window-quick-switch`: file-dialog folder tracking and navigation;
 - `window-virtual-desktops`: native virtual desktops;
+- `window-app-toggle` (external, after native modules): focus or launch the exact
+  configured Double Commander/WezTerm installation via `window-app-toggle.toml`;
 - `window-core`: internal domain primitives and narrow query interfaces;
 - `window-tools`: composition root, hooks, configuration, CLI, host IPC and tray.
 
 The modules share suspend/reload/undo and do not add independent processes or
-per-module Enable/Restart switches.
+per-module Enable/Restart switches. App Toggle matches canonical full executable
+paths (including Scoop `current` aliases), restores minimized targets and returns
+to the previous window before minimizing the current target. WezTerm selects the
+topmost existing window rather than cycling. Its ordinary hotkey uses no-repeat
+registration; `Win+E` uses the low-level hook to suppress Explorer and auto-repeat.
+Shell Keys retains its other 66 default suppressions and no longer owns `Win+E`.
 
 `screen-tools` retains the frame, Draw, Capture, OCR, Record and
 Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or

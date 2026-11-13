@@ -13,6 +13,7 @@ members = [
   "domains/window/window-quick-switch",
   "domains/window/window-rectangle",
   "domains/window/window-app-switch",
+  "domains/window/window-app-toggle",
   "domains/window/window-virtual-desktops",
   "domains/taskbar/taskbar-core",
   "domains/taskbar/taskbar-center",

@@ -38,13 +38,23 @@ pub fn focus_window(hwnd: HWND) -> Result<()> {
 
 /// Relaxed window eligibility shared by switcher, rectangle and drag gestures.
 pub fn zonable(hwnd: HWND) -> bool {
+    eligible(hwnd, false)
+}
+
+/// App toggle must still find its minimized window so it can restore it rather
+/// than launch another process.
+pub fn restorable(hwnd: HWND) -> bool {
+    eligible(hwnd, true)
+}
+
+fn eligible(hwnd: HWND, include_minimized: bool) -> bool {
     if hwnd.0.is_null() {
         return false;
     }
     unsafe {
         if GetAncestor(hwnd, GA_ROOT) != hwnd
             || !IsWindowVisible(hwnd).as_bool()
-            || IsIconic(hwnd).as_bool()
+            || (!include_minimized && IsIconic(hwnd).as_bool())
         {
             return false;
         }

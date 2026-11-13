@@ -6,7 +6,9 @@
 use crate::config::Action;
 use crate::layout::{Rect, SizeSpec};
 use anyhow::Result;
+use std::path::Path;
 use window_app_switch::{Switcher, SwitcherPlatform};
+use window_app_toggle::{AppKind, AppToggle, AppTogglePlatform};
 use window_maximize_minimize::{MaximizeMinimize, MaximizeMinimizeAction};
 use window_on_top_bottom::{OnTopBottom, OnTopBottomAction};
 use window_rectangle::{Rectangle, RectangleAction};
@@ -49,6 +51,10 @@ pub trait Platform {
     fn unpin_all(&self) -> Result<()>;
     fn same_app_windows(&self, id: WinId) -> Vec<WinId> {
         vec![id]
+    }
+    /// Visible windows belonging to this exact executable path.
+    fn app_windows(&self, _exe: &Path) -> Vec<WinId> {
+        Vec::new()
     }
     fn focus(&self, id: WinId) -> Result<()>;
 
@@ -163,6 +169,29 @@ impl<P: Platform> WindowOps for WindowBackend<'_, P> {
     }
 }
 
+struct AppToggleBackend<'a, P>(&'a mut P);
+
+impl<P: Platform> AppTogglePlatform for AppToggleBackend<'_, P> {
+    fn foreground(&self) -> Option<WinId> {
+        self.0.foreground()
+    }
+    fn last_active(&self) -> Option<WinId> {
+        self.0.last_active()
+    }
+    fn is_zonable(&self, id: WinId) -> bool {
+        self.0.is_zonable(id)
+    }
+    fn app_windows(&self, app: &window_app_toggle::config::AppConfig) -> Vec<WinId> {
+        self.0.app_windows(&app.exe)
+    }
+    fn focus(&mut self, id: WinId) -> Result<()> {
+        self.0.focus(id)
+    }
+    fn minimize(&mut self, id: WinId) -> Result<()> {
+        self.0.minimize(id)
+    }
+}
+
 pub struct App<P: Platform> {
     pub p: P,
     rectangle: Rectangle,
@@ -170,6 +199,8 @@ pub struct App<P: Platform> {
     pins: OnTopBottom,
     window_state: MaximizeMinimize,
     switcher: Switcher,
+    app_toggle: AppToggle,
+    app_toggle_config: window_app_toggle::config::Config,
     history: History,
 }
 
@@ -182,6 +213,8 @@ impl<P: Platform> App<P> {
             pins: OnTopBottom,
             window_state: MaximizeMinimize,
             switcher: Switcher::default(),
+            app_toggle: AppToggle::default(),
+            app_toggle_config: window_app_toggle::config::Config::default(),
             history: History::default(),
         }
     }
@@ -192,6 +225,10 @@ impl<P: Platform> App<P> {
 
     pub fn set_sizer(&mut self, presets: Vec<SizeSpec>) {
         self.resize.set_sizer(presets);
+    }
+
+    pub fn set_app_toggle(&mut self, config: window_app_toggle::config::Config) {
+        self.app_toggle_config = config;
     }
 
     pub fn apply(&mut self, action: Action) -> Result<()> {
@@ -232,6 +269,16 @@ impl<P: Platform> App<P> {
                     .apply(&WindowBackend(&self.p), &mut self.history, forced)
             }
             Action::Scale => self.p.scale(),
+            Action::ToggleWezTerm => self.app_toggle.toggle(
+                &mut AppToggleBackend(&mut self.p),
+                AppKind::WezTerm,
+                &self.app_toggle_config.wezterm,
+            ),
+            Action::ToggleDoubleCommander => self.app_toggle.toggle(
+                &mut AppToggleBackend(&mut self.p),
+                AppKind::DoubleCommander,
+                &self.app_toggle_config.double_commander,
+            ),
             Action::ToggleAlwaysOnTop => self.pins.apply(
                 &WindowBackend(&self.p),
                 OnTopBottomAction::ToggleAlwaysOnTop,

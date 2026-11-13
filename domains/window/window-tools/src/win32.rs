@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-pub(crate) use window_core::win::{focus_window, hwnd_of, id_of, rect_of, zonable};
+pub(crate) use window_core::win::{focus_window, hwnd_of, id_of, rect_of, restorable, zonable};
 use window_mouse_drag as mouse;
 use window_quick_switch as dialogs;
 use window_virtual_desktops as vdesk;
@@ -127,9 +127,7 @@ fn image_basename(path: &str) -> &str {
     path.rsplit(['\\', '/']).next().unwrap_or(path)
 }
 
-/// Lowercased image file name of `pid` (`wezterm-gui.exe`), for matching the
-/// windows of multi-process apps in `same_app_windows`.
-fn exe_basename(pid: u32) -> Option<String> {
+fn process_image_path(pid: u32) -> Option<PathBuf> {
     use windows::core::PWSTR;
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Threading::{
@@ -137,20 +135,57 @@ fn exe_basename(pid: u32) -> Option<String> {
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
     unsafe {
-        let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
-            return None;
-        };
-        let mut buf = [0u16; 260];
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = [0u16; 1024];
         let mut n = buf.len() as u32;
         let ok = QueryFullProcessImageNameW(h, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut n)
             .is_ok();
         let _ = CloseHandle(h);
-        if !ok {
-            return None;
-        }
-        let name = image_basename(&String::from_utf16_lossy(&buf[..n as usize])).to_string();
-        (!name.is_empty()).then_some(name)
+        ok.then(|| PathBuf::from(String::from_utf16_lossy(&buf[..n as usize])))
     }
+}
+
+/// Lowercased image file name of `pid` (`wezterm-gui.exe`), for matching the
+/// windows of multi-process apps in `same_app_windows`.
+fn exe_basename(pid: u32) -> Option<String> {
+    let path = process_image_path(pid)?;
+    let name = image_basename(&path.to_string_lossy()).to_string();
+    (!name.is_empty()).then_some(name)
+}
+
+fn normalized_exe_path(path: &Path) -> String {
+    std::fs::canonicalize(path)
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .to_lowercase()
+}
+
+/// Match the complete executable path, not a basename or a process owned by a
+/// different installation of the same application.
+fn same_executable_windows(exe: &Path) -> Vec<WinId> {
+    struct Ctx {
+        exe: String,
+        out: Vec<WinId>,
+    }
+    unsafe extern "system" fn cb(hwnd: HWND, lparam: LPARAM) -> windows::Win32::Foundation::BOOL {
+        let ctx = &mut *(lparam.0 as *mut Ctx);
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+        let matches =
+            process_image_path(pid).is_some_and(|path| normalized_exe_path(&path) == ctx.exe);
+        if restorable(hwnd) && matches {
+            ctx.out.push(id_of(hwnd));
+        }
+        windows::Win32::Foundation::BOOL(1)
+    }
+    let mut ctx = Ctx {
+        exe: normalized_exe_path(exe),
+        out: Vec::new(),
+    };
+    unsafe {
+        let _ = EnumWindows(Some(cb), LPARAM(&mut ctx as *mut _ as isize));
+    }
+    ctx.out
 }
 
 /// EnumWindows callback context for the exe-name fallback in
@@ -757,8 +792,18 @@ impl Platform for Win32 {
         vec![id]
     }
 
+    fn app_windows(&self, exe: &Path) -> Vec<WinId> {
+        same_executable_windows(exe)
+    }
+
     fn focus(&self, id: WinId) -> Result<()> {
-        focus_window(hwnd_of(id))
+        let hwnd = hwnd_of(id);
+        unsafe {
+            if windows::Win32::UI::WindowsAndMessaging::IsIconic(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            }
+        }
+        focus_window(hwnd)
     }
 
     fn switch_desktop(&self, n: u8) -> Result<()> {
@@ -1104,6 +1149,7 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
 
     let mut app = App::new(init());
     app.set_gap(cfg.settings.gap);
+    app.set_app_toggle(cfg.modules.app_toggle.clone());
     let presets_path = cfg_path.with_file_name("resize.toml");
     let presets = config::load_or_create_presets(&presets_path, include_str!("../resize.toml"))
         .unwrap_or_else(|e| {
@@ -1352,6 +1398,7 @@ fn reload(
     if suspended {
         *cfg = new;
         app.set_gap(cfg.settings.gap);
+        app.set_app_toggle(cfg.modules.app_toggle.clone());
         mouse::set_modifiers(cfg.settings.drag_modifier);
         *bottom_timer = reset_bottom_timer(*bottom_timer, cfg.settings.bottom_reassert_ms);
         tray.set_status("window-tools — config reloaded (hotkeys suspended)");
@@ -1368,6 +1415,7 @@ fn reload(
         eprintln!("warn: reloaded config registered no hotkeys; keeping old config");
         *cfg = old;
         app.set_gap(cfg.settings.gap);
+        app.set_app_toggle(cfg.modules.app_toggle.clone());
         mouse::set_modifiers(cfg.settings.drag_modifier);
         unregister_hotkeys(&mut app.p);
         let _ = register_hotkeys(&mut app.p, &cfg.bindings);
@@ -1377,6 +1425,7 @@ fn reload(
         return;
     }
     app.set_gap(cfg.settings.gap);
+    app.set_app_toggle(cfg.modules.app_toggle.clone());
     mouse::set_modifiers(cfg.settings.drag_modifier);
     *bottom_timer = reset_bottom_timer(*bottom_timer, cfg.settings.bottom_reassert_ms);
     if let Some(msg) = config::conflict_message(&failed) {

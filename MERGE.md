@@ -468,14 +468,15 @@ flag:
 | Current state | Action |
 |---|---|
 | No matching visible window and no pending launch | Start the configured executable |
-| Matching window exists and is foreground | Minimize it |
+| Matching window exists and is foreground | Focus the previous application, then minimize it |
 | Matching window exists but is not foreground | Restore if minimized, show and activate it |
 | Launch is pending | Do not launch a duplicate; allow retry after a 5 s timeout |
 
-Matching is case-insensitive on executable basename (`doublecmd.exe`,
-`wezterm-gui.exe`). The most recently active/topmost matching visible window is
-selected when WezTerm has multiple windows. The toggle does not cycle through
-all WezTerm windows.
+Matching compares canonicalized complete executable paths case-insensitively,
+so Scoop `current` aliases and versioned install directories identify the same
+app without operating on another installation with the same basename. The most
+recently active/topmost matching visible window is selected when WezTerm has
+multiple windows. The toggle does not cycle through all WezTerm windows.
 
 Focus/restore reuses the existing Win32 focus helper and reports failure to the
 plugin status/log. Elevated-window and Windows foreground-lock restrictions are
@@ -941,6 +942,14 @@ owned overlay class and that Flameshot still receives the current live frame.
 
 Gate: every transition is physically checked; Explorer never opens on `Win+E`;
 holding either key cannot oscillate the window.
+
+Implementation: `window-app-toggle` is one Window module with independent TOML,
+full-path window matching, minimized-window restore, previous-application return
+and per-binding auto-repeat policy. Shell Keys now has 66 defaults and no `Win+E`.
+The final binary passed the real WezTerm focus/return/Quit probe using a temporary
+``Ctrl+Alt+` `` binding because CopyQ owned the default ``Ctrl+` `` at probe time.
+The physical `Win+E`/Explorer and held-key checks remain with the user. External
+tools must leave ``Ctrl+` ``, ``Alt+` `` and ``Alt+Shift+` `` unoccupied.
 
 ### P8 — Add `swapWindows`
 

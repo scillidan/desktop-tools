@@ -1813,6 +1813,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "window-app-toggle"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "toml 0.8.2",
+ "window-core",
+]
+
+[[package]]
 name = "window-core"
 version = "0.1.0"
 dependencies = [
@@ -1885,6 +1895,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "window-app-switch",
+ "window-app-toggle",
  "window-core",
  "window-maximize-minimize",
  "window-mouse-drag",

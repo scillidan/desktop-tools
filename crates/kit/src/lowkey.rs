@@ -33,6 +33,8 @@ pub struct Binding {
     pub shift: bool,
     pub alt: bool,
     pub win: bool,
+    /// Whether holding the key repeatedly triggers the action.
+    pub allow_repeat: bool,
     pub id: usize,
 }
 
@@ -93,37 +95,56 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         {
             let down = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
             let mut st = state();
-            if let Some(id) = on_key(&mut st, kb.vkCode as u8, down) {
-                drop(st);
-                mask_win_release();
-                let tid = THREAD_ID.load(Ordering::SeqCst);
-                if tid != 0 {
-                    unsafe {
-                        let _ = PostThreadMessageW(
-                            tid,
-                            MESSAGE.load(Ordering::SeqCst),
-                            WPARAM(ID_BASE.load(Ordering::SeqCst) + id),
-                            LPARAM(0),
-                        );
+            match on_key(&mut st, kb.vkCode as u8, down) {
+                KeyOutcome::Trigger(id) => {
+                    drop(st);
+                    mask_win_release();
+                    let tid = THREAD_ID.load(Ordering::SeqCst);
+                    if tid != 0 {
+                        unsafe {
+                            let _ = PostThreadMessageW(
+                                tid,
+                                MESSAGE.load(Ordering::SeqCst),
+                                WPARAM(ID_BASE.load(Ordering::SeqCst) + id),
+                                LPARAM(0),
+                            );
+                        }
                     }
+                    return LRESULT(1);
                 }
-                return LRESULT(1);
+                KeyOutcome::Swallow => return LRESULT(1),
+                KeyOutcome::Pass => {}
             }
         }
     }
     unsafe { CallNextHookEx(None, code, wparam, lparam) }
 }
 
-fn on_key(st: &mut State, vk: u8, down: bool) -> Option<usize> {
-    st.down[vk as usize] = down;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum KeyOutcome {
+    Pass,
+    Swallow,
+    Trigger(usize),
+}
+
+fn on_key(st: &mut State, vk: u8, down: bool) -> KeyOutcome {
+    let repeated = std::mem::replace(&mut st.down[vk as usize], down);
     if !down {
-        return None;
+        return KeyOutcome::Pass;
     }
     let (ctrl, shift, alt, win) = mods(&st.down);
-    st.bindings
+    let Some(binding) = st
+        .bindings
         .iter()
         .find(|b| b.vk == vk && b.ctrl == ctrl && b.shift == shift && b.alt == alt && b.win == win)
-        .map(|b| b.id)
+    else {
+        return KeyOutcome::Pass;
+    };
+    if repeated && !binding.allow_repeat {
+        KeyOutcome::Swallow
+    } else {
+        KeyOutcome::Trigger(binding.id)
+    }
 }
 
 fn mods(down: &[bool; 256]) -> (bool, bool, bool, bool) {
@@ -169,12 +190,16 @@ mod tests {
             shift: false,
             alt: true,
             win: true,
+            allow_repeat: false,
             id,
         }
     }
 
     fn press(st: &mut State, vk: u8) -> Option<usize> {
-        on_key(st, vk, true)
+        match on_key(st, vk, true) {
+            KeyOutcome::Trigger(id) => Some(id),
+            KeyOutcome::Pass | KeyOutcome::Swallow => None,
+        }
     }
 
     fn release(st: &mut State, vk: u8) {
@@ -190,11 +215,25 @@ mod tests {
         assert_eq!(press(&mut st, 0x5B), None);
         assert_eq!(press(&mut st, 0x12), None);
         assert_eq!(press(&mut st, 0x31), Some(7));
-        assert_eq!(press(&mut st, 0x31), Some(7));
+        assert_eq!(on_key(&mut st, 0x31, true), KeyOutcome::Swallow);
         release(&mut st, 0x31);
         release(&mut st, 0x12);
         release(&mut st, 0x5B);
         assert_eq!(press(&mut st, 0x31), None);
+    }
+
+    #[test]
+    fn auto_repeat_policy_is_per_binding() {
+        let mut repeating = binding(0x31, 7);
+        repeating.allow_repeat = true;
+        let mut st = State {
+            bindings: vec![repeating],
+            down: [false; 256],
+        };
+        press(&mut st, 0x5B);
+        press(&mut st, 0x12);
+        assert_eq!(press(&mut st, 0x31), Some(7));
+        assert_eq!(press(&mut st, 0x31), Some(7));
     }
 
     #[test]

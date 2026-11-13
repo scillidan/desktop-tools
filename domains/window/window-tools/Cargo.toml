@@ -21,6 +21,7 @@ window-maximize-minimize = { path = "../window-maximize-minimize" }
 window-quick-switch = { path = "../window-quick-switch" }
 window-rectangle = { path = "../window-rectangle" }
 window-app-switch = { path = "../window-app-switch" }
+window-app-toggle = { path = "../window-app-toggle" }
 window-virtual-desktops = { path = "../window-virtual-desktops" }
 anyhow.workspace = true
 toml.workspace = true

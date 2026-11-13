@@ -1,6 +1,6 @@
 //! Window-owned Win-combo bindings use the shared exact-combo hook.
 
-use crate::config::Binding;
+use crate::config::{Action, Binding};
 use crate::win32::vk_of_key;
 use anyhow::Result;
 
@@ -18,6 +18,10 @@ pub fn set_bindings(bindings: &[Binding]) {
                 shift: b.combo.shift,
                 alt: b.combo.alt,
                 win: b.combo.win,
+                allow_repeat: !matches!(
+                    b.action,
+                    Action::ToggleWezTerm | Action::ToggleDoubleCommander
+                ),
                 id,
             })
         })

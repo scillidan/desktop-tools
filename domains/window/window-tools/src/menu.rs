@@ -114,6 +114,13 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
             "edit-virtual-desktops",
             "Edit Virtual Desktops config",
         ),
+        // External application integrations stay after native Window modules.
+        module(
+            "App Toggle",
+            "Focus or launch WezTerm and Double Commander",
+            "edit-app-toggle",
+            "Edit App Toggle config",
+        ),
         MenuItem::Separator,
         MenuItem::Item {
             id: "undo".into(),
@@ -131,7 +138,8 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
         .iter()
         .position(|item| matches!(item, MenuItem::Separator))
         .unwrap_or(items.len());
-    items[..feature_end].sort_by_key(|item| match item {
+    // App Toggle is the final external entry; only native modules sort together.
+    items[..feature_end - 1].sort_by_key(|item| match item {
         MenuItem::Submenu { label, .. } => label.to_lowercase(),
         _ => String::new(),
     });
@@ -169,6 +177,7 @@ pub fn command(id: &str) -> Option<Cmd> {
         "edit-on-top-bottom" => Cmd::EditModule(ConfigModule::OnTopBottom),
         "edit-maximize-minimize" => Cmd::EditModule(ConfigModule::MaximizeMinimize),
         "edit-app-switch" => Cmd::EditModule(ConfigModule::AppSwitch),
+        "edit-app-toggle" => Cmd::EditModule(ConfigModule::AppToggle),
         "edit-quick-switch" => Cmd::EditModule(ConfigModule::QuickSwitch),
         "edit-virtual-desktops" => Cmd::EditModule(ConfigModule::VirtualDesktops),
         "clear-pins" => Cmd::ClearAllPins,
@@ -203,6 +212,10 @@ mod tests {
         assert_eq!(
             hosted.id_for_label("Edit Rectangle config"),
             Some("edit-rectangle")
+        );
+        assert_eq!(
+            hosted.id_for_label("Edit App Toggle config"),
+            Some("edit-app-toggle")
         );
         let feature_names: Vec<&str> = hosted.items[..8]
             .iter()

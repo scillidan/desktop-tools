@@ -64,6 +64,7 @@ fn bindings(config: &Config) -> Result<Vec<kit::lowkey::Binding>> {
                 shift: combo.shift,
                 alt: combo.alt,
                 win: combo.win,
+                allow_repeat: false,
                 id,
             })
         })
@@ -79,7 +80,7 @@ mod tests {
     fn every_default_binding_maps_to_a_real_virtual_key() {
         let cfg = parse(DEFAULT_CONFIG).unwrap();
         let bindings = bindings(&cfg).unwrap();
-        assert_eq!(bindings.len(), 67);
+        assert_eq!(bindings.len(), 66);
         assert!(bindings.iter().all(|binding| binding.win));
         assert!(bindings.iter().any(|binding| {
             binding.vk == windows::Win32::UI::Input::KeyboardAndMouse::VK_D.0 as u8
@@ -88,7 +89,7 @@ mod tests {
                 && !binding.alt
         }));
         assert!(
-            bindings
+            !bindings
                 .iter()
                 .any(|binding| binding.vk
                     == windows::Win32::UI::Input::KeyboardAndMouse::VK_E.0 as u8)

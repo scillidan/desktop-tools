@@ -1,0 +1,11 @@
+[package]
+name = "window-app-toggle"
+version = "0.1.0"
+edition = "2021"
+description = "Path-matched foreground application toggles"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+toml = { workspace = true }
+window-core = { path = "../window-core" }

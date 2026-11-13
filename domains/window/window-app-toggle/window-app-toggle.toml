@@ -1,0 +1,14 @@
+# Focus or launch applications. `exe` must identify the exact install.
+[bindings]
+'ctrl+`' = 'wezterm'
+'win+e' = 'doubleCommander'
+
+[wezterm]
+exe = '%USERPROFILE%\Scoop\apps\wezterm\current\wezterm-gui.exe'
+command = '%USERPROFILE%\Scoop\apps\wezterm\current\wezterm-gui.exe'
+args = ["start", "--cwd", "."]
+
+[doubleCommander]
+exe = '%USERPROFILE%\Scoop\apps\doublecmd\current\doublecmd.exe'
+command = '%USERPROFILE%\Scoop\apps\doublecmd\current\doublecmd.exe'
+args = []

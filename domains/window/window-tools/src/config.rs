@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::SystemTime;
 use window_app_switch::config::{AppSwitchAction, AppSwitchConfig};
+use window_app_toggle::config::Config as AppToggleConfig;
 use window_maximize_minimize::config::MaximizeMinimizeConfig;
 use window_mouse_drag::config::MouseDragConfig;
 use window_on_top_bottom::config::OnTopBottomConfig;
@@ -37,6 +38,8 @@ pub enum Action {
     Minimize,
     UnpinAll,
     Scale,
+    ToggleWezTerm,
+    ToggleDoubleCommander,
     NextWindow,
     PrevWindow,
     SizerMenu,
@@ -76,6 +79,8 @@ impl FromStr for Action {
             "minimize" => Action::Minimize,
             "unpinAll" => Action::UnpinAll,
             "scale" => Action::Scale,
+            "toggleWezTerm" => Action::ToggleWezTerm,
+            "toggleDoubleCommander" => Action::ToggleDoubleCommander,
             "nextWindow" => Action::NextWindow,
             "prevWindow" => Action::PrevWindow,
             "sizerMenu" => Action::SizerMenu,
@@ -127,6 +132,8 @@ impl Action {
             "minimize",
             "unpinAll",
             "scale",
+            "toggleWezTerm",
+            "toggleDoubleCommander",
             "nextWindow",
             "prevWindow",
             "sizerMenu",
@@ -189,8 +196,31 @@ pub struct Modules {
     pub on_top_bottom: OnTopBottomConfig,
     pub maximize_minimize: MaximizeMinimizeConfig,
     pub app_switch: AppSwitchConfig,
+    pub app_toggle: AppToggleConfig,
     pub quick_switch: QuickSwitchConfig,
     pub virtual_desktops: VirtualDesktopConfig,
+}
+
+fn legacy_app_toggle(bindings: &[Binding]) -> AppToggleConfig {
+    AppToggleConfig {
+        bindings: bindings
+            .iter()
+            .filter_map(|b| {
+                let action = match b.action {
+                    Action::ToggleWezTerm => window_app_toggle::AppToggleAction::WezTerm,
+                    Action::ToggleDoubleCommander => {
+                        window_app_toggle::AppToggleAction::DoubleCommander
+                    }
+                    _ => return None,
+                };
+                Some(window_core::Binding {
+                    combo: b.combo,
+                    action,
+                })
+            })
+            .collect(),
+        ..AppToggleConfig::default()
+    }
 }
 
 fn legacy_modules(bindings: &[Binding], settings: Settings) -> Modules {
@@ -301,6 +331,7 @@ fn legacy_modules(bindings: &[Binding], settings: Settings) -> Modules {
                 })
                 .collect(),
         },
+        app_toggle: legacy_app_toggle(bindings),
         quick_switch: QuickSwitchConfig {
             bindings: bindings
                 .iter()
@@ -389,6 +420,13 @@ fn assemble(modules: Modules, global: Vec<Binding>) -> Result<Config> {
         action: match b.action {
             AppSwitchAction::NextWindow => Action::NextWindow,
             AppSwitchAction::PrevWindow => Action::PrevWindow,
+        },
+    }));
+    bindings.extend(modules.app_toggle.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            window_app_toggle::AppKind::WezTerm => Action::ToggleWezTerm,
+            window_app_toggle::AppKind::DoubleCommander => Action::ToggleDoubleCommander,
         },
     }));
     bindings.extend(modules.quick_switch.bindings.iter().map(|b| Binding {
@@ -492,11 +530,12 @@ pub enum ConfigModule {
     OnTopBottom,
     MaximizeMinimize,
     AppSwitch,
+    AppToggle,
     QuickSwitch,
     VirtualDesktops,
 }
 
-pub const MODULES: [ConfigModule; 9] = [
+pub const MODULES: [ConfigModule; 10] = [
     ConfigModule::Rectangle,
     ConfigModule::Resize,
     ConfigModule::Scale,
@@ -504,6 +543,7 @@ pub const MODULES: [ConfigModule; 9] = [
     ConfigModule::OnTopBottom,
     ConfigModule::MaximizeMinimize,
     ConfigModule::AppSwitch,
+    ConfigModule::AppToggle,
     ConfigModule::QuickSwitch,
     ConfigModule::VirtualDesktops,
 ];
@@ -518,6 +558,7 @@ impl ConfigModule {
             Self::OnTopBottom => "window-on-top-bottom.toml",
             Self::MaximizeMinimize => "window-maximize-minimize.toml",
             Self::AppSwitch => "window-app-switch.toml",
+            Self::AppToggle => "window-app-toggle.toml",
             Self::QuickSwitch => "window-quick-switch.toml",
             Self::VirtualDesktops => "window-virtual-desktops.toml",
         }
@@ -583,6 +624,11 @@ fn load_modules(path: &Path, global: Vec<Binding>) -> Result<Config> {
             path,
             ConfigModule::AppSwitch,
             window_app_switch::config::parse,
+        )?,
+        app_toggle: module_file(
+            path,
+            ConfigModule::AppToggle,
+            window_app_toggle::config::parse,
         )?,
         quick_switch: module_file(
             path,
@@ -650,6 +696,9 @@ pub fn ensure_module_config(
         }
         ConfigModule::MaximizeMinimize => bindings!(&cfg.modules.maximize_minimize.bindings),
         ConfigModule::AppSwitch => bindings!(&cfg.modules.app_switch.bindings),
+        ConfigModule::AppToggle => {
+            text = window_app_toggle::config::render(&cfg.modules.app_toggle);
+        }
         ConfigModule::QuickSwitch => {
             bindings!(&cfg.modules.quick_switch.bindings);
             text.push_str(&format!(
@@ -686,6 +735,7 @@ fn default_module(module: ConfigModule) -> &'static str {
         ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
         ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
         ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
+        ConfigModule::AppToggle => window_app_toggle::config::DEFAULT_CONFIG,
         ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
         ConfigModule::VirtualDesktops => window_virtual_desktops::config::DEFAULT_CONFIG,
     }
@@ -1067,6 +1117,7 @@ mod tests {
             ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
             ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
             ConfigModule::AppSwitch => window_app_switch::config::DEFAULT_CONFIG,
+            ConfigModule::AppToggle => window_app_toggle::config::DEFAULT_CONFIG,
             ConfigModule::QuickSwitch => window_quick_switch::config::DEFAULT_CONFIG,
             ConfigModule::VirtualDesktops => window_virtual_desktops::config::DEFAULT_CONFIG,
         }
@@ -1082,7 +1133,13 @@ mod tests {
         }
         let mut split = load(&global).unwrap();
         assert!(split.bindings.iter().any(|b| b.action == Action::Scale));
-        split.bindings.retain(|b| b.action != Action::Scale);
+        split.bindings.retain(|b| {
+            b.action != Action::Scale
+                && !matches!(
+                    b.action,
+                    Action::ToggleWezTerm | Action::ToggleDoubleCommander
+                )
+        });
         let legacy = parse(LEGACY_DEFAULT_CONFIG).unwrap();
         assert_eq!(split.bindings, legacy.bindings);
         assert_eq!(split.settings.gap, legacy.settings.gap);
@@ -1134,7 +1191,7 @@ mod tests {
         let dir = test_dir("fresh-split");
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
-        assert_eq!(cfg.bindings.len(), 41);
+        assert_eq!(cfg.bindings.len(), 43);
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
         }

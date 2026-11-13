@@ -62,7 +62,6 @@ suppress = [
     "win+ctrl+f4",
     "win+ctrl+left",
     "win+ctrl+right",
-    "win+e",
     "win+i",
     "win+s",
     "win+x",
