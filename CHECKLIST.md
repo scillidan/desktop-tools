@@ -260,5 +260,5 @@ current host is PID 7968 with ten children.
 - [ ] Ctrl+Alt+D, Ctrl+Alt+S, Ctrl+Enter and Ctrl+Alt+R retain draw, resize, capture/OCR and recording behavior; confirm the video output and clipboard/OCR result.
 - [ ] Suspend releases all Screen hotkeys without affecting Window/Key Map; Resume restores them.
 - [ ] Disable/Enable Screen performs graceful cleanup and restarts without a modal error or orphaned helper.
-- [ ] On the secondary monitor, both pointer drawing and Ctrl+Alt+W place the Frame there; the drawn Frame remains visible after mouse-up instead of reopening Draw, and moving/resizing across the monitor boundary is not clamped back to the primary display.
+- [x] On the secondary monitor, both pointer drawing and Ctrl+Alt+W place the Frame there; the drawn Frame remains visible after mouse-up instead of reopening Draw, and moving/resizing across the monitor boundary is not clamped back to the primary display.
 - [ ] Final feature submenus and standalone pass remain separate gates.

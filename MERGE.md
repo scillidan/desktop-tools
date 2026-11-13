@@ -857,6 +857,7 @@ one host tray and one autostart entry.
   mouse-up: it reopened the overlay and hid the new frame. Draw now ignores
   re-entry while its overlay is active and for 500 ms after actual completion;
   the red/green probe injects that trailing event and checks visible cyan pixels.
+  The user physically confirmed the secondary-monitor Draw retry is normal.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record one module per commit with tests after each. Code and
   automated checks are complete; hosted physical sign-off is pending. Power is
