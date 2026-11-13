@@ -3,6 +3,7 @@ use anyhow::Result;
 use window_core::{Binding, ConfigPart};
 
 pub const DEFAULT_CONFIG: &str = include_str!("../window-resize.toml");
+pub const DEFAULT_SCALE_CONFIG: &str = include_str!("../window-scale.toml");
 
 #[derive(Default)]
 pub struct ResizeConfig {
@@ -12,12 +13,17 @@ pub struct ResizeConfig {
 impl ResizeAction {
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Scale => "scale",
             Self::SizerMenu => "sizerMenu",
         }
     }
 
     fn parse(s: &str) -> Option<Self> {
-        (s == "sizerMenu").then_some(Self::SizerMenu)
+        match s {
+            "scale" => Some(Self::Scale),
+            "sizerMenu" => Some(Self::SizerMenu),
+            _ => None,
+        }
     }
 }
 

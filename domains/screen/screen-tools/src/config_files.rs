@@ -87,9 +87,8 @@ fn binding_lines(bindings: &Bindings, actions: &[Action]) -> String {
 
 fn actions_text(cfg: &Config) -> String {
     format!(
-        "# Screen actions awaiting their P6c feature owners.\n\n[external]\nflameshot = {}\n\n{}",
-        quote(&cfg.flameshot),
-        binding_lines(&cfg.bindings, &[Action::Scale])
+        "# Screen actions awaiting their P6c feature owners.\n\n[external]\nflameshot = {}\n",
+        quote(&cfg.flameshot)
     )
 }
 
@@ -355,7 +354,6 @@ pub fn reload(actions: &Path) -> Result<Config> {
     let mut cfg = Config {
         flameshot: root.flameshot,
         bindings: Bindings {
-            scale: root.bindings.scale,
             ..Bindings::default()
         },
         ..Config::default()

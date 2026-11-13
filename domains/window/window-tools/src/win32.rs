@@ -777,6 +777,11 @@ impl Platform for Win32 {
         vdesk::switch_relative(-1)
     }
 
+    fn scale(&self) -> Result<()> {
+        window_resize::scale::toggle();
+        Ok(())
+    }
+
     fn file_dialog(&self) -> Result<()> {
         dialogs::fill_foreground()
     }

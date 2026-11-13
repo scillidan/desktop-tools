@@ -257,7 +257,8 @@ modules atomically. Fresh profiles use split defaults. An existing imported full
 first use of an edit entry materializes that module's effective config without
 rewriting the legacy file or any other module.
 P3c names align with the module crates: `window-rectangle.toml`,
-`window-resize.toml`, `window-mouse-drag.toml`, `window-on-top-bottom.toml`,
+`window-resize.toml`, `window-scale.toml` (added in P6c),
+`window-mouse-drag.toml`, `window-on-top-bottom.toml`,
 `window-maximize-minimize.toml`, `window-app-switch.toml`,
 `window-quick-switch.toml` and `window-virtual-desktops.toml`. Global Undo and
 legacy compatibility stay in `window-tools.toml`; resize presets keep their
@@ -884,8 +885,13 @@ one host tray and one autostart entry.
 - P6c: `toggleScreen` now lives in `screen-power`, with `screen-power.toml`,
   a Power submenu and one-time non-destructive import from `window-actions.toml`.
   Automated migration, ownership, wire-menu, Quit and ten-plugin checks pass;
-  physical power/wake acceptance is pending. Move `scale` to window and the
-  Flameshot bridge to `domains/screen/flameshot-handoff` as later commits.
+  physical power/wake acceptance is signed off. `scale` now lives in
+  `window-resize`, with independent `window-scale.toml` imported once from
+  `screen-actions.toml`; the existing `window-resize.toml` and source file are
+  never rewritten. Its Resize submenu has separate Resize / Scale / presets
+  entries. Migration, real DWM overlay toggle, clean Quit and ten-plugin checks
+  pass; physical zoom acceptance is pending. Move the Flameshot bridge to
+  `domains/screen/flameshot-handoff` as a later commit.
   Keep these calls in their current owning processes; add no frame IPC.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external

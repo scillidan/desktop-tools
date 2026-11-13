@@ -278,16 +278,34 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       standalone Screen process exited, then restored hosted PID 25072 with ten
       plugins. P6b is signed off and P6c may start.
 
-## P6c Physical — Power transfer (current host PID 23220)
+## P6c Physical — Power transfer (signed off; host PID 23220)
 
-- [ ] Screen contains **Power** between OCR and Record, with a grey description,
+- [x] Screen contains **Power** between OCR and Record, with a grey description,
       separator and `Edit Power config`; it opens `screen-power.toml` containing
       the existing `win+f2` binding.
-- [ ] Press `Win+F2`: every monitor turns off; ordinary input does not immediately
+- [x] Press `Win+F2`: every monitor turns off; ordinary input does not immediately
       turn it back on during forced-off mode. Press `Win+F2` again to wake and
       clear that mode. No Frame is created by this hotkey.
-- [ ] Suspend Group "Screen" releases `Win+F2`; Resume reclaims it. Window's Undo
+- [x] Suspend Group "Screen" releases `Win+F2`; Resume reclaims it. Window's Undo
       binding and other Screen features remain independently usable.
 - [x] Agent verified the final binaries: one-time custom-binding import leaves
       `window-actions.toml` byte-identical, Screen owns the migrated hotkey,
       Window releases it, both plugins Quit with code 0, and ten-plugin smoke passes.
+
+## P6c Physical — Scale transfer (current host PID 12684)
+
+- [ ] Window → Resize contains separate **Edit Resize config**, **Edit Scale
+      config** and **Edit resize presets** entries. Scale opens `window-scale.toml`
+      with the existing `ctrl+alt+z` binding; Resize still opens its unchanged file.
+- [ ] Focus a normal window and press `Ctrl+Alt+Z`: a fullscreen live preview of
+      that window appears. Press the hotkey again (or left-click) to dismiss it;
+      ordinary source-window contents remain visible in the preview.
+- [ ] With a Screen Frame active, `Ctrl+Alt+Z` zooms that Frame. Repeat without a
+      Frame and confirm the foreground application window is zoomed instead.
+- [ ] Suspend Group "Window" releases Scale; Resume restores it. Screen hotkeys
+      and Window Resize/Sizer remain independently usable.
+- [x] Agent verified the final binaries: Screen releases the old action/hotkey;
+      Window imports a custom binding without rewriting Resize or Screen actions;
+      the real DWM overlay toggles on/off, Quit with an active overlay exits with
+      code 0 and leaves no overlay, and both plugins Quit cleanly. Full workspace
+      tests, clippy, OCR and ten-plugin smoke pass.

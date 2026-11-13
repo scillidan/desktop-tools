@@ -41,7 +41,7 @@ Native window/screen/keyboard/taskbar tools first, then external GoldenDict inte
 Window menu and code are divided into native modules:
 
 - `window-rectangle`: snap/center/display geometry and state;
-- `window-resize`: Sizer and resize presets;
+- `window-resize`: Sizer, resize presets and DWM window zoom (`window-scale.toml`);
 - `window-mouse-drag`: modifier-drag state and mouse hook;
 - `window-on-top-bottom`: topmost/bottommost pins and shared cleanup;
 - `window-maximize-minimize`: maximize/restore/minimize;
@@ -54,7 +54,7 @@ Window menu and code are divided into native modules:
 The modules share suspend/reload/undo and do not add independent processes or
 per-module Enable/Restart switches.
 
-`screen-tools` retains the frame, Draw, Capture, OCR, Record, Scale and
+`screen-tools` retains the frame, Draw, Capture, OCR, Record and
 Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or
 legacy Quit hotkey and uses the original Win32 loop with a custom IPC wakeup.
 Suspend releases Screen hotkeys without changing Window/Keyboard/Taskbar.
@@ -69,8 +69,9 @@ one process and coordinated capture/overlay/recording lifecycle.
 Screen has alphabetically ordered **Capture / Draw / OCR / Power / Record** submenus,
 each with a grey description, separator and its own edit entry. Their files are
 `screen-capture.toml`, `screen-draw.toml`, `screen-ocr.toml`,
-`screen-power.toml` and `screen-record.toml`. Root-only `screen-actions.toml` temporarily owns Scale and
-Flameshot settings until P6c assigns their final owners. The old aggregate
+`screen-power.toml` and `screen-record.toml`. Root-only `screen-actions.toml`
+temporarily owns Flameshot settings until its P6c handoff module. Scale moved to
+`window-scale.toml` without rewriting `window-resize.toml` or the old source. The old aggregate
 `screen-tools.toml` migrates once to these files and is retained as
 `screen-tools.legacy.toml`; existing feature files are not overwritten. All
 files share one hotkey namespace and reload atomically.

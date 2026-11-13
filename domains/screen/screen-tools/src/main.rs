@@ -19,7 +19,6 @@ mod mask;
 mod menu;
 mod ocr;
 mod overlay;
-mod scale;
 mod tray;
 
 use anyhow::{Context, Result};
@@ -572,7 +571,6 @@ fn dispatch(action: Action, frame: HWND) {
             Action::Toggle => mask::toggle(),
             Action::ToggleScreen => screen_power::toggle(),
             // Ctrl+Alt+Z: fullscreen DWM-thumbnail zoom of the focused window.
-            Action::Scale => scale::toggle(),
             // Ctrl+Alt+R: record the frame rect, or stop the running session.
             // The frame stays on screen with a red REC border, but the capture
             // rect is inset past that border so the red edge never lands in the

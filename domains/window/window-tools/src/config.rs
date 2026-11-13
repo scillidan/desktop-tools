@@ -36,6 +36,7 @@ pub enum Action {
     ToggleAlwaysOnBottom,
     Minimize,
     UnpinAll,
+    Scale,
     NextWindow,
     PrevWindow,
     SizerMenu,
@@ -74,6 +75,7 @@ impl FromStr for Action {
             "toggleAlwaysOnBottom" => Action::ToggleAlwaysOnBottom,
             "minimize" => Action::Minimize,
             "unpinAll" => Action::UnpinAll,
+            "scale" => Action::Scale,
             "nextWindow" => Action::NextWindow,
             "prevWindow" => Action::PrevWindow,
             "sizerMenu" => Action::SizerMenu,
@@ -124,6 +126,7 @@ impl Action {
             "toggleAlwaysOnBottom",
             "minimize",
             "unpinAll",
+            "scale",
             "nextWindow",
             "prevWindow",
             "sizerMenu",
@@ -181,6 +184,7 @@ pub struct Config {
 pub struct Modules {
     pub rectangle: RectangleConfig,
     pub resize: ResizeConfig,
+    pub scale: ResizeConfig,
     pub mouse_drag: MouseDragConfig,
     pub on_top_bottom: OnTopBottomConfig,
     pub maximize_minimize: MaximizeMinimizeConfig,
@@ -225,6 +229,16 @@ fn legacy_modules(bindings: &[Binding], settings: Settings) -> Modules {
                 .map(|b| window_core::Binding {
                     combo: b.combo,
                     action: window_resize::ResizeAction::SizerMenu,
+                })
+                .collect(),
+        },
+        scale: ResizeConfig {
+            bindings: bindings
+                .iter()
+                .filter(|b| b.action == Action::Scale)
+                .map(|b| window_core::Binding {
+                    combo: b.combo,
+                    action: window_resize::ResizeAction::Scale,
                 })
                 .collect(),
         },
@@ -341,7 +355,17 @@ fn assemble(modules: Modules, global: Vec<Binding>) -> Result<Config> {
     }));
     bindings.extend(modules.resize.bindings.iter().map(|b| Binding {
         combo: b.combo,
-        action: Action::SizerMenu,
+        action: match b.action {
+            window_resize::ResizeAction::Scale => Action::Scale,
+            window_resize::ResizeAction::SizerMenu => Action::SizerMenu,
+        },
+    }));
+    bindings.extend(modules.scale.bindings.iter().map(|b| Binding {
+        combo: b.combo,
+        action: match b.action {
+            window_resize::ResizeAction::Scale => Action::Scale,
+            window_resize::ResizeAction::SizerMenu => Action::SizerMenu,
+        },
     }));
     bindings.extend(modules.on_top_bottom.bindings.iter().map(|b| Binding {
         combo: b.combo,
@@ -463,6 +487,7 @@ pub const LEGACY_DEFAULT_CONFIG: &str = include_str!("../window-tools.legacy.tom
 pub enum ConfigModule {
     Rectangle,
     Resize,
+    Scale,
     MouseDrag,
     OnTopBottom,
     MaximizeMinimize,
@@ -471,9 +496,10 @@ pub enum ConfigModule {
     VirtualDesktops,
 }
 
-pub const MODULES: [ConfigModule; 8] = [
+pub const MODULES: [ConfigModule; 9] = [
     ConfigModule::Rectangle,
     ConfigModule::Resize,
+    ConfigModule::Scale,
     ConfigModule::MouseDrag,
     ConfigModule::OnTopBottom,
     ConfigModule::MaximizeMinimize,
@@ -487,6 +513,7 @@ impl ConfigModule {
         match self {
             Self::Rectangle => "window-rectangle.toml",
             Self::Resize => "window-resize.toml",
+            Self::Scale => "window-scale.toml",
             Self::MouseDrag => "window-mouse-drag.toml",
             Self::OnTopBottom => "window-on-top-bottom.toml",
             Self::MaximizeMinimize => "window-maximize-minimize.toml",
@@ -536,6 +563,7 @@ fn load_modules(path: &Path, global: Vec<Binding>) -> Result<Config> {
             window_rectangle::config::parse,
         )?,
         resize: module_file(path, ConfigModule::Resize, window_resize::config::parse)?,
+        scale: module_file(path, ConfigModule::Scale, window_resize::config::parse)?,
         mouse_drag: module_file(
             path,
             ConfigModule::MouseDrag,
@@ -595,6 +623,7 @@ pub fn ensure_module_config(
             text.push_str(&format!("gap = {}\n", cfg.modules.rectangle.settings.gap));
         }
         ConfigModule::Resize => bindings!(&cfg.modules.resize.bindings),
+        ConfigModule::Scale => bindings!(&cfg.modules.scale.bindings),
         ConfigModule::MouseDrag => {
             let m = cfg.modules.mouse_drag.settings.drag_modifier;
             let mut parts = Vec::new();
@@ -652,6 +681,7 @@ fn default_module(module: ConfigModule) -> &'static str {
     match module {
         ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
         ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
+        ConfigModule::Scale => window_resize::config::DEFAULT_SCALE_CONFIG,
         ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
         ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
         ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
@@ -697,8 +727,38 @@ fn migrate_legacy(path: &Path) -> Result<()> {
     archive_legacy(&legacy_path)
 }
 
+fn migrate_scale(path: &Path) -> Result<()> {
+    let target = ConfigModule::Scale.path(path)?;
+    if target.exists() {
+        return Ok(());
+    }
+    let mut combo = Combo::from_str("ctrl+alt+z")?;
+    let source = path.with_file_name("screen-actions.toml");
+    if source.exists() {
+        let text = std::fs::read_to_string(&source)
+            .with_context(|| format!("cannot read {}", source.display()))?;
+        let value = text
+            .parse::<toml::Value>()
+            .with_context(|| format!("invalid {}", source.display()))?;
+        if let Some(custom) = value
+            .get("bindings")
+            .and_then(|v| v.get("scale"))
+            .and_then(toml::Value::as_str)
+        {
+            combo = Combo::from_str(custom)
+                .with_context(|| format!("invalid scale binding in {}", source.display()))?;
+        }
+    }
+    std::fs::write(
+        &target,
+        format!("# Fullscreen window zoom.\n\"{combo}\" = \"scale\"\n"),
+    )
+    .with_context(|| format!("cannot create {}", target.display()))
+}
+
 /// Create split files, migrate any old aggregate once, then load only split files.
 pub fn load(path: &Path) -> Result<Config> {
+    migrate_scale(path)?;
     migrate_legacy(path)?;
     if !path.exists() {
         std::fs::write(path, DEFAULT_CONFIG)
@@ -1002,6 +1062,7 @@ mod tests {
         match module {
             ConfigModule::Rectangle => window_rectangle::config::DEFAULT_CONFIG,
             ConfigModule::Resize => window_resize::config::DEFAULT_CONFIG,
+            ConfigModule::Scale => window_resize::config::DEFAULT_SCALE_CONFIG,
             ConfigModule::MouseDrag => window_mouse_drag::config::DEFAULT_CONFIG,
             ConfigModule::OnTopBottom => window_on_top_bottom::config::DEFAULT_CONFIG,
             ConfigModule::MaximizeMinimize => window_maximize_minimize::config::DEFAULT_CONFIG,
@@ -1019,7 +1080,9 @@ mod tests {
         for module in MODULES {
             std::fs::write(module.path(&global).unwrap(), module_default(module)).unwrap();
         }
-        let split = load(&global).unwrap();
+        let mut split = load(&global).unwrap();
+        assert!(split.bindings.iter().any(|b| b.action == Action::Scale));
+        split.bindings.retain(|b| b.action != Action::Scale);
         let legacy = parse(LEGACY_DEFAULT_CONFIG).unwrap();
         assert_eq!(split.bindings, legacy.bindings);
         assert_eq!(split.settings.gap, legacy.settings.gap);
@@ -1037,7 +1100,7 @@ mod tests {
         let dir = test_dir("module-overlay");
         let global = dir.join(CONFIG_NAME);
         let legacy_path = dir.join(LEGACY_CONFIG_NAME);
-        let original = "gap = 7\n\"ctrl+alt+x\" = \"moveToLeft\"\n\"ctrl+alt+z\" = \"undo\"\n\"win+e\" = \"suppress\"\n";
+        let original = "gap = 7\n\"ctrl+alt+x\" = \"moveToLeft\"\n\"ctrl+alt+y\" = \"undo\"\n\"win+e\" = \"suppress\"\n";
         std::fs::write(&legacy_path, original).unwrap();
         load(&global).unwrap();
         let path = ConfigModule::Rectangle.path(&global).unwrap();
@@ -1048,7 +1111,7 @@ mod tests {
         );
         assert!(std::fs::read_to_string(&global)
             .unwrap()
-            .contains("ctrl+alt+z"));
+            .contains("ctrl+alt+y"));
         assert!(std::fs::read_to_string(&path).unwrap().contains("gap = 7"));
         std::fs::write(&path, "gap = 9\n\"ctrl+alt+x\" = \"moveToRight\"\n").unwrap();
         let updated = reload(&global).unwrap();
@@ -1071,10 +1134,37 @@ mod tests {
         let dir = test_dir("fresh-split");
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
-        assert_eq!(cfg.bindings.len(), 40);
+        assert_eq!(cfg.bindings.len(), 41);
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn scale_imports_screen_binding_without_overwriting_resize() {
+        let dir = test_dir("scale-import");
+        let global = dir.join(CONFIG_NAME);
+        let resize = ConfigModule::Resize.path(&global).unwrap();
+        let original = "\"ctrl+alt+win+s\" = \"sizerMenu\"\n";
+        std::fs::write(&resize, original).unwrap();
+        let source = dir.join("screen-actions.toml");
+        std::fs::write(&source, "[bindings]\nscale = \"ctrl+alt+win+z\"\n").unwrap();
+        let cfg = load(&global).unwrap();
+        assert!(cfg.bindings.iter().any(|b| {
+            b.action == Action::Scale && b.combo == Combo::from_str("ctrl+alt+win+z").unwrap()
+        }));
+        assert_eq!(std::fs::read_to_string(&resize).unwrap(), original);
+        assert!(source.exists());
+        std::fs::write(
+            ConfigModule::Scale.path(&global).unwrap(),
+            "\"ctrl+alt+win+y\" = \"scale\"\n",
+        )
+        .unwrap();
+        let cfg = reload(&global).unwrap();
+        assert!(cfg.bindings.iter().any(|b| {
+            b.action == Action::Scale && b.combo == Combo::from_str("ctrl+alt+win+y").unwrap()
+        }));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

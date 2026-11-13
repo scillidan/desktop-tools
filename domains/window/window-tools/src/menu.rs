@@ -45,12 +45,17 @@ pub fn model(suspended: bool, autostart: bool, standalone: bool) -> MenuModel {
             label: "Resize".into(),
             items: vec![
                 MenuItem::Info {
-                    label: "Sizer and resize presets".into(),
+                    label: "Sizer presets and fullscreen window zoom".into(),
                 },
                 MenuItem::Separator,
                 MenuItem::Item {
                     id: "edit-resize".into(),
                     label: "Edit Resize config".into(),
+                    enabled: true,
+                },
+                MenuItem::Item {
+                    id: "edit-scale".into(),
+                    label: "Edit Scale config".into(),
                     enabled: true,
                 },
                 MenuItem::Item {
@@ -159,6 +164,7 @@ pub fn command(id: &str) -> Option<Cmd> {
         "edit-resize-presets" => Cmd::EditResize,
         "edit-rectangle" => Cmd::EditModule(ConfigModule::Rectangle),
         "edit-resize" => Cmd::EditModule(ConfigModule::Resize),
+        "edit-scale" => Cmd::EditModule(ConfigModule::Scale),
         "edit-mouse-drag" => Cmd::EditModule(ConfigModule::MouseDrag),
         "edit-on-top-bottom" => Cmd::EditModule(ConfigModule::OnTopBottom),
         "edit-maximize-minimize" => Cmd::EditModule(ConfigModule::MaximizeMinimize),

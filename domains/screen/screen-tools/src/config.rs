@@ -99,7 +99,6 @@ pub struct Bindings {
     pub auto_ocr: Combo,
     pub record: Combo,
     pub toggle_screen: Combo,
-    pub scale: Combo,
 }
 
 /// Frame actions a binding can trigger (hotkey ids index into this order).
@@ -117,11 +116,10 @@ pub enum Action {
     AutoOcr,
     Record,
     ToggleScreen,
-    Scale,
 }
 
 impl Action {
-    pub const ALL: [Action; 13] = [
+    pub const ALL: [Action; 12] = [
         Action::Draw,
         Action::Resize,
         Action::Pin,
@@ -134,7 +132,6 @@ impl Action {
         Action::AutoOcr,
         Action::Record,
         Action::ToggleScreen,
-        Action::Scale,
     ];
     pub fn name(self) -> &'static str {
         match self {
@@ -150,7 +147,6 @@ impl Action {
             Action::AutoOcr => "auto_ocr",
             Action::Record => "record",
             Action::ToggleScreen => "toggle_screen",
-            Action::Scale => "scale",
         }
     }
     fn default_combo(self) -> Combo {
@@ -171,7 +167,6 @@ impl Action {
             Action::AutoOcr => "ctrl+shift+alt+o".parse().unwrap(),
             Action::Record => "ctrl+alt+r".parse().unwrap(),
             Action::ToggleScreen => "win+f2".parse().unwrap(),
-            Action::Scale => "ctrl+alt+z".parse().unwrap(),
         }
     }
     pub(crate) fn get(self, b: &Bindings) -> Combo {
@@ -188,7 +183,6 @@ impl Action {
             Action::AutoOcr => b.auto_ocr,
             Action::Record => b.record,
             Action::ToggleScreen => b.toggle_screen,
-            Action::Scale => b.scale,
         }
     }
     pub(crate) fn set(self, b: &mut Bindings, c: Combo) {
@@ -205,7 +199,6 @@ impl Action {
             Action::AutoOcr => b.auto_ocr = c,
             Action::Record => b.record = c,
             Action::ToggleScreen => b.toggle_screen = c,
-            Action::Scale => b.scale = c,
         }
     }
 }
@@ -225,7 +218,6 @@ impl Default for Bindings {
             auto_ocr: Combo::default(),
             record: Combo::default(),
             toggle_screen: Combo::default(),
-            scale: Combo::default(),
         };
         for a in Action::ALL {
             a.set(&mut b, a.default_combo());
@@ -553,6 +545,9 @@ pub fn parse(text: &str) -> Result<Config> {
         match binds.as_table() {
             Some(t) => {
                 for (name, value) in t {
+                    if name == "scale" {
+                        continue; // Owned by window-resize since P6c.
+                    }
                     let Some(action) = Action::ALL.iter().find(|a| a.name() == name) else {
                         eprintln!("warn: unknown binding `{name}` (known: draw, resize, pin, capture, window, move, toggle); skipped");
                         continue;

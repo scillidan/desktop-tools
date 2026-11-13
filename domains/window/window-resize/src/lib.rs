@@ -1,10 +1,13 @@
 pub mod config;
+#[cfg(windows)]
+pub mod scale;
 
 use anyhow::{Context, Result};
 use window_core::{target, Rect, SizeSpec, SizerPick, WinId, WindowHistory, WindowOps};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResizeAction {
+    Scale,
     SizerMenu,
 }
 

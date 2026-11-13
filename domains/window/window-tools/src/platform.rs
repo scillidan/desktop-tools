@@ -64,6 +64,9 @@ pub trait Platform {
     fn prev_desktop(&self) -> Result<()> {
         anyhow::bail!("virtual desktops are not supported on this platform")
     }
+    fn scale(&self) -> Result<()> {
+        anyhow::bail!("window zoom is not supported on this platform")
+    }
     fn file_dialog(&self) -> Result<()> {
         anyhow::bail!("file dialogs are not supported on this platform")
     }
@@ -228,6 +231,7 @@ impl<P: Platform> App<P> {
                 self.resize
                     .apply(&WindowBackend(&self.p), &mut self.history, forced)
             }
+            Action::Scale => self.p.scale(),
             Action::ToggleAlwaysOnTop => self.pins.apply(
                 &WindowBackend(&self.p),
                 OnTopBottomAction::ToggleAlwaysOnTop,

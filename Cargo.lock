@@ -1859,7 +1859,9 @@ name = "window-resize"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "kit",
  "window-core",
+ "windows",
 ]
 
 [[package]]
