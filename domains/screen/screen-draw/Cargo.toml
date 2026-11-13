@@ -8,6 +8,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+flameshot-handoff = { path = "../flameshot-handoff" }
 kit = { path = "../../../crates/kit" }
 screen-capture = { path = "../screen-capture" }
 screen-ocr = { path = "../screen-ocr" }

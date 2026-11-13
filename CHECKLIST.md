@@ -314,3 +314,18 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       then verified the fix with real Draw + Scale input: the fullscreen border is
       gone, the original Frame stays visible at its original rectangle after Scale
       closes, and both plugins Quit with code 0.
+
+## P6c Physical — Flameshot handoff (current host PID 25712)
+
+- [ ] Screen contains **Flameshot Handoff** after the five native feature submenus.
+      **Edit Flameshot config** opens `screen-flameshot.toml`; no Screen actions
+      config entry remains.
+- [ ] If Flameshot is installed, set `[external].flameshot` to its executable path,
+      draw a Frame and press `Ctrl+F`. Flameshot must open on the current Frame
+      region without a second desktop-tools host or tray. Successful annotation is
+      not signed off while the configured path is empty.
+- [x] Agent verified the final staged binaries: six wire submenus and separate
+      config entries; one-time path import leaves `screen-actions.toml` unchanged;
+      a missing executable logs the failure and restores the original Frame;
+      Suspend/Resume/Quit and ten-plugin smoke pass. Full verification: 292 passed,
+      11 ignored, clippy and SHA-checked staging green.

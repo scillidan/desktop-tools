@@ -283,6 +283,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "flameshot-handoff"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "kit",
+ "windows",
+]
+
+[[package]]
 name = "flate2"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,6 +1263,7 @@ name = "screen-draw"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "flameshot-handoff",
  "kit",
  "screen-capture",
  "screen-ocr",
@@ -1293,6 +1303,7 @@ name = "screen-tools"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "flameshot-handoff",
  "kit",
  "screen-capture",
  "screen-draw",

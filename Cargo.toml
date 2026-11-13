@@ -18,6 +18,7 @@ members = [
   "domains/taskbar/taskbar-center",
   "domains/taskbar/taskbar-hidden",
   "domains/taskbar/taskbar-pin",
+  "domains/screen/flameshot-handoff",
   "domains/screen/screen-capture",
   "domains/screen/screen-draw",
   "domains/screen/screen-ocr",

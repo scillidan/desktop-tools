@@ -16,8 +16,9 @@ external integrations in documentation, code registration and tray menus.
   Screen into the shared profile and host with clean wire-v3
   Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
   hosted and standalone physical acceptance are complete, including feature
-  crates, four feature submenus and split configuration. P6c transfers the
-  remaining power, scale and Flameshot ownership next.
+  crates and split configuration. P6c has transferred Power and Scale (both
+  physically signed) and extracted Flameshot handoff; successful Flameshot
+  annotation still requires a configured external executable for physical acceptance.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
@@ -63,14 +64,18 @@ and audio live in `screen-record`; monitor power and window recovery live in
 `screen-power`; pixel capture, clipboard and PNG operations
 live in `screen-capture`; recognition, text layout, external engines and
 automatic OCR live in `screen-ocr`; frames, selection, OCR masks, pins and
-virtual-desktop frame coordination live in `screen-draw`. Extraction preserves
-one process and coordinated capture/overlay/recording lifecycle.
+virtual-desktop frame coordination live in `screen-draw`; external annotation
+process/session handling lives in `flameshot-handoff`, with Frame visibility
+callbacks kept in Draw. Extraction preserves one process and coordinated
+capture/overlay/recording lifecycle.
 
-Screen has alphabetically ordered **Capture / Draw / OCR / Power / Record** submenus,
-each with a grey description, separator and its own edit entry. Their files are
+Screen has alphabetically ordered native **Capture / Draw / OCR / Power / Record**
+submenus, followed by the external **Flameshot Handoff** entry. Each has a grey
+description, separator and its own edit entry. Their files are
 `screen-capture.toml`, `screen-draw.toml`, `screen-ocr.toml`,
-`screen-power.toml` and `screen-record.toml`. Root-only `screen-actions.toml`
-temporarily owns Flameshot settings until its P6c handoff module. Scale moved to
+`screen-power.toml`, `screen-record.toml` and `screen-flameshot.toml`. The
+transitional `screen-actions.toml` is no longer read at runtime or shown in the
+menu; it remains an untouched one-time import source. Scale moved to
 `window-scale.toml` without rewriting `window-resize.toml` or the old source. The old aggregate
 `screen-tools.toml` migrates once to these files and is retained as
 `screen-tools.legacy.toml`; existing feature files are not overwritten. All
@@ -102,8 +107,8 @@ duplicate plugin layer; multi-plugin groups retain per-plugin wrappers. Every
 Window feature submenu also has a separator after its grey description.
 Suspend temporarily pauses hooks without
 stopping the process; Disable persistently stops the plugin and performs normal
-cleanup. Window, Screen and Taskbar have no aggregate config entry; Window and Screen
-instead have root-only action config entries, while every feature entry edits
+cleanup. Window, Screen and Taskbar have no aggregate config entry; Window
+instead has a root-only action config entry, while every feature entry edits
 its own TOML.
 Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
 submenus; host and all plugins must come from the same staged package.

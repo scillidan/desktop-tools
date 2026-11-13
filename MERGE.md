@@ -134,7 +134,7 @@ The full suite is the host plus ten plugins (eleven processes):
 | Primary group | Plugin id | Executable | Default profile |
 |---|---|---|---|
 | window | `window-tools` | `window-tools-rs.exe` | `window-tools.toml`, `window-resize.toml` |
-| screen | `screen-tools` | `screen-tools-rs.exe` | `screen-capture.toml` / `screen-draw.toml` / `screen-ocr.toml` / `screen-record.toml`; root `screen-actions.toml` |
+| screen | `screen-tools` | `screen-tools-rs.exe` | `screen-capture.toml` / `screen-draw.toml` / `screen-ocr.toml` / `screen-power.toml` / `screen-record.toml` / `screen-flameshot.toml` |
 | keyboard | `keyboard-locker` | `keyboard-locker.exe` | `keyboard-locker.toml` |
 | keyboard | `keyboard-switch` | `keyboard-switch.exe` | `keyboard-switch.toml` |
 | keyboard | `keyboard-auto-switch-back` | `keyboard-auto-switch-back.exe` | `keyboard-auto-switch-back.toml` |
@@ -147,8 +147,8 @@ The full suite is the host plus ten plugins (eleven processes):
 `window-tools` loads `app-toggle` and `screen-tools` loads
 `flameshot-handoff`; neither adds a process. App toggles use window's local
 focus/hook helpers and `[double_commander]` / `[wezterm]` in
-`window-tools.toml`. Flameshot uses the live screen frame and temporarily keeps
-`[flameshot]` in `screen-actions.toml` until its P6c handoff module, without IPC.
+`window-tools.toml`. Flameshot uses the live screen frame and
+`[external].flameshot` in `screen-flameshot.toml`, without IPC.
 Lifecycle controls stay with the owning
 executable, and external actions appear after native actions in its menu.
 
@@ -339,17 +339,18 @@ visible rather than hide them behind globals.
 Configuration is split by the same ownership boundaries as the code and menus:
 `screen-draw.toml` owns Frame/Pin and their actions, `screen-capture.toml` owns
 capture and the ordinary image editor, `screen-ocr.toml` owns OCR/Mask/notify,
-and `screen-record.toml` owns recording. Root-only `screen-actions.toml`
-temporarily owns Scale and Flameshot until P6c moves them to their final owners.
+`screen-power.toml` owns monitor power, `screen-record.toml` owns recording and
+`screen-flameshot.toml` owns the external annotation path. The transitional
+`screen-actions.toml` is only an untouched import source, not runtime configuration.
 The existing parser is reused to merge these slices rather than duplicating
 field parsers. A one-time migration preserves effective legacy values, never
 overwrites existing feature files, and renames the aggregate to
 `screen-tools.legacy.toml`. All files share one hotkey namespace and reload
-atomically. This is structural unification, not five copies of config/tray/menu
+atomically. This is structural unification, not six copies of config/tray/menu
 plumbing.
 
-The DWM window zoom (`scale`) belongs to window and moves out. Flameshot is a
-separate screen-owned handoff module and uses `[flameshot]`; the normal
+The DWM window zoom (`scale`) belongs to window and moved out. Flameshot is a
+separate screen-owned handoff module using `[external].flameshot`; the normal
 image-editor handoff stays with capture unless separately requested. Both
 external handoffs follow native capture actions in code and menu order. The
 per-desktop frame lifecycle stays in
@@ -853,11 +854,12 @@ one host tray and one autostart entry.
   feature-to-root dependency. All 23 OCR tests moved; a real staged run completed
   frame/capture/OCR/result and exited cleanly without clipboard writes.
 - P6b module commit 4: `screen-draw` owns Frame, selection overlays, OCR Mask,
-  Pin, Flameshot handoff and per-virtual-desktop frame coordination. All 37
-  existing tests moved with it. The composition root no longer contains those
-  Win32 implementations; real OCR and hosted lifecycle checks remain green.
-- P6b menu/config completion: hosted and standalone share alphabetical Capture /
-  Draw / OCR / Record submenus and split configs, with root-only Screen actions.
+  Pin and per-virtual-desktop frame coordination. Flameshot handoff initially
+  moved here with the Frame code, then received its P6c feature crate below.
+  The composition root no longer contains those Win32 implementations; real OCR
+  and hosted lifecycle checks remain green.
+- P6b menu/config completion: hosted and standalone shared alphabetical Capture /
+  Draw / OCR / Record submenus and split configs, initially with root-only Screen actions.
   The real legacy profile migrated without losing effective values; hosted
   physical acceptance and standalone native-menu/Exit pass B are signed off.
 - Multi-monitor Frame regression: `WM_WINDOWPOSCHANGING` previously clamped a
@@ -891,9 +893,18 @@ one host tray and one autostart entry.
   never rewritten. Its Resize submenu has separate Resize / Scale / presets
   entries. Migration, real DWM overlay toggle, clean Quit and ten-plugin checks
   pass; physical zoom acceptance, including Scale with a live Screen Frame, is
-  signed off. Move the Flameshot bridge to `domains/screen/flameshot-handoff`
-  as a later commit.
+  signed off. Flameshot handoff is now extracted as described below.
   Keep these calls in their current owning processes; add no frame IPC.
+- P6c Flameshot handoff: `flameshot-handoff` owns executable discovery,
+  daemon/GUI handoff, timeout and external-session diagnostics. Draw still owns
+  Frame hide/failure-restore through narrow callbacks; no process or frame IPC
+  was added. `screen-flameshot.toml` imports `[external].flameshot` once without
+  rewriting `screen-actions.toml`; existing target files win. Runtime reload and
+  menus no longer use the transitional actions file. Native Screen modules stay
+  alphabetical and Flameshot Handoff is last as an external integration. Final
+  binaries verify six wire menus, missing-executable Frame recovery, clean Quit,
+  292 workspace tests, clippy and ten-plugin smoke. Successful annotation remains
+  a physical gate until an actual Flameshot executable is configured.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all

@@ -13,14 +13,17 @@ pub enum ConfigModule {
     Ocr,
     Power,
     Record,
+    Flameshot,
 }
 
-pub const MODULES: [ConfigModule; 5] = [
+// Native features are alphabetical; external handoffs follow them.
+pub const MODULES: [ConfigModule; 6] = [
     ConfigModule::Capture,
     ConfigModule::Draw,
     ConfigModule::Ocr,
     ConfigModule::Power,
     ConfigModule::Record,
+    ConfigModule::Flameshot,
 ];
 
 impl ConfigModule {
@@ -31,6 +34,7 @@ impl ConfigModule {
             Self::Ocr => "OCR",
             Self::Power => "Power",
             Self::Record => "Record",
+            Self::Flameshot => "Flameshot Handoff",
         }
     }
 
@@ -41,6 +45,7 @@ impl ConfigModule {
             Self::Ocr => "Recognize Frame text and display or copy the result",
             Self::Power => "Toggle monitor power and restore windows after reconnect",
             Self::Record => "Record the Frame with FFmpeg and optional desktop audio",
+            Self::Flameshot => "Send the current Frame to Flameshot for annotation",
         }
     }
 
@@ -51,6 +56,7 @@ impl ConfigModule {
             Self::Ocr => "ocr",
             Self::Power => "power",
             Self::Record => "record",
+            Self::Flameshot => "flameshot",
         }
     }
 
@@ -61,6 +67,7 @@ impl ConfigModule {
             Self::Ocr => "screen-ocr.toml",
             Self::Power => "screen-power.toml",
             Self::Record => "screen-record.toml",
+            Self::Flameshot => "screen-flameshot.toml",
         }
     }
 
@@ -83,13 +90,6 @@ fn binding_lines(bindings: &Bindings, actions: &[Action]) -> String {
         ));
     }
     text
-}
-
-fn actions_text(cfg: &Config) -> String {
-    format!(
-        "# Screen actions awaiting their P6c feature owners.\n\n[external]\nflameshot = {}\n",
-        quote(&cfg.flameshot)
-    )
 }
 
 fn module_text(module: ConfigModule, cfg: &Config) -> String {
@@ -187,6 +187,10 @@ fn module_text(module: ConfigModule, cfg: &Config) -> String {
             cfg.record_min_free_mb,
             binding_lines(&cfg.bindings, &[Action::Record])
         ),
+        ConfigModule::Flameshot => format!(
+            "# External annotation handoff; Ctrl+F with the Frame focused.\n\n[external]\nflameshot = {}\n",
+            quote(&cfg.flameshot)
+        ),
     }
 }
 
@@ -236,6 +240,20 @@ fn migrate_window_power(actions: &Path) -> Result<()> {
     Ok(())
 }
 
+fn migrate_flameshot(actions: &Path) -> Result<()> {
+    let target = ConfigModule::Flameshot.path(actions);
+    if target.exists() || !actions.exists() {
+        return Ok(());
+    }
+    let text = std::fs::read_to_string(actions)
+        .with_context(|| format!("cannot read {}", actions.display()))?;
+    let legacy =
+        crate::config::parse(&text).with_context(|| format!("invalid {}", actions.display()))?;
+    std::fs::write(&target, module_text(ConfigModule::Flameshot, &legacy))
+        .with_context(|| format!("cannot write {}", target.display()))?;
+    Ok(())
+}
+
 fn migrate_legacy(actions: &Path) -> Result<()> {
     let legacy_path = actions.with_file_name(LEGACY_FILE);
     if !legacy_path.exists() {
@@ -244,10 +262,6 @@ fn migrate_legacy(actions: &Path) -> Result<()> {
     let text = std::fs::read_to_string(&legacy_path)
         .with_context(|| format!("cannot read {}", legacy_path.display()))?;
     let legacy = crate::config::parse(&text)?;
-    if !actions.exists() {
-        std::fs::write(actions, actions_text(&legacy))
-            .with_context(|| format!("cannot create {}", actions.display()))?;
-    }
     for module in MODULES {
         let path = module.path(actions);
         if !path.exists() {
@@ -261,11 +275,8 @@ fn migrate_legacy(actions: &Path) -> Result<()> {
 
 pub fn load(actions: &Path) -> Result<Config> {
     migrate_window_power(actions)?;
+    migrate_flameshot(actions)?;
     migrate_legacy(actions)?;
-    if !actions.exists() {
-        std::fs::write(actions, actions_text(&Config::default()))
-            .with_context(|| format!("cannot create {}", actions.display()))?;
-    }
     for module in MODULES {
         let path = module.path(actions);
         if !path.exists() {
@@ -327,6 +338,9 @@ fn merge(module: ConfigModule, part: Config, cfg: &mut Config) {
             cfg.record_min_free_mb = part.record_min_free_mb;
             cfg.bindings.record = part.bindings.record;
         }
+        ConfigModule::Flameshot => {
+            cfg.flameshot = part.flameshot;
+        }
     }
 }
 
@@ -347,17 +361,7 @@ fn validate_bindings(bindings: &Bindings) -> Result<()> {
 
 /// Read every split file before replacing any active configuration.
 pub fn reload(actions: &Path) -> Result<Config> {
-    let text = std::fs::read_to_string(actions)
-        .with_context(|| format!("cannot read {}", actions.display()))?;
-    let root =
-        crate::config::parse(&text).with_context(|| format!("invalid {}", actions.display()))?;
-    let mut cfg = Config {
-        flameshot: root.flameshot,
-        bindings: Bindings {
-            ..Bindings::default()
-        },
-        ..Config::default()
-    };
+    let mut cfg = Config::default();
     for module in MODULES {
         let path = module.path(actions);
         let text = std::fs::read_to_string(&path)
@@ -371,18 +375,15 @@ pub fn reload(actions: &Path) -> Result<Config> {
 }
 
 pub fn modified(actions: &Path) -> Option<std::time::SystemTime> {
-    std::iter::once(actions.to_path_buf())
-        .chain(MODULES.iter().map(|module| module.path(actions)))
+    MODULES
+        .iter()
+        .map(|module| module.path(actions))
         .filter_map(|path| std::fs::metadata(path).ok()?.modified().ok())
         .max()
 }
 
 pub fn edit(module: ConfigModule, actions: &Path) {
     kit::win::edit_config(&module.path(actions));
-}
-
-pub fn edit_actions(actions: &Path) {
-    kit::win::edit_config(actions);
 }
 
 #[cfg(test)]
@@ -422,11 +423,34 @@ mod tests {
     }
 
     #[test]
+    fn flameshot_imports_once_without_rewriting_legacy_actions() {
+        let dir = test_dir("flameshot-migration");
+        let actions = dir.join(ACTIONS_FILE);
+        let original = "[external]\nflameshot = \"C:\\\\Tools\\\\flameshot.exe\"\n";
+        std::fs::write(&actions, original).unwrap();
+
+        let cfg = load(&actions).unwrap();
+        assert_eq!(cfg.flameshot, "C:\\Tools\\flameshot.exe");
+        assert_eq!(std::fs::read_to_string(&actions).unwrap(), original);
+
+        std::fs::write(
+            ConfigModule::Flameshot.path(&actions),
+            "[external]\nflameshot = \"new-flameshot\"\n",
+        )
+        .unwrap();
+        let cfg = load(&actions).unwrap();
+        assert_eq!(cfg.flameshot, "new-flameshot");
+        assert_eq!(std::fs::read_to_string(&actions).unwrap(), original);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn fresh_profile_defaults_match_the_legacy_schema() {
         let dir = test_dir("split");
         let actions = dir.join(ACTIONS_FILE);
         let cfg = load(&actions).unwrap();
         assert_eq!(cfg, Config::default());
+        assert!(!actions.exists());
         assert!(!actions.with_file_name(LEGACY_FILE).exists());
         for module in MODULES {
             assert!(module.path(&actions).is_file());

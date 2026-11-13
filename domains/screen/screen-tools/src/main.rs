@@ -84,6 +84,7 @@ fn frame_settings(cfg: &config::Config) -> screen_draw::FrameSettings {
 fn run() -> Result<()> {
     let hosted = std::env::args().any(|arg| arg == "--plugin");
     set_dpi_aware();
+    flameshot_handoff::set_logger(logline);
     screen_capture::set_logger(logline);
     screen_draw::set_logger(logline);
     screen_draw::set_notifier(tray::notify);
@@ -239,9 +240,6 @@ fn run() -> Result<()> {
                         kit::ipc::HostCommand::Quit { .. } => unsafe {
                             windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0)
                         },
-                        kit::ipc::HostCommand::Invoke { id, .. } if id == "config-actions" => {
-                            config_files::edit_actions(&cfg_path);
-                        }
                         kit::ipc::HostCommand::Invoke { id, .. } => {
                             if let Some(module) = config_files::MODULES
                                 .iter()
@@ -266,7 +264,6 @@ fn run() -> Result<()> {
                     "quit" => unsafe {
                         windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0)
                     },
-                    "config-actions" => config_files::edit_actions(&cfg_path),
                     _ => {
                         if let Some(module) = config_files::MODULES
                             .iter()
@@ -413,11 +410,6 @@ fn screen_menu(suspended: bool, standalone: bool) -> kit::menu::MenuModel {
         })
         .collect();
     items.push(MenuItem::Separator);
-    items.push(MenuItem::Item {
-        id: "config-actions".into(),
-        label: "Edit Screen actions config".into(),
-        enabled: true,
-    });
     items.push(MenuItem::Toggle {
         id: "suspend".into(),
         label: "Suspend Group \"Screen\"".into(),

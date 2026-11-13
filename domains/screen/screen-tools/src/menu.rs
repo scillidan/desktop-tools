@@ -15,12 +15,12 @@ pub fn command_code(id: &str) -> Option<usize> {
     Some(match id {
         "suspend" => 1,
         "quit" => 2,
-        "config-actions" => 3,
         "config-capture" => 4,
         "config-draw" => 5,
         "config-ocr" => 6,
         "config-record" => 7,
         "config-power" => 8,
+        "config-flameshot" => 9,
         _ => return None,
     })
 }
@@ -29,11 +29,12 @@ pub fn command_id(code: usize) -> Option<&'static str> {
     Some(match code {
         1 => "suspend",
         2 => "quit",
-        3 => "config-actions",
         4 => "config-capture",
         5 => "config-draw",
         6 => "config-ocr",
         7 => "config-record",
+        8 => "config-power",
+        9 => "config-flameshot",
         _ => return None,
     })
 }
@@ -125,7 +126,7 @@ mod tests {
     use crate::config_files;
 
     #[test]
-    fn screen_menus_are_alphabetical_with_five_config_entries() {
+    fn native_menus_are_alphabetical_and_external_handoff_is_last() {
         let model = crate::screen_menu(false, true);
         model.validate().unwrap();
         let labels: Vec<&str> = model
@@ -136,7 +137,17 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(labels, ["Capture", "Draw", "OCR", "Power", "Record"]);
+        assert_eq!(
+            labels,
+            [
+                "Capture",
+                "Draw",
+                "OCR",
+                "Power",
+                "Record",
+                "Flameshot Handoff"
+            ]
+        );
         for module in config_files::MODULES {
             assert!(model
                 .id_for_label(&format!("Edit {} config", module.label()))
@@ -150,6 +161,6 @@ mod tests {
     fn hosted_menu_leaves_process_exit_to_the_host() {
         let model = crate::screen_menu(false, false);
         assert!(model.id_for_label("Exit Screen Tools").is_none());
-        assert!(model.id_for_label("Edit Screen actions config").is_some());
+        assert!(model.id_for_label("Edit Screen actions config").is_none());
     }
 }

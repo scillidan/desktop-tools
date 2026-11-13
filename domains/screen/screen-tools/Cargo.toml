@@ -9,6 +9,7 @@ build = "build.rs"
 
 [dependencies]
 anyhow.workspace = true
+flameshot-handoff = { path = "../flameshot-handoff" }
 toml.workspace = true
 kit = { path = "../../../crates/kit" }
 screen-capture = { path = "../screen-capture" }
