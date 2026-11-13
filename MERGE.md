@@ -848,6 +848,11 @@ one host tray and one autostart entry.
   Pin, Flameshot handoff and per-virtual-desktop frame coordination. All 37
   existing tests moved with it. The composition root no longer contains those
   Win32 implementations; real OCR and hosted lifecycle checks remain green.
+- Multi-monitor Frame regression: `WM_WINDOWPOSCHANGING` previously clamped a
+  proposed cross-monitor rectangle against the frame's old monitor. It now uses
+  `MonitorFromRect` on the proposed rectangle. The same real secondary-monitor
+  probe failed before and passes after for both `Ctrl+Alt+W` and pointer drawing;
+  the explicit multi-monitor unit test, OCR cycle and ten-plugin smoke also pass.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record one module per commit with tests after each. Code and
   automated checks are complete; hosted physical sign-off is pending. Power is
@@ -937,6 +942,13 @@ project's PowerShell probes) remain part of the relevant checklists.
   Magpie-style shader scaling/input passthrough; merging the two different
   resize-spec languages; hot-plug zip inbox; code signing; Linux host tray;
   Wayland/macOS.
+- **Deferred — OBS recording bridge; trigger: the user chooses OBS as an active
+  recording backend.** Add an external `obs-cmd` backend under Screen Record,
+  preserving native FFmpeg as the default. Start with status, start/stop,
+  pause/resume and replay-buffer save; require an existing OBS 30+ / WebSocket v5
+  setup. Do not auto-launch OBS, put its password in TOML, or stop a recording
+  that Screen did not start. Frame-to-OBS source/crop mapping needs a separate
+  coordinate design and is not promised by process control alone.
 - Existing standalone X11 behavior remains where it already exists. The merged
   host is Windows-first; no Linux regression claim is made without its own
   checks.

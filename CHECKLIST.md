@@ -250,11 +250,14 @@ Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-
 Automated: 274 workspace tests, clippy, release/staging and ten-plugin smoke pass.
 All original Screen tests moved with Record (6), Capture (5), OCR (23) and Draw
 (37). Real wire-v3 verifies hotkey ownership, Suspend/Resume and clean Quit; a
-real staged frame/capture/OCR/result cycle also passes. The current host is PID
-43088 with ten children.
+real staged frame/capture/OCR/result cycle also passes. The multi-monitor fix has
+a red/green real-window probe for both pointer drawing and Ctrl+Alt+W, plus an
+explicitly run physical-monitor test. The current host is PID 20024 with ten
+children.
 
 - [ ] Tray shows `Screen (running)` with `Suspend Group "Screen"`, one tray only.
 - [ ] Ctrl+Alt+D, Ctrl+Alt+S, Ctrl+Enter and Ctrl+Alt+R retain draw, resize, capture/OCR and recording behavior; confirm the video output and clipboard/OCR result.
 - [ ] Suspend releases all Screen hotkeys without affecting Window/Key Map; Resume restores them.
 - [ ] Disable/Enable Screen performs graceful cleanup and restarts without a modal error or orphaned helper.
+- [ ] On the secondary monitor, both pointer drawing and Ctrl+Alt+W place the Frame there; moving/resizing across the monitor boundary is not clamped back to the primary display.
 - [ ] Final feature submenus and standalone pass remain separate gates.

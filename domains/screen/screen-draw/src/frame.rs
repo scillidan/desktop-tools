@@ -195,8 +195,33 @@ unsafe fn full_monitor(hwnd: HWND) -> Rect {
 /// Configured bounds of the monitor `hwnd` is on (fallback: primary).
 /// Percent/fraction specs use the same bounds as pointer and keyboard sizing.
 unsafe fn monitor_bounds(hwnd: HWND) -> Rect {
+    let mut rect = RECT::default();
+    if GetWindowRect(hwnd, &mut rect).is_err() {
+        return if state_opt(hwnd).is_some_and(|s| !s.work_area) {
+            Rect {
+                l: 0,
+                t: 0,
+                r: GetSystemMetrics(SM_CXSCREEN),
+                b: GetSystemMetrics(SM_CYSCREEN),
+            }
+        } else {
+            work_area()
+        };
+    }
+    monitor_bounds_for_rect(hwnd, rect_of(rect))
+}
+
+/// Bounds for a proposed rectangle, not the frame's previous monitor. This
+/// matters while one SetWindowPos crosses a monitor boundary.
+unsafe fn monitor_bounds_for_rect(hwnd: HWND, rect: Rect) -> Rect {
     let full = state_opt(hwnd).is_some_and(|s| !s.work_area);
-    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    let native = RECT {
+        left: rect.l,
+        top: rect.t,
+        right: rect.r,
+        bottom: rect.b,
+    };
+    let monitor = MonitorFromRect(&native, MONITOR_DEFAULTTONEAREST);
     let mut mi = MONITORINFO {
         cbSize: std::mem::size_of::<MONITORINFO>() as u32,
         ..Default::default()
@@ -1181,10 +1206,26 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                 wp.cy
             }
             .max(16);
+            let x = if (wp.flags & SWP_NOMOVE).0 != 0 {
+                r.left
+            } else {
+                wp.x
+            };
+            let y = if (wp.flags & SWP_NOMOVE).0 != 0 {
+                r.top
+            } else {
+                wp.y
+            };
+            let proposed = Rect {
+                l: x,
+                t: y,
+                r: x + w,
+                b: y + h,
+            };
             let work = if state(hwnd).full_fill {
                 full_monitor(hwnd)
             } else {
-                monitor_bounds(hwnd)
+                monitor_bounds_for_rect(hwnd, proposed)
             };
             if (wp.flags & SWP_NOMOVE).0 == 0 {
                 wp.x = wp.x.clamp(work.l, (work.r - w).max(work.l));
@@ -2429,6 +2470,43 @@ mod tests {
         assert_eq!((r.w(), r.h()), (1000, 700));
         assert!(r.l >= WORK.l && r.r <= WORK.r);
         assert!(r.t >= WORK.t && r.b <= WORK.b);
+    }
+
+    #[test]
+    #[ignore = "requires at least two physical monitors"]
+    fn proposed_rect_selects_its_own_monitor() {
+        unsafe extern "system" fn collect(
+            _monitor: HMONITOR,
+            _dc: HDC,
+            rect: *mut RECT,
+            data: LPARAM,
+        ) -> BOOL {
+            (*(data.0 as *mut Vec<RECT>)).push(*rect);
+            BOOL(1)
+        }
+
+        unsafe {
+            let mut monitors = Vec::new();
+            let _ = EnumDisplayMonitors(
+                None,
+                None,
+                Some(collect),
+                LPARAM(&mut monitors as *mut _ as isize),
+            );
+            assert!(monitors.len() > 1);
+            for native in monitors {
+                let expected_monitor = MonitorFromRect(&native, MONITOR_DEFAULTTONEAREST);
+                let mut info = MONITORINFO {
+                    cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+                    ..Default::default()
+                };
+                assert!(GetMonitorInfoW(expected_monitor, &mut info).as_bool());
+                assert_eq!(
+                    monitor_bounds_for_rect(HWND::default(), rect_of(native)),
+                    rect_of(info.rcWork)
+                );
+            }
+        }
     }
 
     #[test]
