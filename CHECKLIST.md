@@ -247,14 +247,15 @@ Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-
 
 ## P6b Screen hosted baseline
 
-Automated: 274 workspace tests, clippy, release/staging and ten-plugin smoke pass.
-All original Screen tests moved with Record (6), Capture (5), OCR (23) and Draw
-(37). Real wire-v3 verifies hotkey ownership, Suspend/Resume and clean Quit; a
-real staged frame/capture/OCR/result cycle also passes. The multi-monitor fix has
-a red/green real-window probe for both pointer drawing and Ctrl+Alt+W, plus an
-explicitly run physical-monitor test. A physical trailing-Draw capture led to a
-completion-time re-entry guard and a 300 ms red/green regression probe. The
-current host is PID 7968 with ten children.
+Automated: 290 passed / 11 ignored workspace tests, clippy, release/staging and
+ten-plugin smoke pass. All original Screen tests moved with Record (6), Capture
+(5), OCR (23) and Draw (37). Real wire-v3 verifies four described feature
+submenus, hotkey ownership, Suspend/Resume and clean Quit; a real staged
+frame/capture/OCR/result cycle also passes. Split-config probes verify legacy
+migration, Draw hotkey replacement, same-process reload and atomic rollback on
+invalid OCR TOML. The real profile preserves every effective legacy value and a
+byte-identical `.legacy.toml` backup. Multi-monitor and trailing-Draw red/green
+probes remain green. The current host is PID 21340 with ten children.
 
 - [ ] Tray shows `Screen (running)` with `Suspend Group "Screen"`, one tray only.
 - [ ] Ctrl+Alt+D, Ctrl+Alt+S, Ctrl+Enter and Ctrl+Alt+R retain draw, resize, capture/OCR and recording behavior; confirm the video output and clipboard/OCR result.

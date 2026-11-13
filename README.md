@@ -15,7 +15,8 @@ external integrations in documentation, code registration and tray menus.
   and passed standalone draw, capture/OCR and recording acceptance. P6b imports
   Screen into the shared profile and host with clean wire-v3
   Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
-  physical acceptance and feature-crate extraction are still in progress.
+  physical acceptance is still in progress. Feature crates, four feature
+  submenus and split configuration are implemented and automatically verified.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
@@ -53,16 +54,24 @@ The modules share suspend/reload/undo and do not add independent processes or
 per-module Enable/Restart switches.
 
 `screen-tools` retains the frame, Draw, Capture, OCR, Record, Scale and
-Flameshot handoff behavior from Screen Tools. Hosted mode uses the shared
-`screen-tools.toml` compatibility profile, no second tray or legacy Quit hotkey,
-and the original Win32 loop with a custom IPC wakeup. Suspend releases Screen
-hotkeys without changing Window/Keyboard/Taskbar. Hosted notifications use the
-host; standalone retains its tray and autostart. Recording and audio now live in
-`screen-record`; pixel capture, clipboard and PNG operations live in
-`screen-capture`; recognition, text layout, external engines and automatic OCR
-live in `screen-ocr`; frames, selection, OCR masks, pins and virtual-desktop
-frame coordination live in `screen-draw`. Extraction preserves one process and
-coordinated capture/overlay/recording lifecycle.
+Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or
+legacy Quit hotkey and uses the original Win32 loop with a custom IPC wakeup.
+Suspend releases Screen hotkeys without changing Window/Keyboard/Taskbar.
+Hosted notifications use the host; standalone retains its own tray. Recording
+and audio live in `screen-record`; pixel capture, clipboard and PNG operations
+live in `screen-capture`; recognition, text layout, external engines and
+automatic OCR live in `screen-ocr`; frames, selection, OCR masks, pins and
+virtual-desktop frame coordination live in `screen-draw`. Extraction preserves
+one process and coordinated capture/overlay/recording lifecycle.
+
+Screen has alphabetically ordered **Capture / Draw / OCR / Record** submenus,
+each with a grey description, separator and its own edit entry. Their files are
+`screen-capture.toml`, `screen-draw.toml`, `screen-ocr.toml` and
+`screen-record.toml`. Root-only `screen-actions.toml` temporarily owns Scale and
+Flameshot settings until P6c assigns their final owners. The old aggregate
+`screen-tools.toml` migrates once to these files and is retained as
+`screen-tools.legacy.toml`; existing feature files are not overwritten. All
+files share one hotkey namespace and reload atomically.
 
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
 `taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and
@@ -72,12 +81,12 @@ Standalone retains `--dump`, `--inspect`, `--once`, its own tray and Start with
 Windows; hosted errors use the host notification path.
 
 Each Window module has its own schema, defaults, tests and
-`window-<module>.toml` edit entry. Root-only actions such as Undo and the temporary
-screen binding live in `window-actions.toml`. Window and Taskbar migrate an old
-aggregate TOML once: existing feature files win, missing effective settings are
-materialized, and the aggregate is renamed to a `.legacy.toml` backup. Runtime
-and menus no longer use the aggregate. Window files share one hotkey namespace:
-duplicates are rejected, and an invalid file leaves the complete previous Window
+`window-<module>.toml` edit entry. Root-only actions such as Undo live in
+`window-actions.toml`. Window, Screen and Taskbar migrate an old aggregate TOML
+once: existing feature files win, missing effective settings are materialized,
+and the aggregate is renamed to a `.legacy.toml` backup. Runtime and menus no
+longer use the aggregate. Each domain's files share one hotkey namespace:
+duplicates are rejected, and an invalid file leaves the complete previous domain
 configuration active.
 
 Each plugin still has its own `plugin.toml` and config file. `group` controls
@@ -90,8 +99,9 @@ duplicate plugin layer; multi-plugin groups retain per-plugin wrappers. Every
 Window feature submenu also has a separator after its grey description.
 Suspend temporarily pauses hooks without
 stopping the process; Disable persistently stops the plugin and performs normal
-cleanup. Window and Taskbar have no aggregate config entry; Window instead has
-`Edit Window actions config`, while every feature entry edits its own TOML.
+cleanup. Window, Screen and Taskbar have no aggregate config entry; Window and Screen
+instead have root-only action config entries, while every feature entry edits
+its own TOML.
 Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
 submenus; host and all plugins must come from the same staged package.
 

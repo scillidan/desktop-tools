@@ -134,7 +134,7 @@ The full suite is the host plus ten plugins (eleven processes):
 | Primary group | Plugin id | Executable | Default profile |
 |---|---|---|---|
 | window | `window-tools` | `window-tools-rs.exe` | `window-tools.toml`, `window-resize.toml` |
-| screen | `screen-tools` | `screen-tools-rs.exe` | `screen-tools.toml` |
+| screen | `screen-tools` | `screen-tools-rs.exe` | `screen-capture.toml` / `screen-draw.toml` / `screen-ocr.toml` / `screen-record.toml`; root `screen-actions.toml` |
 | keyboard | `keyboard-locker` | `keyboard-locker.exe` | `keyboard-locker.toml` |
 | keyboard | `keyboard-switch` | `keyboard-switch.exe` | `keyboard-switch.toml` |
 | keyboard | `keyboard-auto-switch-back` | `keyboard-auto-switch-back.exe` | `keyboard-auto-switch-back.toml` |
@@ -147,8 +147,9 @@ The full suite is the host plus ten plugins (eleven processes):
 `window-tools` loads `app-toggle` and `screen-tools` loads
 `flameshot-handoff`; neither adds a process. App toggles use window's local
 focus/hook helpers and `[double_commander]` / `[wezterm]` in
-`window-tools.toml`. Flameshot uses the live screen frame and `[flameshot]` in
-`screen-tools.toml`, without IPC. Lifecycle controls stay with the owning
+`window-tools.toml`. Flameshot uses the live screen frame and temporarily keeps
+`[flameshot]` in `screen-actions.toml` until its P6c handoff module, without IPC.
+Lifecycle controls stay with the owning
 executable, and external actions appear after native actions in its menu.
 
 The keyboard tools remain separate processes. Combining their hotkey ids,
@@ -334,11 +335,17 @@ product: recording blocks other actions, capture dismisses stale OCR masks, and
 retargeting restarts auto OCR. Module boundaries must make those transitions
 visible rather than hide them behind globals.
 
-Configuration remains one `screen-tools.toml`, with consistent sections such as
-`[draw]`, `[capture]`, `[ocr]`, `[record]`, `[pin]` and `[power]`. The parser and
-defaults are shared; each module owns its section schema and validation. A
-one-time legacy import preserves existing user values. This is structural
-unification, not five copies of config/tray/menu plumbing.
+Configuration is split by the same ownership boundaries as the code and menus:
+`screen-draw.toml` owns Frame/Pin and their actions, `screen-capture.toml` owns
+capture and the ordinary image editor, `screen-ocr.toml` owns OCR/Mask/notify,
+and `screen-record.toml` owns recording. Root-only `screen-actions.toml`
+temporarily owns Scale and Flameshot until P6c moves them to their final owners.
+The existing parser is reused to merge these slices rather than duplicating
+field parsers. A one-time migration preserves effective legacy values, never
+overwrites existing feature files, and renames the aggregate to
+`screen-tools.legacy.toml`. All files share one hotkey namespace and reload
+atomically. This is structural unification, not five copies of config/tray/menu
+plumbing.
 
 The DWM window zoom (`scale`) belongs to window and moves out. Flameshot is a
 separate screen-owned handoff module and uses `[flameshot]`; the normal
@@ -862,6 +869,14 @@ one host tray and one autostart entry.
   draw/capture/OCR/record one module per commit with tests after each. Code and
   automated checks are complete; hosted physical sign-off is pending. Power is
   deliberately transferred from Window in P6c, not invented during this import.
+  Final hosted/standalone menus use alphabetical Capture / Draw / OCR / Record
+  submenus with descriptions, separators and per-feature Edit Config entries.
+  Split configs are `screen-capture.toml` (capture/editor), `screen-draw.toml`
+  (Frame/Pin and their bindings), `screen-ocr.toml` (OCR/Mask/notify), and
+  `screen-record.toml`; transitional `screen-actions.toml` owns only scale and
+  Flameshot until P6c moves them. The aggregate `screen-tools.toml` migrates
+  once without overwriting split files and is archived as `.legacy.toml`.
+  Reload reads every file and checks one shared hotkey namespace before applying.
 - P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the
   Flameshot bridge to `domains/screen/flameshot-handoff` as separate commits.
   Keep these calls in their current owning processes; add no frame IPC.

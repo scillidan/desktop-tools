@@ -5,7 +5,7 @@
 use anyhow::{ensure, Result};
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use windows::core::{w, PCWSTR};
-use windows::Win32::Foundation::{HWND, LPARAM};
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_NOSOUND, NIM_ADD,
@@ -20,6 +20,13 @@ static HOST: AtomicIsize = AtomicIsize::new(0);
 static NOTIFY: AtomicBool = AtomicBool::new(false);
 static HOST_NOTIFIER: std::sync::Mutex<Option<kit::ipc::PluginNotifier>> =
     std::sync::Mutex::new(None);
+static MENU_MODEL: std::sync::Mutex<Option<kit::menu::MenuModel>> = std::sync::Mutex::new(None);
+
+pub fn set_menu_model(model: kit::menu::MenuModel) {
+    *MENU_MODEL
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner()) = Some(model);
+}
 
 pub fn set_notifier(notifier: kit::ipc::PluginNotifier) {
     *HOST_NOTIFIER
@@ -157,9 +164,23 @@ fn notify_data(
 
 /// Called by the resident host window procedure for the shell's WM_TRAY callback.
 pub unsafe fn handle(hwnd: HWND, lparam: LPARAM) {
-    if matches!(lparam.0 as u32 & 0xffff, WM_RBUTTONUP | WM_CONTEXTMENU) && crate::menu::show(hwnd)
-    {
-        PostQuitMessage(0);
+    if matches!(lparam.0 as u32 & 0xffff, WM_RBUTTONUP | WM_CONTEXTMENU) {
+        let model = MENU_MODEL
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .clone();
+        if let Some(command) = model.and_then(|model| unsafe { crate::menu::show(hwnd, &model) }) {
+            if let Some(code) = crate::menu::command_code(&command) {
+                unsafe {
+                    let _ = PostMessageW(
+                        Some(hwnd),
+                        crate::menu::WM_MENU_COMMAND,
+                        WPARAM(code),
+                        LPARAM(0),
+                    );
+                }
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@
 
 mod capture;
 mod config;
+mod config_files;
 mod desktops;
 mod flameshot;
 mod frame;
@@ -21,7 +22,7 @@ mod overlay;
 mod scale;
 mod tray;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::io::Write;
 use std::time::SystemTime;
 
@@ -137,12 +138,12 @@ fn run() -> Result<()> {
             }
         }
     };
-    let (cfg_path, text) = kit::config::load_profile_with_legacy(
-        config::CONFIG_NAME,
-        &["dt-ocr.toml"],
-        include_str!("../screen-tools.toml"),
-    )?;
-    let mut cfg = config::parse(&text)?;
+    let cfg_path = kit::config::profile_file(config_files::ACTIONS_FILE)?;
+    let legacy_path = kit::config::profile_file(config::CONFIG_NAME)?;
+    let exe = std::env::current_exe().context("cannot locate own executable")?;
+    let legacy_dir = exe.parent().context("executable has no parent directory")?;
+    kit::config::import_legacy_once(&legacy_path, legacy_dir, &["dt-ocr.toml"])?;
+    let mut cfg = config_files::load(&cfg_path)?;
     ocr::set_engine(cfg.ocr_engine);
     ocr::set_auto(cfg.ocr_auto);
     mask::set_fill(cfg.mask_fill);
@@ -174,7 +175,10 @@ fn run() -> Result<()> {
             );
         })?;
         tray::set_notifier(link.notifier());
-        link.ready(hosted_menu(false), Some("screen-tools: running".into()))?;
+        link.ready(
+            screen_menu(false, false),
+            Some("screen-tools: running".into()),
+        )?;
         Some(link)
     } else {
         None
@@ -183,6 +187,7 @@ fn run() -> Result<()> {
     let _tray = if hosted {
         None
     } else {
+        tray::set_menu_model(screen_menu(false, true));
         match tray::Tray::new(host.hwnd()) {
             Ok(tray) => Some(tray),
             Err(e) => {
@@ -194,7 +199,7 @@ fn run() -> Result<()> {
     let mut suspended = false;
 
     let mut hotkeys = register_hotkeys(host.hwnd(), &cfg);
-    let mut mtime = kit::config::modified(&cfg_path);
+    let mut mtime = config_files::modified(&cfg_path);
 
     // 1 s timer drives config hot-reload (bindings only; the desktop-tools-rs
     // pattern — mtime polling, no notify dependency).
@@ -216,15 +221,7 @@ fn run() -> Result<()> {
                 while let Some(command) = link.try_recv() {
                     match command {
                         kit::ipc::HostCommand::Invoke { id, .. } if id == "suspend" => {
-                            suspended = !suspended;
-                            if suspended {
-                                hotkeys.unregister_all(host.hwnd());
-                                ocr::disable_auto();
-                                unsafe { mask::dismiss() };
-                            } else {
-                                hotkeys = register_hotkeys(host.hwnd(), &cfg);
-                            }
-                            let _ = link.menu(&hosted_menu(suspended));
+                            toggle_suspended(&mut suspended, &mut hotkeys, &host, &cfg, Some(link));
                             logline(&format!("screen group suspended={suspended}"));
                         }
                         kit::ipc::HostCommand::Reload { .. } => {
@@ -243,7 +240,41 @@ fn run() -> Result<()> {
                         kit::ipc::HostCommand::Quit { .. } => unsafe {
                             windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0)
                         },
-                        _ => logline("warn: unknown host menu command"),
+                        kit::ipc::HostCommand::Invoke { id, .. } if id == "config-actions" => {
+                            config_files::edit_actions(&cfg_path);
+                        }
+                        kit::ipc::HostCommand::Invoke { id, .. } => {
+                            if let Some(module) = config_files::MODULES
+                                .iter()
+                                .find(|module| id == format!("config-{}", module.id()))
+                            {
+                                config_files::edit(*module, &cfg_path);
+                            } else {
+                                logline("warn: unknown host menu command");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if msg.message == menu::WM_MENU_COMMAND {
+            if let Some(id) = menu::command_id(msg.wParam.0) {
+                match id {
+                    "suspend" => {
+                        toggle_suspended(&mut suspended, &mut hotkeys, &host, &cfg, None);
+                        logline(&format!("screen group suspended={suspended}"));
+                    }
+                    "quit" => unsafe {
+                        windows::Win32::UI::WindowsAndMessaging::PostQuitMessage(0)
+                    },
+                    "config-actions" => config_files::edit_actions(&cfg_path),
+                    _ => {
+                        if let Some(module) = config_files::MODULES
+                            .iter()
+                            .find(|module| id == format!("config-{}", module.id()))
+                        {
+                            config_files::edit(*module, &cfg_path);
+                        }
                     }
                 }
             }
@@ -281,7 +312,7 @@ fn run() -> Result<()> {
             && last_config_poll.elapsed() >= std::time::Duration::from_secs(1)
         {
             last_config_poll = std::time::Instant::now();
-            let now = kit::config::modified(&cfg_path);
+            let now = config_files::modified(&cfg_path);
             if now != mtime {
                 mtime = now;
                 match reload(&cfg_path) {
@@ -356,13 +387,67 @@ fn run() -> Result<()> {
     Ok(())
 }
 
-fn hosted_menu(suspended: bool) -> kit::menu::MenuModel {
-    kit::menu::MenuModel::new(vec![kit::menu::MenuItem::Toggle {
+fn screen_menu(suspended: bool, standalone: bool) -> kit::menu::MenuModel {
+    use kit::menu::MenuItem;
+    let mut items: Vec<MenuItem> = config_files::MODULES
+        .iter()
+        .map(|&module| MenuItem::Submenu {
+            label: module.label().into(),
+            items: vec![
+                MenuItem::Info {
+                    label: module.description().into(),
+                },
+                MenuItem::Separator,
+                MenuItem::Item {
+                    id: format!("config-{}", module.id()),
+                    label: format!("Edit {} config", module.label()),
+                    enabled: true,
+                },
+            ],
+        })
+        .collect();
+    items.push(MenuItem::Separator);
+    items.push(MenuItem::Item {
+        id: "config-actions".into(),
+        label: "Edit Screen actions config".into(),
+        enabled: true,
+    });
+    items.push(MenuItem::Toggle {
         id: "suspend".into(),
         label: "Suspend Group \"Screen\"".into(),
         checked: suspended,
         enabled: true,
-    }])
+    });
+    if standalone {
+        items.push(MenuItem::Item {
+            id: "quit".into(),
+            label: "Exit Screen Tools".into(),
+            enabled: true,
+        });
+    }
+    kit::menu::MenuModel::new(items)
+}
+
+fn toggle_suspended(
+    suspended: &mut bool,
+    hotkeys: &mut hotkeys::Hotkeys,
+    host: &host::Host,
+    cfg: &config::Config,
+    link: Option<&kit::ipc::PluginLink>,
+) {
+    *suspended = !*suspended;
+    if *suspended {
+        hotkeys.unregister_all(host.hwnd());
+        ocr::disable_auto();
+        unsafe { mask::dismiss() };
+    } else {
+        *hotkeys = register_hotkeys(host.hwnd(), cfg);
+    }
+    if let Some(link) = link {
+        let _ = link.menu(&screen_menu(*suspended, false));
+    } else {
+        tray::set_menu_model(screen_menu(*suspended, true));
+    }
 }
 
 fn register_hotkeys(hwnd: HWND, cfg: &config::Config) -> hotkeys::Hotkeys {
@@ -380,8 +465,7 @@ fn register_hotkeys(hwnd: HWND, cfg: &config::Config) -> hotkeys::Hotkeys {
 /// Hot-reload re-reads the file; an unreadable or binding-less result keeps
 /// the old config, mirroring the desktop-tools-rs daemon.
 fn reload(cfg_path: &std::path::Path) -> Result<config::Config> {
-    let text = std::fs::read_to_string(cfg_path)?;
-    config::parse(&text)
+    config_files::reload(cfg_path)
 }
 
 fn dispatch(action: Action, frame: HWND) {
