@@ -855,6 +855,10 @@ one host tray and one autostart entry.
   Pin, Flameshot handoff and per-virtual-desktop frame coordination. All 37
   existing tests moved with it. The composition root no longer contains those
   Win32 implementations; real OCR and hosted lifecycle checks remain green.
+- P6b menu/config completion: hosted and standalone share alphabetical Capture /
+  Draw / OCR / Record submenus and split configs, with root-only Screen actions.
+  The real legacy profile migrated without losing effective values; hosted
+  physical acceptance and standalone native-menu/Exit pass B are signed off.
 - Multi-monitor Frame regression: `WM_WINDOWPOSCHANGING` previously clamped a
   proposed cross-monitor rectangle against the frame's old monitor. It now uses
   `MonitorFromRect` on the proposed rectangle. The same real secondary-monitor
@@ -866,8 +870,8 @@ one host tray and one autostart entry.
   the red/green probe injects that trailing event and checks visible cyan pixels.
   The user physically confirmed the secondary-monitor Draw retry is normal.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
-  draw/capture/OCR/record one module per commit with tests after each. Code and
-  automated checks are complete; hosted physical sign-off is pending. Power is
+  draw/capture/OCR/record one module per commit with tests after each. Code,
+  automated checks and hosted/standalone physical sign-off are complete. Power is
   deliberately transferred from Window in P6c, not invented during this import.
   Final hosted/standalone menus use alphabetical Capture / Draw / OCR / Record
   submenus with descriptions, separators and per-feature Edit Config entries.

@@ -15,8 +15,9 @@ external integrations in documentation, code registration and tray menus.
   and passed standalone draw, capture/OCR and recording acceptance. P6b imports
   Screen into the shared profile and host with clean wire-v3
   Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
-  physical acceptance is still in progress. Feature crates, four feature
-  submenus and split configuration are implemented and automatically verified.
+  hosted and standalone physical acceptance are complete, including feature
+  crates, four feature submenus and split configuration. P6c transfers the
+  remaining power, scale and Flameshot ownership next.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.

@@ -255,11 +255,25 @@ frame/capture/OCR/result cycle also passes. Split-config probes verify legacy
 migration, Draw hotkey replacement, same-process reload and atomic rollback on
 invalid OCR TOML. The real profile preserves every effective legacy value and a
 byte-identical `.legacy.toml` backup. Multi-monitor and trailing-Draw red/green
-probes remain green. The current host is PID 21340 with ten children.
+probes remain green. Hosted delivery used PID 21340 with ten children.
 
-- [ ] Tray shows `Screen (running)` with `Suspend Group "Screen"`, one tray only.
-- [ ] Ctrl+Alt+D, Ctrl+Alt+S, Ctrl+Enter and Ctrl+Alt+R retain draw, resize, capture/OCR and recording behavior; confirm the video output and clipboard/OCR result.
-- [ ] Suspend releases all Screen hotkeys without affecting Window/Key Map; Resume restores them.
-- [ ] Disable/Enable Screen performs graceful cleanup and restarts without a modal error or orphaned helper.
+- [x] Hosted physical pass accepted four alphabetical feature submenus and their
+      separate config entries. Logs confirm draw, resize, capture/clipboard/OCR,
+      recording, Pin, group Suspend and a clean restart; no modal error appeared.
 - [x] On the secondary monitor, both pointer drawing and Ctrl+Alt+W place the Frame there; the drawn Frame remains visible after mouse-up instead of reopening Draw, and moving/resizing across the monitor boundary is not clamped back to the primary display.
-- [ ] Final feature submenus and standalone pass remain separate gates.
+
+## P6b Physical pass B (standalone Screen, delivered PID 20976) — passed
+
+The host and other plugins are intentionally stopped. The staged standalone
+Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
+
+- [x] The single Screen Tools tray shows Capture / Draw / OCR / Record with
+      descriptions, separators and Edit config entries, plus Screen actions,
+      `Suspend Group "Screen"` and `Exit screen-tools`.
+- [x] Click `Edit Draw config`; it must open `screen-draw.toml`, proving the
+      standalone native-menu event path rather than only the hosted IPC path.
+- [x] Toggle Suspend on/off: its checked state changes, `Ctrl+Alt+D` is released
+      while checked and works again after resume; draw one frame after resume.
+- [x] Click `Exit screen-tools`; the agent verified PID 20976 and every other
+      standalone Screen process exited, then restored hosted PID 25072 with ten
+      plugins. P6b is signed off and P6c may start.
