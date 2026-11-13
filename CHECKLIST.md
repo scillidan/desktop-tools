@@ -328,3 +328,15 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       a missing executable logs the failure and restores the original Frame;
       Suspend/Resume/Quit and ten-plugin smoke pass. Full verification: 292 passed,
       11 ignored, clippy and SHA-checked staging green.
+
+## P6c Physical follow-up — action exclusion during Flameshot (current host)
+
+- [x] Agent verified with the real external tool: while Flameshot is active,
+      global Draw is ignored and opens no overlay; after Flameshot exits, Draw
+      works again. Clean hosted Quit, 293 tests / 11 ignored, clippy, staging and
+      ten-plugin smoke pass. Power remains allowed by the policy test.
+- [ ] While Flameshot is open, press `Ctrl+Alt+D`: no new Draw overlay appears.
+      Flameshot's own `Ctrl+T` still pins through Flameshot, not the hidden Frame.
+- [ ] Exit Flameshot and press `Ctrl+Alt+D`: Draw works immediately.
+- [ ] Optional recording guard: during Frame recording, `Ctrl+F` must not launch
+      Flameshot; stop the recording normally afterward.

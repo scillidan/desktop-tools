@@ -905,6 +905,11 @@ one host tray and one autostart entry.
   binaries verify six wire menus, missing-executable Frame recovery, clean Quit,
   292 workspace tests, clippy and ten-plugin smoke. Successful annotation and
   the menu/config entries are physically signed.
+- An active Flameshot handoff blocks other global Screen actions through the
+  existing session flag, except monitor Power; host lifecycle remains available.
+  Recording also rejects Frame-local Ctrl+F, so the two sessions cannot overlap.
+  Normal exit, cancellation and launch failure all release the gate. A real
+  Flameshot probe verified blocked Draw, restored Draw after exit, and clean Quit.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all
