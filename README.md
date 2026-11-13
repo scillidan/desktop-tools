@@ -59,16 +59,17 @@ Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or
 legacy Quit hotkey and uses the original Win32 loop with a custom IPC wakeup.
 Suspend releases Screen hotkeys without changing Window/Keyboard/Taskbar.
 Hosted notifications use the host; standalone retains its own tray. Recording
-and audio live in `screen-record`; pixel capture, clipboard and PNG operations
+and audio live in `screen-record`; monitor power and window recovery live in
+`screen-power`; pixel capture, clipboard and PNG operations
 live in `screen-capture`; recognition, text layout, external engines and
 automatic OCR live in `screen-ocr`; frames, selection, OCR masks, pins and
 virtual-desktop frame coordination live in `screen-draw`. Extraction preserves
 one process and coordinated capture/overlay/recording lifecycle.
 
-Screen has alphabetically ordered **Capture / Draw / OCR / Record** submenus,
+Screen has alphabetically ordered **Capture / Draw / OCR / Power / Record** submenus,
 each with a grey description, separator and its own edit entry. Their files are
-`screen-capture.toml`, `screen-draw.toml`, `screen-ocr.toml` and
-`screen-record.toml`. Root-only `screen-actions.toml` temporarily owns Scale and
+`screen-capture.toml`, `screen-draw.toml`, `screen-ocr.toml`,
+`screen-power.toml` and `screen-record.toml`. Root-only `screen-actions.toml` temporarily owns Scale and
 Flameshot settings until P6c assigns their final owners. The old aggregate
 `screen-tools.toml` migrates once to these files and is retained as
 `screen-tools.legacy.toml`; existing feature files are not overwritten. All

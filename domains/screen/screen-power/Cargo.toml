@@ -1,0 +1,11 @@
+[package]
+name = "screen-power"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kit = { path = "../../../crates/kit" }
+
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true

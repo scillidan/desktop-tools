@@ -20,6 +20,7 @@ pub fn command_code(id: &str) -> Option<usize> {
         "config-draw" => 5,
         "config-ocr" => 6,
         "config-record" => 7,
+        "config-power" => 8,
         _ => return None,
     })
 }
@@ -124,7 +125,7 @@ mod tests {
     use crate::config_files;
 
     #[test]
-    fn screen_menus_are_alphabetical_with_four_config_entries() {
+    fn screen_menus_are_alphabetical_with_five_config_entries() {
         let model = crate::screen_menu(false, true);
         model.validate().unwrap();
         let labels: Vec<&str> = model
@@ -135,7 +136,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(labels, ["Capture", "Draw", "OCR", "Record"]);
+        assert_eq!(labels, ["Capture", "Draw", "OCR", "Power", "Record"]);
         for module in config_files::MODULES {
             assert!(model
                 .id_for_label(&format!("Edit {} config", module.label()))

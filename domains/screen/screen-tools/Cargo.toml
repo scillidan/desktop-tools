@@ -14,6 +14,7 @@ kit = { path = "../../../crates/kit" }
 screen-capture = { path = "../screen-capture" }
 screen-draw = { path = "../screen-draw" }
 screen-ocr = { path = "../screen-ocr" }
+screen-power = { path = "../screen-power" }
 screen-record = { path = "../screen-record" }
 
 [target.'cfg(windows)'.dependencies]

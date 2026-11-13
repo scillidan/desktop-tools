@@ -777,11 +777,6 @@ impl Platform for Win32 {
         vdesk::switch_relative(-1)
     }
 
-    fn toggle_screen(&self) -> Result<()> {
-        crate::screen::toggle();
-        Ok(())
-    }
-
     fn file_dialog(&self) -> Result<()> {
         dialogs::fill_foreground()
     }
@@ -1216,8 +1211,6 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
             }
             WM_TIMER if msg.wParam.0 == dialog_timer && !suspended => {
                 dialogs::tick(cfg.settings.quick_switch);
-                // P3 compatibility: move monitor power recovery to screen-power in P6c.
-                crate::screen::tick();
             }
             _ => {}
         }

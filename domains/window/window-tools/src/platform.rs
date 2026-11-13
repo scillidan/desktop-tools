@@ -64,10 +64,6 @@ pub trait Platform {
     fn prev_desktop(&self) -> Result<()> {
         anyhow::bail!("virtual desktops are not supported on this platform")
     }
-    /// P3 compatibility: monitor power moves to screen-power in P6c.
-    fn toggle_screen(&self) -> Result<()> {
-        anyhow::bail!("toggling the monitor power is not supported on this platform")
-    }
     fn file_dialog(&self) -> Result<()> {
         anyhow::bail!("file dialogs are not supported on this platform")
     }
@@ -271,7 +267,6 @@ impl<P: Platform> App<P> {
             }
             Action::Quit | Action::Suppress => Ok(()),
             Action::FileDialog => self.p.file_dialog(),
-            Action::ToggleScreen => self.p.toggle_screen(),
             Action::SwitchToDesktop(n) => self.p.switch_desktop(n),
             Action::NextDesktop => self.p.next_desktop(),
             Action::PrevDesktop => self.p.prev_desktop(),

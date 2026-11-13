@@ -301,6 +301,10 @@ fn run() -> Result<()> {
                     continue;
                 }
                 logline(&format!("hotkey: {action:?}"));
+                if action == Action::ToggleScreen {
+                    screen_power::toggle();
+                    continue;
+                }
                 match frames.current(&frame_settings(&cfg)) {
                     Ok(current) => dispatch(action, current),
                     Err(e) => logline(&format!("warn: cannot select desktop frame: {e:#}")),
@@ -369,6 +373,9 @@ fn run() -> Result<()> {
                 if let Some(frame) = visible {
                     ocr::auto_tick(frame, mask::dismiss, frame::prepare_ocr, ocr_frame_ops());
                 }
+            }
+            if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_TIMER {
+                screen_power::tick();
             }
             let _ = windows::Win32::UI::WindowsAndMessaging::TranslateMessage(&msg);
             windows::Win32::UI::WindowsAndMessaging::DispatchMessageW(&msg);
@@ -563,6 +570,7 @@ fn dispatch(action: Action, frame: HWND) {
                 frame::to_move(frame);
             }
             Action::Toggle => mask::toggle(),
+            Action::ToggleScreen => screen_power::toggle(),
             // Ctrl+Alt+Z: fullscreen DWM-thumbnail zoom of the focused window.
             Action::Scale => scale::toggle(),
             // Ctrl+Alt+R: record the frame rect, or stop the running session.

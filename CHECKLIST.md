@@ -277,3 +277,17 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [x] Click `Exit screen-tools`; the agent verified PID 20976 and every other
       standalone Screen process exited, then restored hosted PID 25072 with ten
       plugins. P6b is signed off and P6c may start.
+
+## P6c Physical — Power transfer (current host PID 23220)
+
+- [ ] Screen contains **Power** between OCR and Record, with a grey description,
+      separator and `Edit Power config`; it opens `screen-power.toml` containing
+      the existing `win+f2` binding.
+- [ ] Press `Win+F2`: every monitor turns off; ordinary input does not immediately
+      turn it back on during forced-off mode. Press `Win+F2` again to wake and
+      clear that mode. No Frame is created by this hotkey.
+- [ ] Suspend Group "Screen" releases `Win+F2`; Resume reclaims it. Window's Undo
+      binding and other Screen features remain independently usable.
+- [x] Agent verified the final binaries: one-time custom-binding import leaves
+      `window-actions.toml` byte-identical, Screen owns the migrated hotkey,
+      Window releases it, both plugins Quit with code 0, and ten-plugin smoke passes.

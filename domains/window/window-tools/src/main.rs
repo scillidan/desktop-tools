@@ -19,7 +19,6 @@ mod platform;
 mod history;
 mod kbdhook;
 #[cfg(windows)]
-mod screen;
 #[cfg(windows)]
 mod tray;
 #[cfg(windows)]

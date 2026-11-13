@@ -43,8 +43,6 @@ pub enum Action {
     Quit,
     /// Put the file dialog in front into the last file manager's folder.
     FileDialog,
-    // P3 compatibility: move to screen-power in P6c.
-    ToggleScreen,
     // P3 compatibility: move to keyboard-shell in P4a.
     Suppress,
     /// Switch to the Nth virtual desktop (1-9).
@@ -81,7 +79,6 @@ impl FromStr for Action {
             "sizerMenu" => Action::SizerMenu,
             "undo" => Action::Undo,
             "fileDialog" => Action::FileDialog,
-            "toggleScreen" => Action::ToggleScreen,
             "suppress" => Action::Suppress,
             "nextDesktop" => Action::NextDesktop,
             "prevDesktop" => Action::PrevDesktop,
@@ -132,7 +129,6 @@ impl Action {
             "sizerMenu",
             "undo",
             "fileDialog",
-            "toggleScreen",
             "suppress",
             "nextDesktop",
             "prevDesktop",
@@ -644,7 +640,6 @@ fn actions_text(bindings: &[Binding]) -> String {
     for binding in bindings {
         let action = match binding.action {
             Action::Undo => "undo",
-            Action::ToggleScreen => "toggleScreen",
             Action::Quit => "quit",
             _ => continue,
         };
@@ -789,8 +784,8 @@ pub fn parse(text: &str) -> Result<Config> {
             continue;
         }
         if let Some(t) = action.as_str() {
-            if t == "suppress" {
-                continue; // Owned by keyboard-shell since P4a.
+            if t == "suppress" || t == "toggleScreen" {
+                continue; // Owned by keyboard-shell and screen-power respectively.
             }
             match (combo.parse::<Combo>(), t.parse::<Action>()) {
                 (Ok(c), Ok(a)) => out.push(Binding {
@@ -810,7 +805,7 @@ pub fn parse(text: &str) -> Result<Config> {
     let global = out
         .iter()
         .copied()
-        .filter(|b| matches!(b.action, Action::Undo | Action::ToggleScreen | Action::Quit))
+        .filter(|b| matches!(b.action, Action::Undo | Action::Quit))
         .collect();
     assemble(legacy_modules(&out, settings), global)
 }
@@ -823,7 +818,7 @@ mod tests {
     #[test]
     fn parses_default_config() {
         let cfg = parse(LEGACY_DEFAULT_CONFIG).unwrap();
-        assert_eq!(cfg.bindings.len(), 41);
+        assert_eq!(cfg.bindings.len(), 40);
         assert_eq!(cfg.settings.gap, 0);
         assert!(cfg.settings.quick_switch);
         assert!(cfg.settings.drag_modifier.win && !cfg.settings.drag_modifier.alt);
@@ -837,23 +832,14 @@ mod tests {
     }
 
     #[test]
-    fn p4_ignores_shell_but_keeps_screen_until_its_owner_migration() {
-        assert_eq!(
-            "toggleScreen".parse::<Action>().unwrap(),
-            Action::ToggleScreen
-        );
+    fn ignores_actions_owned_by_shell_and_screen() {
         assert_eq!("suppress".parse::<Action>().unwrap(), Action::Suppress);
         let cfg = parse(
             "\"win+f2\" = \"toggleScreen\"\n\"win+e\" = \"suppress\"\n\"alt+`\" = \"nextWindow\"\n",
         )
         .unwrap();
-        assert_eq!(cfg.bindings.len(), 2);
-        assert!(cfg.bindings.iter().any(|b| b.action == Action::NextWindow));
-        assert!(!cfg.bindings.iter().any(|b| b.action == Action::Suppress));
-        assert!(cfg
-            .bindings
-            .iter()
-            .any(|b| b.action == Action::ToggleScreen));
+        assert_eq!(cfg.bindings.len(), 1);
+        assert_eq!(cfg.bindings[0].action, Action::NextWindow);
     }
 
     #[test]
@@ -1085,7 +1071,7 @@ mod tests {
         let dir = test_dir("fresh-split");
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
-        assert_eq!(cfg.bindings.len(), 41);
+        assert_eq!(cfg.bindings.len(), 40);
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
         }

@@ -1272,6 +1272,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "screen-power"
+version = "0.1.0"
+dependencies = [
+ "kit",
+ "windows",
+]
+
+[[package]]
 name = "screen-record"
 version = "0.1.0"
 dependencies = [
@@ -1289,6 +1297,7 @@ dependencies = [
  "screen-capture",
  "screen-draw",
  "screen-ocr",
+ "screen-power",
  "screen-record",
  "toml 0.8.2",
  "windows",

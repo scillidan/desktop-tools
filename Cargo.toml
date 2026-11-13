@@ -21,6 +21,7 @@ members = [
   "domains/screen/screen-capture",
   "domains/screen/screen-draw",
   "domains/screen/screen-ocr",
+  "domains/screen/screen-power",
   "domains/screen/screen-record",
   "domains/screen/screen-tools",
   "domains/taskbar/taskbar-tools",

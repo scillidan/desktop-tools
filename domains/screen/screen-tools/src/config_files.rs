@@ -11,13 +11,15 @@ pub enum ConfigModule {
     Capture,
     Draw,
     Ocr,
+    Power,
     Record,
 }
 
-pub const MODULES: [ConfigModule; 4] = [
+pub const MODULES: [ConfigModule; 5] = [
     ConfigModule::Capture,
     ConfigModule::Draw,
     ConfigModule::Ocr,
+    ConfigModule::Power,
     ConfigModule::Record,
 ];
 
@@ -27,6 +29,7 @@ impl ConfigModule {
             Self::Capture => "Capture",
             Self::Draw => "Draw",
             Self::Ocr => "OCR",
+            Self::Power => "Power",
             Self::Record => "Record",
         }
     }
@@ -36,6 +39,7 @@ impl ConfigModule {
             Self::Capture => "Copy or save the pixels inside the current Frame",
             Self::Draw => "Place, resize, move and pin a screen Frame",
             Self::Ocr => "Recognize Frame text and display or copy the result",
+            Self::Power => "Toggle monitor power and restore windows after reconnect",
             Self::Record => "Record the Frame with FFmpeg and optional desktop audio",
         }
     }
@@ -45,6 +49,7 @@ impl ConfigModule {
             Self::Capture => "capture",
             Self::Draw => "draw",
             Self::Ocr => "ocr",
+            Self::Power => "power",
             Self::Record => "record",
         }
     }
@@ -54,6 +59,7 @@ impl ConfigModule {
             Self::Capture => "screen-capture.toml",
             Self::Draw => "screen-draw.toml",
             Self::Ocr => "screen-ocr.toml",
+            Self::Power => "screen-power.toml",
             Self::Record => "screen-record.toml",
         }
     }
@@ -166,6 +172,10 @@ fn module_text(module: ConfigModule, cfg: &Config) -> String {
                 )
             )
         }
+        ConfigModule::Power => format!(
+            "# Monitor power and multi-monitor window recovery.\n\n{}",
+            binding_lines(&cfg.bindings, &[Action::ToggleScreen])
+        ),
         ConfigModule::Record => format!(
             "# FFmpeg video, optional desktop audio and recording safeguards.\n\n[record]\ndir = {}\nname = {}\nfps = {}\nffmpeg = {}\naudio = {}\ncrf = {}\nmax_minutes = {}\nmin_free_mb = {}\n\n{}",
             quote(&cfg.record_dir),
@@ -199,6 +209,34 @@ fn archive_legacy(path: &Path) -> Result<()> {
     })
 }
 
+fn migrate_window_power(actions: &Path) -> Result<()> {
+    let target = ConfigModule::Power.path(actions);
+    if target.exists() {
+        return Ok(());
+    }
+    let mut cfg = Config::default();
+    let legacy = actions.with_file_name("window-actions.toml");
+    if legacy.exists() {
+        let text = std::fs::read_to_string(&legacy)
+            .with_context(|| format!("cannot read {}", legacy.display()))?;
+        let table: toml::Table =
+            toml::from_str(&text).with_context(|| format!("cannot parse {}", legacy.display()))?;
+        for (combo, action) in &table {
+            if action.as_str() == Some("toggleScreen") {
+                cfg.bindings.toggle_screen = combo
+                    .parse()
+                    .with_context(|| format!("invalid legacy toggleScreen binding: {combo}"))?;
+                break;
+            }
+        }
+    }
+    if !target.exists() {
+        std::fs::write(&target, module_text(ConfigModule::Power, &cfg))
+            .with_context(|| format!("cannot write {}", target.display()))?;
+    }
+    Ok(())
+}
+
 fn migrate_legacy(actions: &Path) -> Result<()> {
     let legacy_path = actions.with_file_name(LEGACY_FILE);
     if !legacy_path.exists() {
@@ -223,6 +261,7 @@ fn migrate_legacy(actions: &Path) -> Result<()> {
 }
 
 pub fn load(actions: &Path) -> Result<Config> {
+    migrate_window_power(actions)?;
     migrate_legacy(actions)?;
     if !actions.exists() {
         std::fs::write(actions, actions_text(&Config::default()))
@@ -274,6 +313,9 @@ fn merge(module: ConfigModule, part: Config, cfg: &mut Config) {
             cfg.bindings.toggle = part.bindings.toggle;
             cfg.bindings.quick_ocr = part.bindings.quick_ocr;
             cfg.bindings.auto_ocr = part.bindings.auto_ocr;
+        }
+        ConfigModule::Power => {
+            cfg.bindings.toggle_screen = part.bindings.toggle_screen;
         }
         ConfigModule::Record => {
             cfg.record_dir = part.record_dir;
@@ -357,6 +399,28 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn window_power_binding_imports_once_without_rewriting_window_config() {
+        let dir = test_dir("power-migration");
+        let actions = dir.join(ACTIONS_FILE);
+        let window = dir.join("window-actions.toml");
+        let original = "# keep me\n\"win+f3\" = \"toggleScreen\"\n\"ctrl+alt+win+u\" = \"undo\"\n";
+        std::fs::write(&window, original).unwrap();
+
+        let cfg = load(&actions).unwrap();
+        assert_eq!(cfg.bindings.toggle_screen.to_string(), "win+f3");
+        assert_eq!(std::fs::read_to_string(&window).unwrap(), original);
+
+        std::fs::write(
+            dir.join("screen-power.toml"),
+            "[bindings]\ntoggle_screen = \"win+f4\"\n",
+        )
+        .unwrap();
+        let cfg = load(&actions).unwrap();
+        assert_eq!(cfg.bindings.toggle_screen.to_string(), "win+f4");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

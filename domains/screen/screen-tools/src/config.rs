@@ -98,6 +98,7 @@ pub struct Bindings {
     pub quick_ocr: Combo,
     pub auto_ocr: Combo,
     pub record: Combo,
+    pub toggle_screen: Combo,
     pub scale: Combo,
 }
 
@@ -115,11 +116,12 @@ pub enum Action {
     QuickOcr,
     AutoOcr,
     Record,
+    ToggleScreen,
     Scale,
 }
 
 impl Action {
-    pub const ALL: [Action; 12] = [
+    pub const ALL: [Action; 13] = [
         Action::Draw,
         Action::Resize,
         Action::Pin,
@@ -131,6 +133,7 @@ impl Action {
         Action::QuickOcr,
         Action::AutoOcr,
         Action::Record,
+        Action::ToggleScreen,
         Action::Scale,
     ];
     pub fn name(self) -> &'static str {
@@ -146,6 +149,7 @@ impl Action {
             Action::QuickOcr => "quick_ocr",
             Action::AutoOcr => "auto_ocr",
             Action::Record => "record",
+            Action::ToggleScreen => "toggle_screen",
             Action::Scale => "scale",
         }
     }
@@ -166,6 +170,7 @@ impl Action {
             Action::QuickOcr => "ctrl+alt+o".parse().unwrap(),
             Action::AutoOcr => "ctrl+shift+alt+o".parse().unwrap(),
             Action::Record => "ctrl+alt+r".parse().unwrap(),
+            Action::ToggleScreen => "win+f2".parse().unwrap(),
             Action::Scale => "ctrl+alt+z".parse().unwrap(),
         }
     }
@@ -182,6 +187,7 @@ impl Action {
             Action::QuickOcr => b.quick_ocr,
             Action::AutoOcr => b.auto_ocr,
             Action::Record => b.record,
+            Action::ToggleScreen => b.toggle_screen,
             Action::Scale => b.scale,
         }
     }
@@ -198,6 +204,7 @@ impl Action {
             Action::QuickOcr => b.quick_ocr = c,
             Action::AutoOcr => b.auto_ocr = c,
             Action::Record => b.record = c,
+            Action::ToggleScreen => b.toggle_screen = c,
             Action::Scale => b.scale = c,
         }
     }
@@ -217,6 +224,7 @@ impl Default for Bindings {
             quick_ocr: Combo::default(),
             auto_ocr: Combo::default(),
             record: Combo::default(),
+            toggle_screen: Combo::default(),
             scale: Combo::default(),
         };
         for a in Action::ALL {

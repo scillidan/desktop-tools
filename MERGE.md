@@ -881,8 +881,11 @@ one host tray and one autostart entry.
   Flameshot until P6c moves them. The aggregate `screen-tools.toml` migrates
   once without overwriting split files and is archived as `.legacy.toml`.
   Reload reads every file and checks one shared hotkey namespace before applying.
-- P6c: move `toggleScreen` to `screen-power`, `scale` to window, and the
-  Flameshot bridge to `domains/screen/flameshot-handoff` as separate commits.
+- P6c: `toggleScreen` now lives in `screen-power`, with `screen-power.toml`,
+  a Power submenu and one-time non-destructive import from `window-actions.toml`.
+  Automated migration, ownership, wire-menu, Quit and ten-plugin checks pass;
+  physical power/wake acceptance is pending. Move `scale` to window and the
+  Flameshot bridge to `domains/screen/flameshot-handoff` as later commits.
   Keep these calls in their current owning processes; add no frame IPC.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
