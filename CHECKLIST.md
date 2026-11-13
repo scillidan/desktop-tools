@@ -315,15 +315,14 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       gone, the original Frame stays visible at its original rectangle after Scale
       closes, and both plugins Quit with code 0.
 
-## P6c Physical — Flameshot handoff (current host PID 25712)
+## P6c Physical — Flameshot handoff: passed
 
-- [ ] Screen contains **Flameshot Handoff** after the five native feature submenus.
+- [x] Screen contains **Flameshot Handoff** after the five native feature submenus.
       **Edit Flameshot config** opens `screen-flameshot.toml`; no Screen actions
       config entry remains.
-- [ ] If Flameshot is installed, set `[external].flameshot` to its executable path,
-      draw a Frame and press `Ctrl+F`. Flameshot must open on the current Frame
-      region without a second desktop-tools host or tray. Successful annotation is
-      not signed off while the configured path is empty.
+- [x] With Flameshot configured, drawing a Frame and pressing `Ctrl+F` opens it on
+      the current Frame region without a second desktop-tools host or tray.
+      Physical acceptance signed off.
 - [x] Agent verified the final staged binaries: six wire submenus and separate
       config entries; one-time path import leaves `screen-actions.toml` unchanged;
       a missing executable logs the failure and restores the original Frame;

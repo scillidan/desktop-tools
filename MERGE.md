@@ -903,8 +903,8 @@ one host tray and one autostart entry.
   menus no longer use the transitional actions file. Native Screen modules stay
   alphabetical and Flameshot Handoff is last as an external integration. Final
   binaries verify six wire menus, missing-executable Frame recovery, clean Quit,
-  292 workspace tests, clippy and ten-plugin smoke. Successful annotation remains
-  a physical gate until an actual Flameshot executable is configured.
+  292 workspace tests, clippy and ten-plugin smoke. Successful annotation and
+  the menu/config entries are physically signed.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
 handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all

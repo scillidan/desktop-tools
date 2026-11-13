@@ -16,9 +16,8 @@ external integrations in documentation, code registration and tray menus.
   Screen into the shared profile and host with clean wire-v3
   Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
   hosted and standalone physical acceptance are complete, including feature
-  crates and split configuration. P6c has transferred Power and Scale (both
-  physically signed) and extracted Flameshot handoff; successful Flameshot
-  annotation still requires a configured external executable for physical acceptance.
+  crates and split configuration. P6c Power, Scale and Flameshot handoff are
+  implemented and physically signed.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
