@@ -261,6 +261,14 @@ fn run() -> Result<()> {
                     logline(&format!("hotkey repeat ignored: {action:?}"));
                     continue;
                 }
+                if action == config::Action::Draw && overlay::is_visible() {
+                    logline("draw already active; hotkey ignored");
+                    continue;
+                }
+                if action == config::Action::Draw && overlay::recently_finished() {
+                    logline("draw completion repeat ignored");
+                    continue;
+                }
                 logline(&format!("hotkey: {action:?}"));
                 match frames.current(&frame_settings(&cfg)) {
                     Ok(current) => dispatch(action, current),
@@ -578,8 +586,9 @@ fn hotkey_repeat(
     action: Action,
     now: std::time::Instant,
 ) -> bool {
+    let gate_ms = if action == Action::Draw { 500 } else { 150 };
     if let Some((prev, at)) = *last {
-        if prev == action && now.duration_since(at).as_millis() < 150 {
+        if prev == action && now.duration_since(at).as_millis() < gate_ms {
             return true;
         }
     }
@@ -668,6 +677,18 @@ mod tests {
             &mut last,
             Action::Draw,
             t + Duration::from_millis(210)
+        ));
+        // Physical Draw repetitions were observed about 300 ms after pointer
+        // release; they must not hide the frame and restart the overlay.
+        assert!(hotkey_repeat(
+            &mut last,
+            Action::Draw,
+            t + Duration::from_millis(500) // 290 ms after the preceding event.
+        ));
+        assert!(!hotkey_repeat(
+            &mut last,
+            Action::Draw,
+            t + Duration::from_millis(1010)
         ));
     }
 }

@@ -853,6 +853,10 @@ one host tray and one autostart entry.
   `MonitorFromRect` on the proposed rectangle. The same real secondary-monitor
   probe failed before and passes after for both `Ctrl+Alt+W` and pointer drawing;
   the explicit multi-monitor unit test, OCR cycle and ten-plugin smoke also pass.
+  A second physical regression was a trailing Draw hotkey about 300 ms after
+  mouse-up: it reopened the overlay and hid the new frame. Draw now ignores
+  re-entry while its overlay is active and for 500 ms after actual completion;
+  the red/green probe injects that trailing event and checks visible cyan pixels.
 - P6b: import into `domains/screen`, add hosted/profile behavior, then extract
   draw/capture/OCR/record one module per commit with tests after each. Code and
   automated checks are complete; hosted physical sign-off is pending. Power is

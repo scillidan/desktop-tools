@@ -75,6 +75,19 @@ fn virtual_screen() -> RECT {
     }
 }
 
+static FINISHED_AT: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+pub fn is_visible() -> bool {
+    unsafe { IsWindowVisible(overlay_hwnd()).as_bool() }
+}
+
+pub fn recently_finished() -> bool {
+    FINISHED_AT
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .is_some_and(|at| at.elapsed() < std::time::Duration::from_millis(500))
+}
+
 /// Creates (or recreates) the overlay and takes over the mouse until the
 /// drag finishes; the selected rect goes to the frame window.
 /// # Safety
@@ -244,6 +257,9 @@ unsafe fn finish(hwnd: HWND, band_rect: Option<RECT>) {
         let _ = GetWindowRect(hwnd, &mut wr);
         wr
     });
+    *FINISHED_AT
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner()) = Some(std::time::Instant::now());
     let _ = DestroyWindow(hwnd);
     let Some(r) = band_rect else {
         return;
