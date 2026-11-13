@@ -890,8 +890,9 @@ one host tray and one autostart entry.
   `screen-actions.toml`; the existing `window-resize.toml` and source file are
   never rewritten. Its Resize submenu has separate Resize / Scale / presets
   entries. Migration, real DWM overlay toggle, clean Quit and ten-plugin checks
-  pass; physical zoom acceptance is pending. Move the Flameshot bridge to
-  `domains/screen/flameshot-handoff` as a later commit.
+  pass; physical zoom acceptance, including Scale with a live Screen Frame, is
+  signed off. Move the Flameshot bridge to `domains/screen/flameshot-handoff`
+  as a later commit.
   Keep these calls in their current owning processes; add no frame IPC.
 
 Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
