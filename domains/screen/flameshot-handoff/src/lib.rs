@@ -33,6 +33,11 @@ pub fn set_path(path: String) {
     *PATH.lock().unwrap_or_else(|e| e.into_inner()) = path;
 }
 
+/// True from launch until Flameshot exits or startup fails.
+pub fn is_active() -> bool {
+    RUNNING.load(Ordering::Acquire)
+}
+
 /// Hide the frame, run `flameshot gui --region …`, and leave the frame hidden:
 /// the handoff is a one-shot "borrow the frame's window" command. Frame hide
 /// and failure recovery are supplied by its owner, not implemented here.

@@ -466,12 +466,23 @@ fn reload(cfg_path: &std::path::Path) -> Result<config::Config> {
     config_files::reload(cfg_path)
 }
 
+fn allowed_during_handoff(action: Action, active: bool) -> bool {
+    !active || matches!(action, Action::ToggleScreen)
+}
+
 fn dispatch(action: Action, frame: HWND) {
     // A recording owns the screen: our own overlays (mask, dim, a moved frame)
     // must not appear in the take, so only Record may run until it stops.
     if crate::record::is_recording() && !matches!(action, Action::Record) {
         logline(&format!(
             "{} ignored: recording (stop it first)",
+            action.name()
+        ));
+        return;
+    }
+    if !allowed_during_handoff(action, flameshot_handoff::is_active()) {
+        logline(&format!(
+            "{} ignored: Flameshot handoff (exit it first)",
             action.name()
         ));
         return;
@@ -735,9 +746,21 @@ fn logline(msg: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::hotkey_repeat;
+    use super::{allowed_during_handoff, hotkey_repeat};
     use crate::config::Action;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn handoff_blocks_screen_actions_except_monitor_power() {
+        for action in Action::ALL {
+            assert!(allowed_during_handoff(action, false));
+            assert_eq!(
+                allowed_during_handoff(action, true),
+                matches!(action, Action::ToggleScreen),
+                "{action:?}"
+            );
+        }
+    }
 
     #[test]
     fn duplicate_hotkeys_inside_the_gate_are_dropped() {

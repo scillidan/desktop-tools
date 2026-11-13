@@ -800,6 +800,13 @@ unsafe fn switch_tune(hwnd: HWND, field: TuneField) {
     set_mode(hwnd, transition(s.mode, Event::TuneKey));
 }
 
+/// True while this frame marks an active recording.
+/// # Safety
+/// The caller must provide a live frame HWND on its owning UI thread.
+pub unsafe fn is_recording(hwnd: HWND) -> bool {
+    state_opt(hwnd).is_some_and(|s| s.recording)
+}
+
 /// Marks the frame as recording (red REC border, click-through marker).
 /// Restored by `false`.
 /// # Safety

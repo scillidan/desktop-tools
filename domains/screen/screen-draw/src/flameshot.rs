@@ -16,6 +16,10 @@ fn restore(frame_id: isize) {
 /// # Safety
 /// The caller must provide a valid frame HWND on its owning UI thread.
 pub unsafe fn launch(frame: HWND) -> Result<()> {
+    if crate::frame::is_recording(frame) {
+        crate::logline("flameshot ignored: recording (stop it first)");
+        return Ok(());
+    }
     let rect = crate::frame::screen_rect(frame);
     flameshot_handoff::launch(frame.0 as isize, rect, hide, restore)
 }
