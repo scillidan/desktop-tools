@@ -346,17 +346,17 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [ ] Optional recording guard: during Frame recording, `Ctrl+F` must not launch
       Flameshot; stop the recording normally afterward.
 
-## P7 Physical — App Toggle
+## P7 Physical — App Toggle: signed off
 
-- [ ] Window's final external submenu is **App Toggle**. **Edit App Toggle config**
+- [x] Window's final external submenu is **App Toggle**. **Edit App Toggle config**
       opens `window-app-toggle.toml`; all native Window modules remain before it.
-- [ ] With an ordinary application focused, press `Win+E`: Double Commander launches
+- [x] With an ordinary application focused, press `Win+E`: Double Commander launches
       or receives focus and Explorer never opens. Press again to return to the
       previous application; press a third time to restore Double Commander rather
       than launch a duplicate.
-- [ ] Hold `Win+E`: the window must not oscillate. Suspend Group "Window" disables
+- [x] Hold `Win+E`: the window must not oscillate. Suspend Group "Window" disables
       the toggle; Resume restores it without changing other Shell Keys suppressions.
-- [ ] With ``Ctrl+` `` unoccupied, repeat the focus/return/held-key checks for
+- [x] With ``Ctrl+` `` unoccupied, repeat the focus/return/held-key checks for
       WezTerm. External tools must also leave the existing ``Alt+` `` and
       ``Alt+Shift+` `` App Window Switch bindings unoccupied. The final binary's
       real WezTerm focus/return/Quit path passed using isolated ``Ctrl+Alt+` ``

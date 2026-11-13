@@ -948,8 +948,9 @@ full-path window matching, minimized-window restore, previous-application return
 and per-binding auto-repeat policy. Shell Keys now has 66 defaults and no `Win+E`.
 The final binary passed the real WezTerm focus/return/Quit probe using a temporary
 ``Ctrl+Alt+` `` binding because CopyQ owned the default ``Ctrl+` `` at probe time.
-The physical `Win+E`/Explorer and held-key checks remain with the user. External
-tools must leave ``Ctrl+` ``, ``Alt+` `` and ``Alt+Shift+` `` unoccupied.
+Physical `Win+E`/Explorer, previous-application return, no-duplicate restore and
+held-key behavior are signed off. CopyQ was moved to `Alt+D`, leaving ``Ctrl+` ``,
+``Alt+` `` and ``Alt+Shift+` `` unoccupied. P7 is complete; P8 may start.
 
 ### P8 — Add `swapWindows`
 
