@@ -933,7 +933,7 @@ mod tests {
     #[test]
     fn parses_default_config() {
         let cfg = parse(LEGACY_DEFAULT_CONFIG).unwrap();
-        assert_eq!(cfg.bindings.len(), 40);
+        assert_eq!(cfg.bindings.len(), 41);
         assert_eq!(cfg.settings.gap, 0);
         assert!(cfg.settings.quick_switch);
         assert!(cfg.settings.drag_modifier.win && !cfg.settings.drag_modifier.alt);
@@ -1196,7 +1196,7 @@ mod tests {
         let dir = test_dir("fresh-split");
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
-        assert_eq!(cfg.bindings.len(), 43);
+        assert_eq!(cfg.bindings.len(), 44);
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
         }

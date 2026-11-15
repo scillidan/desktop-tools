@@ -490,8 +490,8 @@ existing repeatable rectangle actions do not change.
 
 ## 6. Rectangle `swapWindows` contract
 
-Proposed default binding: ``Ctrl+Win+Alt+X`` (`x` = exchange). This binding is
-still subject to design review; the interaction and geometry are confirmed.
+Default binding: ``Ctrl+Win+Alt+X`` (`x` = exchange), approved separately after
+implementation and isolated real-window verification passed.
 
 ### 6.1 State machine
 
@@ -956,19 +956,21 @@ held-key behavior are signed off. CopyQ was moved to `Alt+D`, leaving ``Ctrl+` `
 
 - Implement Armed/cancel/timeout, complete-rectangle exchange and composite
   undo.
-- Keep the proposed hotkey disabled until P0 approval explicitly accepts it.
+- The default hotkey is explicitly approved; existing files are never rewritten
+  automatically, and the current profile receives only the reviewed binding.
 
 Implementation is complete in `window-rectangle` and the Window composition root.
 It uses per-window DWM insets, one atomic history group, bare-Esc registration only
 while Armed, the existing one-second reload tick for timeout, and per-binding
 no-repeat handling. Undo also cancels Armed. Unit tests and a real-window/hotkey
 probe cover commit, composite Undo, Esc, timeout, Reload, Suspend/Resume and Quit.
-The proposed default is still disabled and no real profile was changed.
+The approved default is enabled in fresh configs and added explicitly to the
+current profile; its other bindings remain unchanged.
 
 Gate: two apps visibly exchange slots; same-window/Esc/timeout/invalid/reload/
 suspend cancel; maximized/minimized cases do nothing; cross-monitor/DPI and
-one-step undo pass physically. These physical checks remain pending until the
-user separately approves the default binding.
+one-step undo pass physically. The default hotkey is approved; physical checks
+remain pending.
 
 ### P9 — Consolidate, package and retire old products
 

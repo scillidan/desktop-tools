@@ -63,8 +63,8 @@ Shell Keys retains its other 66 default suppressions and no longer owns `Win+E`.
 Rectangle's `swapWindows` action selects two eligible windows, exchanges their
 complete visible/outer rectangles and restores both with one Undo. Bare Esc or
 15 seconds cancels the armed selection; Reload/Suspend/Quit also cancel it. The
-proposed `Ctrl+Win+Alt+X` default remains disabled pending separate approval;
-custom bindings belong in `window-rectangle.toml`.
+approved default is `Ctrl+Win+Alt+X`; custom bindings belong in
+`window-rectangle.toml`. Existing configuration files are not rewritten by upgrades.
 
 `screen-tools` retains the frame, Draw, Capture, OCR, Record and
 Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or

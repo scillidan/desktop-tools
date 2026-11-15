@@ -75,12 +75,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn swap_is_opt_in_and_parses_its_isolated_binding() {
+    fn default_enables_swap_with_the_approved_binding() {
         let defaults = parse(DEFAULT_CONFIG).unwrap();
-        assert!(!defaults
+        let swap = defaults
             .bindings
             .iter()
-            .any(|b| b.action == RectangleAction::SwapWindows));
+            .find(|b| b.action == RectangleAction::SwapWindows)
+            .unwrap();
+        assert_eq!(swap.combo.to_string(), "ctrl+alt+win+x");
         let custom = parse("\"ctrl+win+alt+x\" = \"swapWindows\"").unwrap();
         assert_eq!(custom.bindings.len(), 1);
         assert_eq!(custom.bindings[0].action, RectangleAction::SwapWindows);

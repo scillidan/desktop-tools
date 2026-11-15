@@ -366,14 +366,15 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       clippy, release/staging and ten-plugin smoke pass.
 
 
-## P8 Physical — swapWindows: default binding pending approval
+## P8 Physical — swapWindows: default enabled, physical acceptance pending
 
 - [x] Agent verified an isolated `Ctrl+Alt+Shift+X` binding with real windows:
       visible slots exchange, B keeps focus, one Undo restores both rectangles,
       bare Esc cancels, the 15-second timeout expires, Reload and Suspend release
       Esc, Resume and clean Quit work. Unit tests also cover same-window, invalid,
       minimized/maximized, per-window DWM insets and grouped Undo.
-- [ ] Approve `Ctrl+Win+Alt+X` as the default before any real profile is changed.
+- [x] User approved `Ctrl+Win+Alt+X` as the default; add only that binding to the
+      current profile, without changing existing Rectangle bindings.
 - [ ] After enabling it, select A, then B: their slots exchange and B stays focused;
       one Window Undo restores both. Repeat across monitors with different DPIs.
 - [ ] Re-select the same window, press bare Esc, wait for timeout, and try a

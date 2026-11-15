@@ -11,5 +11,4 @@ gap = 0
 "win+alt+j" = "moveToBottom"
 "win+alt+k" = "moveToTop"
 "win+alt+l" = "moveToRight"
-# Proposed, disabled until the P8 default is approved separately:
-# "ctrl+win+alt+x" = "swapWindows"
+"ctrl+win+alt+x" = "swapWindows"
