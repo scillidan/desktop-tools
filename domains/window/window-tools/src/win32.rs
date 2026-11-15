@@ -46,7 +46,7 @@ use windows::Win32::UI::HiDpi::{
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     RegisterHotKey, SendInput, UnregisterHotKey, HOT_KEY_MODIFIERS, INPUT, INPUT_0, INPUT_KEYBOARD,
     KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT,
-    MOD_WIN, VIRTUAL_KEY, VK_CONTROL, VK_LWIN, VK_MENU, VK_SHIFT,
+    MOD_WIN, VIRTUAL_KEY, VK_CONTROL, VK_ESCAPE, VK_LWIN, VK_MENU, VK_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, CreateWindowExW, DestroyMenu, DestroyWindow, DispatchMessageW,
@@ -346,6 +346,39 @@ mod tests {
             "undo raises the just-focused window on top"
         );
 
+        unsafe {
+            let _ = DestroyWindow(a);
+            let _ = DestroyWindow(b);
+        }
+    }
+
+    #[test]
+    #[ignore = "creates and focuses real windows on the desktop"]
+    fn swap_real_windows_and_composite_undo() {
+        let a = test_window();
+        let b = test_window();
+        unsafe {
+            SetWindowPos(a, None, 80, 80, 400, 300, SWP_NOACTIVATE).unwrap();
+            SetWindowPos(b, None, 900, 400, 600, 250, SWP_NOACTIVATE).unwrap();
+        }
+        let mut app = App::new(init());
+        let (a_id, b_id) = (id_of(a), id_of(b));
+        let (a_frame, b_frame) = (
+            app.p.visible_frame(a_id).unwrap(),
+            app.p.visible_frame(b_id).unwrap(),
+        );
+        app.p.focus(a_id).unwrap();
+        app.apply(Action::SwapWindows).unwrap();
+        assert!(app.swap_armed());
+        app.p.focus(b_id).unwrap();
+        app.apply(Action::SwapWindows).unwrap();
+        assert_eq!(app.p.visible_frame(a_id), Some(b_frame));
+        assert_eq!(app.p.visible_frame(b_id), Some(a_frame));
+        assert_eq!(app.p.foreground(), Some(b_id));
+
+        app.apply(Action::Undo).unwrap();
+        assert_eq!(app.p.visible_frame(a_id), Some(a_frame));
+        assert_eq!(app.p.visible_frame(b_id), Some(b_frame));
         unsafe {
             let _ = DestroyWindow(a);
             let _ = DestroyWindow(b);
@@ -961,6 +994,7 @@ fn unregister_hotkeys(p: &mut Win32) {
     }
 }
 
+const SWAP_ESC_ID: i32 = 0x7FFF;
 const TIMER_RELOAD: usize = 1;
 const TIMER_DIALOGS: usize = 2;
 const TIMER_BOTTOM: usize = 3;
@@ -994,6 +1028,42 @@ fn status_text(total: usize, failed: &[String], suspended: bool) -> String {
     s
 }
 
+fn sync_swap(
+    app: &mut App<Win32>,
+    cfg: &Config,
+    tray: &mut DaemonTray,
+    suspended: bool,
+    esc_registered: &mut bool,
+) {
+    if app.swap_armed() && !*esc_registered {
+        let registered =
+            unsafe { RegisterHotKey(None, SWAP_ESC_ID, MOD_NOREPEAT, VK_ESCAPE.0 as u32) }.is_ok();
+        if registered {
+            *esc_registered = true;
+            tray.set_status("window-tools — select another window to swap; Esc cancels (15s)");
+        } else {
+            app.cancel_swap();
+            tray.set_status("window-tools — swap cancelled: Esc hotkey is unavailable");
+        }
+    } else if !app.swap_armed() && *esc_registered {
+        unsafe {
+            let _ = UnregisterHotKey(None, SWAP_ESC_ID);
+        }
+        *esc_registered = false;
+        tray.set_status(&status_text(cfg.bindings.len(), &[], suspended));
+    }
+}
+
+fn cancel_swap(app: &mut App<Win32>, esc_registered: &mut bool) {
+    app.cancel_swap();
+    if *esc_registered {
+        unsafe {
+            let _ = UnregisterHotKey(None, SWAP_ESC_ID);
+        }
+        *esc_registered = false;
+    }
+}
+
 /// Run one binding's action. `hid` is the RegisterHotKey id for WM_HOTKEY
 /// deliveries (needed to re-arm the pass-through combo); hook deliveries
 /// pass `None`. Returns true when the daemon should quit.
@@ -1005,6 +1075,8 @@ fn handle_action(
     presets_path: &Path,
     idx: usize,
     hid: Option<i32>,
+    suspended: bool,
+    esc_registered: &mut bool,
 ) -> bool {
     let action = cfg.bindings[idx].action;
     if action == Action::Quit {
@@ -1033,11 +1105,15 @@ fn handle_action(
                 unsafe { RegisterHotKey(None, hid, mods, vk.0 as u32) }.ok();
             }
         }
-    } else if let Err(e) = app.apply(action) {
-        eprintln!("warn: {action:?}: {e:#}");
-        // Release is GUI subsystem, so stderr is invisible when the daemon
-        // was started from Explorer/autostart.
-        tray.set_status(&format!("window-tools — {action:?}: {e:#}"));
+    } else {
+        let result = app.apply(action);
+        sync_swap(app, cfg, tray, suspended, esc_registered);
+        if let Err(e) = result {
+            eprintln!("warn: {action:?}: {e:#}");
+            // Release is GUI subsystem, so stderr is invisible when the daemon
+            // was started from Explorer/autostart.
+            tray.set_status(&format!("window-tools — {action:?}: {e:#}"));
+        }
     }
     false
 }
@@ -1206,6 +1282,7 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
     let timer = unsafe { SetTimer(None, TIMER_RELOAD, 1000, None) };
     let dialog_timer = unsafe { SetTimer(None, TIMER_DIALOGS, 250, None) };
     let mut bottom_timer = reset_bottom_timer(0, cfg.settings.bottom_reassert_ms);
+    let mut swap_esc = false;
 
     loop {
         let mut msg = MSG::default();
@@ -1216,8 +1293,20 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
         match msg.message {
             WM_HOTKEY => {
                 let id = msg.wParam.0 as i32;
-                if let Some(&(_, idx)) = app.p.hotkeys.iter().find(|(hid, _)| *hid == id) {
-                    if handle_action(&mut app, &cfg, &mut tray, &presets_path, idx, Some(id)) {
+                if id == SWAP_ESC_ID {
+                    app.cancel_swap();
+                    sync_swap(&mut app, &cfg, &mut tray, suspended, &mut swap_esc);
+                } else if let Some(&(_, idx)) = app.p.hotkeys.iter().find(|(hid, _)| *hid == id) {
+                    if handle_action(
+                        &mut app,
+                        &cfg,
+                        &mut tray,
+                        &presets_path,
+                        idx,
+                        Some(id),
+                        suspended,
+                        &mut swap_esc,
+                    ) {
                         return Ok(());
                     }
                 }
@@ -1225,12 +1314,23 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
             crate::kbdhook::WM_KBDHOOK => {
                 let idx = msg.wParam.0;
                 if idx < cfg.bindings.len()
-                    && handle_action(&mut app, &cfg, &mut tray, &presets_path, idx, None)
+                    && handle_action(
+                        &mut app,
+                        &cfg,
+                        &mut tray,
+                        &presets_path,
+                        idx,
+                        None,
+                        suspended,
+                        &mut swap_esc,
+                    )
                 {
                     return Ok(());
                 }
             }
             WM_TIMER if msg.wParam.0 == timer => {
+                app.tick_swap();
+                sync_swap(&mut app, &cfg, &mut tray, suspended, &mut swap_esc);
                 // A reload often finishes in a few ms, so hold its icon for at
                 // least 1 s. The 1 s timer makes the hold 1-2 s in practice.
                 if flash.is_some_and(|t| t.elapsed() >= Duration::from_secs(1)) {
@@ -1251,6 +1351,7 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                         suspended,
                         &cfg_path,
                         &mut bottom_timer,
+                        &mut swap_esc,
                     );
                     flash = Some(Instant::now());
                 }
@@ -1281,6 +1382,7 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                         suspended,
                         &cfg_path,
                         &mut bottom_timer,
+                        &mut swap_esc,
                     );
                     flash = Some(Instant::now());
                     // Avoid re-running the same reload on the next timer tick.
@@ -1319,12 +1421,15 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                     }
                 }
                 Cmd::Undo => {
-                    if let Err(e) = app.apply(Action::Undo) {
+                    let result = app.apply(Action::Undo);
+                    sync_swap(&mut app, &cfg, &mut tray, suspended, &mut swap_esc);
+                    if let Err(e) = result {
                         eprintln!("warn: undo: {e:#}");
                         tray.set_status(&format!("window-tools — {e:#}"));
                     }
                 }
                 Cmd::ToggleSuspend => {
+                    cancel_swap(&mut app, &mut swap_esc);
                     flash = None;
                     if suspended {
                         let failed = register_hotkeys(&mut app.p, &cfg.bindings);
@@ -1356,6 +1461,7 @@ pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()
                     }
                 }
                 Cmd::Quit => {
+                    cancel_swap(&mut app, &mut swap_esc);
                     if let Err(e) = app.p.unpin_all() {
                         eprintln!("warn: clear pins during shutdown: {e:#}");
                     }
@@ -1375,7 +1481,9 @@ fn reload(
     suspended: bool,
     path: &Path,
     bottom_timer: &mut usize,
+    esc_registered: &mut bool,
 ) {
+    cancel_swap(app, esc_registered);
     let mut new = match config::reload(path) {
         Ok(c) => c,
         Err(e) => {

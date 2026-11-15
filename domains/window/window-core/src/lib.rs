@@ -196,6 +196,7 @@ pub struct UndoEntry {
 
 pub trait WindowHistory {
     fn record(&mut self, entry: UndoEntry);
+    fn record_pair(&mut self, a: UndoEntry, b: UndoEntry);
 }
 
 /// Rectangle/vdesk target selection; switcher intentionally has its own fallback.

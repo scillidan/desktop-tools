@@ -958,9 +958,17 @@ held-key behavior are signed off. CopyQ was moved to `Alt+D`, leaving ``Ctrl+` `
   undo.
 - Keep the proposed hotkey disabled until P0 approval explicitly accepts it.
 
+Implementation is complete in `window-rectangle` and the Window composition root.
+It uses per-window DWM insets, one atomic history group, bare-Esc registration only
+while Armed, the existing one-second reload tick for timeout, and per-binding
+no-repeat handling. Undo also cancels Armed. Unit tests and a real-window/hotkey
+probe cover commit, composite Undo, Esc, timeout, Reload, Suspend/Resume and Quit.
+The proposed default is still disabled and no real profile was changed.
+
 Gate: two apps visibly exchange slots; same-window/Esc/timeout/invalid/reload/
 suspend cancel; maximized/minimized cases do nothing; cross-monitor/DPI and
-one-step undo pass physically.
+one-step undo pass physically. These physical checks remain pending until the
+user separately approves the default binding.
 
 ### P9 — Consolidate, package and retire old products
 

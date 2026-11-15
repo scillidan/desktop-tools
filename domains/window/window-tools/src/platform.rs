@@ -231,6 +231,18 @@ impl<P: Platform> App<P> {
         self.app_toggle_config = config;
     }
 
+    pub fn swap_armed(&self) -> bool {
+        self.rectangle.swap_armed()
+    }
+
+    pub fn cancel_swap(&mut self) {
+        self.rectangle.cancel_swap();
+    }
+
+    pub fn tick_swap(&mut self) {
+        self.rectangle.tick_swap();
+    }
+
     pub fn apply(&mut self, action: Action) -> Result<()> {
         self.apply_to(action, None)
     }
@@ -250,6 +262,7 @@ impl<P: Platform> App<P> {
             Action::MoveToCenter => Some(R::MoveToCenter),
             Action::NextDisplay => Some(R::NextDisplay),
             Action::PrevDisplay => Some(R::PrevDisplay),
+            Action::SwapWindows => Some(R::SwapWindows),
             _ => None,
         };
         if let Some(action) = rectangle {
@@ -313,10 +326,15 @@ impl<P: Platform> App<P> {
                 )
             }
             Action::Undo => {
+                self.rectangle.cancel_swap();
                 self.rectangle.reset_cycle();
                 self.history.undo(&WindowBackend(&self.p))
             }
-            Action::Quit | Action::Suppress => Ok(()),
+            Action::Quit => {
+                self.rectangle.cancel_swap();
+                Ok(())
+            }
+            Action::Suppress => Ok(()),
             Action::FileDialog => self.p.file_dialog(),
             Action::SwitchToDesktop(n) => self.p.switch_desktop(n),
             Action::NextDesktop => self.p.next_desktop(),
@@ -744,5 +762,95 @@ mod tests {
         }
         let mut app = App::new(NoTarget);
         assert!(app.apply(Action::MoveToLeft).is_err());
+    }
+
+    #[test]
+    fn swap_has_one_composite_undo_and_does_not_change_focus() {
+        use std::cell::{Cell, RefCell};
+        use std::collections::BTreeMap;
+
+        struct SwapMock {
+            foreground: Cell<WinId>,
+            rects: RefCell<BTreeMap<WinId, Rect>>,
+        }
+
+        impl Platform for SwapMock {
+            fn monitors(&self) -> Vec<Monitor> {
+                Vec::new()
+            }
+            fn monitor_index(&self, _id: WinId) -> usize {
+                0
+            }
+            fn foreground(&self) -> Option<WinId> {
+                Some(self.foreground.get())
+            }
+            fn is_zonable(&self, id: WinId) -> bool {
+                self.rects.borrow().contains_key(&id)
+            }
+            fn window_rect(&self, id: WinId) -> Option<Rect> {
+                self.rects.borrow().get(&id).copied()
+            }
+            fn visible_frame(&self, id: WinId) -> Option<Rect> {
+                self.window_rect(id)
+            }
+            fn move_window(&self, id: WinId, r: Rect) -> Result<()> {
+                self.rects.borrow_mut().insert(id, r);
+                Ok(())
+            }
+            fn is_maximized(&self, _id: WinId) -> bool {
+                false
+            }
+            fn set_maximized(&self, _id: WinId, _on: bool) -> Result<()> {
+                Ok(())
+            }
+            fn is_always_on_top(&self, _id: WinId) -> bool {
+                false
+            }
+            fn set_always_on_top(&self, _id: WinId, _on: bool) -> Result<()> {
+                Ok(())
+            }
+            fn minimize(&self, _id: WinId) -> Result<()> {
+                Ok(())
+            }
+            fn restore(&self, _id: WinId) -> Result<()> {
+                Ok(())
+            }
+            fn unpin_all(&self) -> Result<()> {
+                Ok(())
+            }
+            fn focus(&self, _id: WinId) -> Result<()> {
+                panic!("swap must not change foreground focus")
+            }
+        }
+
+        let a = Rect {
+            l: 0,
+            t: 0,
+            r: 400,
+            b: 300,
+        };
+        let b = Rect {
+            l: 900,
+            t: 500,
+            r: 1500,
+            b: 800,
+        };
+        let p = SwapMock {
+            foreground: Cell::new(1),
+            rects: RefCell::new([(1, a), (2, b)].into_iter().collect()),
+        };
+        let mut app = App::new(p);
+        app.apply(Action::SwapWindows).unwrap();
+        app.p.foreground.set(2);
+        app.apply(Action::SwapWindows).unwrap();
+        assert_eq!(app.p.window_rect(1), Some(b));
+        assert_eq!(app.p.window_rect(2), Some(a));
+        assert_eq!(app.p.foreground(), Some(2));
+
+        app.apply(Action::Undo).unwrap();
+        assert_eq!(app.p.window_rect(1), Some(a));
+        assert_eq!(app.p.window_rect(2), Some(b));
+        assert!(app.apply(Action::Undo).is_err());
+        assert_eq!(app.p.foreground(), Some(2));
     }
 }

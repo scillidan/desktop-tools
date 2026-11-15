@@ -40,7 +40,7 @@ Native window/screen/keyboard/taskbar tools first, then external GoldenDict inte
 `window-tools` is one hosted process and one standalone executable, but its
 Window menu and code are divided into native modules:
 
-- `window-rectangle`: snap/center/display geometry and state;
+- `window-rectangle`: snap/center/display geometry, two-window `swapWindows` and state;
 - `window-resize`: Sizer, resize presets and DWM window zoom (`window-scale.toml`);
 - `window-mouse-drag`: modifier-drag state and mouse hook;
 - `window-on-top-bottom`: topmost/bottommost pins and shared cleanup;
@@ -60,6 +60,11 @@ to the previous window before minimizing the current target. WezTerm selects the
 topmost existing window rather than cycling. Its ordinary hotkey uses no-repeat
 registration; `Win+E` uses the low-level hook to suppress Explorer and auto-repeat.
 Shell Keys retains its other 66 default suppressions and no longer owns `Win+E`.
+Rectangle's `swapWindows` action selects two eligible windows, exchanges their
+complete visible/outer rectangles and restores both with one Undo. Bare Esc or
+15 seconds cancels the armed selection; Reload/Suspend/Quit also cancel it. The
+proposed `Ctrl+Win+Alt+X` default remains disabled pending separate approval;
+custom bindings belong in `window-rectangle.toml`.
 
 `screen-tools` retains the frame, Draw, Capture, OCR, Record and
 Flameshot handoff behavior from Screen Tools. Hosted mode has no second tray or

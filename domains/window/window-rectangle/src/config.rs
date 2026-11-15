@@ -28,6 +28,7 @@ impl RectangleAction {
             Self::MoveToCenter => "moveToCenter",
             Self::NextDisplay => "nextDisplay",
             Self::PrevDisplay => "prevDisplay",
+            Self::SwapWindows => "swapWindows",
         }
     }
 
@@ -44,6 +45,7 @@ impl RectangleAction {
             "moveToCenter" => Self::MoveToCenter,
             "nextDisplay" => Self::NextDisplay,
             "prevDisplay" => Self::PrevDisplay,
+            "swapWindows" => Self::SwapWindows,
             _ => return None,
         })
     }
@@ -66,4 +68,21 @@ pub fn parse(text: &str) -> Result<RectangleConfig> {
         },
     )?;
     Ok(RectangleConfig { bindings, settings })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn swap_is_opt_in_and_parses_its_isolated_binding() {
+        let defaults = parse(DEFAULT_CONFIG).unwrap();
+        assert!(!defaults
+            .bindings
+            .iter()
+            .any(|b| b.action == RectangleAction::SwapWindows));
+        let custom = parse("\"ctrl+win+alt+x\" = \"swapWindows\"").unwrap();
+        assert_eq!(custom.bindings.len(), 1);
+        assert_eq!(custom.bindings[0].action, RectangleAction::SwapWindows);
+    }
 }

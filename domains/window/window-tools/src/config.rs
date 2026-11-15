@@ -33,6 +33,7 @@ pub enum Action {
     Maximize,
     NextDisplay,
     PrevDisplay,
+    SwapWindows,
     ToggleAlwaysOnTop,
     ToggleAlwaysOnBottom,
     Minimize,
@@ -74,6 +75,7 @@ impl FromStr for Action {
             "maximize" => Action::Maximize,
             "nextDisplay" => Action::NextDisplay,
             "prevDisplay" => Action::PrevDisplay,
+            "swapWindows" => Action::SwapWindows,
             "toggleAlwaysOnTop" => Action::ToggleAlwaysOnTop,
             "toggleAlwaysOnBottom" => Action::ToggleAlwaysOnBottom,
             "minimize" => Action::Minimize,
@@ -127,6 +129,7 @@ impl Action {
             "maximize",
             "nextDisplay",
             "prevDisplay",
+            "swapWindows",
             "toggleAlwaysOnTop",
             "toggleAlwaysOnBottom",
             "minimize",
@@ -242,6 +245,7 @@ fn legacy_modules(bindings: &[Binding], settings: Settings) -> Modules {
                         Action::MoveToCenter => A::MoveToCenter,
                         Action::NextDisplay => A::NextDisplay,
                         Action::PrevDisplay => A::PrevDisplay,
+                        Action::SwapWindows => A::SwapWindows,
                         _ => return None,
                     };
                     Some(window_core::Binding {
@@ -382,6 +386,7 @@ fn assemble(modules: Modules, global: Vec<Binding>) -> Result<Config> {
             window_rectangle::RectangleAction::MoveToCenter => Action::MoveToCenter,
             window_rectangle::RectangleAction::NextDisplay => Action::NextDisplay,
             window_rectangle::RectangleAction::PrevDisplay => Action::PrevDisplay,
+            window_rectangle::RectangleAction::SwapWindows => Action::SwapWindows,
         },
     }));
     bindings.extend(modules.resize.bindings.iter().map(|b| Binding {

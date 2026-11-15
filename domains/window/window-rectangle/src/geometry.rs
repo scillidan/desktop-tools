@@ -67,6 +67,16 @@ pub fn inset(d: Rect, n: i32) -> Rect {
     }
 }
 
+/// Fit `like_outer`'s invisible borders around another window's visible slot.
+pub fn outer_like(visible: Rect, like_outer: Rect, like_visible: Rect) -> Rect {
+    Rect {
+        l: visible.l + like_outer.l - like_visible.l,
+        t: visible.t + like_outer.t - like_visible.t,
+        r: visible.r + like_outer.r - like_visible.r,
+        b: visible.b + like_outer.b - like_visible.b,
+    }
+}
+
 /// Center `cur` inside `disp`, keeping its size.
 pub fn center(disp: Rect, cur: Rect) -> Rect {
     let w = (disp.w() - cur.w()) / 2;
@@ -176,6 +186,38 @@ mod tests {
         assert!(huge.has_area());
         assert_eq!(huge.l - D.l, D.r - huge.r);
         assert_eq!(huge.t - D.t, D.b - huge.b);
+    }
+
+    #[test]
+    fn outer_like_preserves_each_windows_invisible_borders() {
+        let outer = Rect {
+            l: 90,
+            t: 40,
+            r: 1107,
+            b: 760,
+        };
+        let visible = Rect {
+            l: 100,
+            t: 50,
+            r: 1100,
+            b: 750,
+        };
+        let slot = Rect {
+            l: -500,
+            t: 200,
+            r: 300,
+            b: 600,
+        };
+        assert_eq!(
+            outer_like(slot, outer, visible),
+            Rect {
+                l: -510,
+                t: 190,
+                r: 307,
+                b: 610
+            }
+        );
+        assert_eq!(outer_like(slot, visible, visible), slot);
     }
 
     #[test]

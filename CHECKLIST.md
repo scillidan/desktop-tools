@@ -364,3 +364,20 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [x] Agent checks: canonical full paths handle Scoop aliases; real WezTerm toggle
       returns focus and restores minimized targets; clean hosted Quit, 304 tests,
       clippy, release/staging and ten-plugin smoke pass.
+
+
+## P8 Physical — swapWindows: default binding pending approval
+
+- [x] Agent verified an isolated `Ctrl+Alt+Shift+X` binding with real windows:
+      visible slots exchange, B keeps focus, one Undo restores both rectangles,
+      bare Esc cancels, the 15-second timeout expires, Reload and Suspend release
+      Esc, Resume and clean Quit work. Unit tests also cover same-window, invalid,
+      minimized/maximized, per-window DWM insets and grouped Undo.
+- [ ] Approve `Ctrl+Win+Alt+X` as the default before any real profile is changed.
+- [ ] After enabling it, select A, then B: their slots exchange and B stays focused;
+      one Window Undo restores both. Repeat across monitors with different DPIs.
+- [ ] Re-select the same window, press bare Esc, wait for timeout, and try a
+      minimized or maximized B: each cancels/rejects without moving either window;
+      bare Esc is not captured after cancellation or Suspend.
+- [ ] Hold the swap hotkey: it must not repeatedly arm/cancel; ordinary repeatable
+      Rectangle shortcuts must still auto-repeat.

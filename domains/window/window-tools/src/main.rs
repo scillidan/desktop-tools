@@ -109,8 +109,8 @@ fn run() -> Result<()> {
     // One-shot mode: `--action moveToLeft [--pid 1234]` then exit.
     if let Some(name) = args.action {
         let action = Action::from_str(&name)?;
-        if action == Action::Undo {
-            anyhow::bail!("`undo` only works in daemon mode (it restores the previous snap)");
+        if matches!(action, Action::Undo | Action::SwapWindows) {
+            anyhow::bail!("`{name}` only works in daemon mode (it needs persistent state)");
         }
         let presets = if action == Action::SizerMenu {
             let cfg_path = match &args.config {

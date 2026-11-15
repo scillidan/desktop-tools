@@ -6,6 +6,13 @@ use anyhow::Result;
 
 pub const WM_KBDHOOK: u32 = kit::lowkey::WM_KBDHOOK;
 
+fn allow_repeat(action: Action) -> bool {
+    !matches!(
+        action,
+        Action::ToggleWezTerm | Action::ToggleDoubleCommander | Action::SwapWindows
+    )
+}
+
 pub fn set_bindings(bindings: &[Binding]) {
     let bindings: Vec<_> = bindings
         .iter()
@@ -18,10 +25,7 @@ pub fn set_bindings(bindings: &[Binding]) {
                 shift: b.combo.shift,
                 alt: b.combo.alt,
                 win: b.combo.win,
-                allow_repeat: !matches!(
-                    b.action,
-                    Action::ToggleWezTerm | Action::ToggleDoubleCommander
-                ),
+                allow_repeat: allow_repeat(b.action),
                 id,
             })
         })
@@ -35,4 +39,15 @@ pub fn install() -> Result<()> {
 
 pub fn uninstall() {
     kit::lowkey::uninstall();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn swap_does_not_auto_repeat_but_rectangle_still_does() {
+        assert!(!allow_repeat(Action::SwapWindows));
+        assert!(allow_repeat(Action::MoveToLeft));
+    }
 }
