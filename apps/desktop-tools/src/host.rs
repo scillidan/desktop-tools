@@ -24,6 +24,9 @@ const LEGACY_AUTOSTART: &[&str] = &[
     "window-tools-rs",
     "windowtools-rs",
     "rectangle-rs",
+    "taskbar-tools-rs",
+    "window-tools",
+    "taskbar-tools",
 ];
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const DEFAULT_CORE: &str = include_str!("../core.toml");
@@ -988,6 +991,10 @@ fn plugins_root() -> Result<PathBuf> {
 }
 
 pub fn run() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
+        println!("desktop-tools {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
     let _single = kit::win::ensure_single_instance(APP)?;
     let profile = kit::config::profile_dir()?;
     std::fs::create_dir_all(&profile)

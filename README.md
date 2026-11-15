@@ -188,6 +188,22 @@ The script runs the full verification and stage pipeline, refuses to package a
 running repo-local executable, and writes `dist/desktop-tools-<version>-win64.zip`
 plus its SHA-256 file. The archive contains no user profile.
 
+## Install and external tools
+
+Extract the zip into a stable directory and run `desktop-tools.exe`. All ten
+plugins are enabled for a fresh profile. Use the tray's **Start with Windows**
+entry only after choosing the final install location.
+
+The native window, taskbar, keyboard and Windows OCR features need no additional
+application. Recording needs `ffmpeg`; the optional RapidOCR and Tesseract engines
+need `uv` and `tesseract` respectively. GoldenDict integration and Flameshot
+handoff need those applications and their paths in the corresponding TOML files.
+
+To upgrade, exit the host, replace the program files, and restart it without
+deleting the profile. To uninstall, disable **Start with Windows**, exit the host,
+and remove the program directory; remove the profile separately only if its
+settings are no longer wanted.
+
 Run `stage\desktop-tools.exe`, optionally with `--profile <dir>`. Profile
 priority is `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` >
 `Profile\User` beside the executable. Existing keyboard profiles therefore work

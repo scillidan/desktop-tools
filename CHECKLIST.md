@@ -414,6 +414,12 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [x] Agent extracted the zip, started it with an empty isolated profile, and
       observed all ten plugins running with the fresh defaults. The real host was
       then restored against the stable profile.
+- [x] Agent added CI and tag-release workflows using the same verify/package
+      scripts; both YAML files parse. Host `--version` prints `0.1.0`, and enabling
+      host autostart now clears the known old host and standalone Window/Taskbar
+      Run values in addition to the previous legacy names.
+- [ ] After push/tag, confirm the real CI run and published zip/checksum, then
+      commit the prepared Scoop manifest and test installation from that release.
 - [ ] Later gates: clean install, in-place upgrade preserving configuration,
       uninstall preserving profile, failed-plugin rollback, and sign-out/sign-in
       with exactly one host autostart and no legacy AHK/taskbar duplicates.

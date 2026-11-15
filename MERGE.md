@@ -646,7 +646,7 @@ These are corrections required by the audit, not optional polish:
    route system notifications through the single tray identity. Command/silent
    remain plugin-local options. No hosted plugin calls `Shell_NotifyIconW`.
 5. **Profile and autostart migration:** `--profile` >
-   `DESKTOP_TOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > exe `Profile/User`.
+   `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > exe `Profile/User`.
    Quote autostart executable paths. Migrate old Run values to one
    `desktop-tools` value; do not leave two hosts starting at login.
 6. **Editor parity:** shared Edit Config supports `EDITOR` then `VISUAL`, with
@@ -1004,9 +1004,11 @@ implicit last-pair toggle.
   refuses running repo-local executables, and produces one
   `dist/desktop-tools-<version>-win64.zip` plus SHA-256. A fresh extraction with
   an empty profile started all ten plugins; the archive has no profile files.
-  Release CI, one new suite Scoop manifest and legacy autostart cleanup remain
-  separate reviewable changes. The six Scoop AHK manifests are separate products
-  and must not be rewritten.
+  CI reuses `verify.ps1`; tag releases reuse `package.ps1` and reject a tag/workspace
+  version mismatch. Host `--version` and legacy/standalone autostart cleanup are
+  implemented. One new suite Scoop manifest is prepared locally, but is not ready
+  to publish until its tagged release asset exists. The six Scoop AHK manifests
+  are separate products and must not be rewritten.
 - Apply shared-kit extraction one consumer per commit, repeating affected
   physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.

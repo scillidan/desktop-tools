@@ -1,8 +1,7 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 //! desktop-tools suite host. It owns the profile, core.toml, one tray and
-//! the lifecycle of the five plugin processes. Plugin code never runs in this
-//! process; P7 keeps each plugin's local tray.
+//! the lifecycle of the plugin processes. Plugin code never runs in this process.
 
 #[cfg(windows)]
 mod host;
