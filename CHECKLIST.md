@@ -406,9 +406,9 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       without moving or changing the old repository copy; all 45 hashes match,
       all ten children use the new path, and `DTTOOLS_PROFILE` is persisted for
       future autostart. No old TOML was rewritten during the switch.
-- [ ] Open one feature's **Edit config** entry and confirm the editor opens the
-      new `%LOCALAPPDATA%\desktop-tools\Profile\User` file. Ordinary hotkeys and
-      menus must behave as before.
+- [x] User physically confirmed a feature **Edit config** entry opens the new
+      `%LOCALAPPDATA%\desktop-tools\Profile\User` file and that ordinary hotkeys
+      and menus behave as before on the Scoop-hosted runtime.
 - [x] `scripts/package.ps1` created `desktop-tools-0.1.0-win64.zip` and SHA-256;
       the archive contains host plus ten plugin exe/manifest pairs and no profile.
 - [x] Agent extracted the zip, started it with an empty isolated profile, and

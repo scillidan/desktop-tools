@@ -1010,7 +1010,9 @@ implicit last-pair toggle.
   downloaded release zip matches its checksum and API digest; the new suite Scoop
   manifest is published as scoop-pile commit `fde211e`. Installation from
   `pile/desktop-tools`, shortcut creation, uninstall/reinstall profile persistence
-  and a real ten-plugin Scoop-path host all pass. The six Scoop AHK manifests
+  and a real ten-plugin Scoop-path host all pass. The user physically confirmed
+  the new profile's Edit config path and ordinary hotkey/menu behavior, signing
+  off P9b on 2026-11-15. The six Scoop AHK manifests
   are separate products and must not be rewritten. The still-running legacy AHK
   KeyboardSwitch and KeyboardAutoSwitchBack processes were stopped; their two
   Startup shortcuts were moved, not deleted, to
