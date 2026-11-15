@@ -52,6 +52,16 @@ impl Status {
     }
 }
 
+fn suite_icon_state(has_error: bool, enabled_plugins: usize) -> kit::icon::State {
+    if has_error {
+        kit::icon::State::Error
+    } else if enabled_plugins == 0 {
+        kit::icon::State::Disabled
+    } else {
+        kit::icon::State::Normal
+    }
+}
+
 struct Hosted {
     plugin: Plugin,
     child: Option<Child>,
@@ -247,6 +257,20 @@ impl Host {
         entries.push(Entry::Item("About"));
         entries.push(Entry::Item("Exit"));
         tray.set_menu(&entries);
+        let enabled_plugins = self
+            .plugins
+            .iter()
+            .filter(|hosted| enabled.contains(&hosted.plugin.manifest.id))
+            .count();
+        let has_error = !self.catalog_errors.is_empty()
+            || self
+                .plugins
+                .iter()
+                .any(|hosted| hosted.status == Status::Failed);
+        let _ = tray.set_icon(kit::icon::rgba(
+            kit::icon::DESKTOP,
+            suite_icon_state(has_error, enabled_plugins),
+        ));
     }
 
     fn on_menu(&mut self, tray: &mut Tray, label: &str) {
@@ -972,7 +996,7 @@ pub fn run() -> Result<()> {
     let mut host = Host::new(profile, root)?;
     let mut tray = Tray::new(
         APP,
-        kit::icon::letter_rgba('K', [0x3b, 0x6e, 0xa5, 0xff], [0x23, 0x46, 0x6e, 0xff]),
+        kit::icon::rgba(kit::icon::DESKTOP, kit::icon::State::Normal),
     )?;
     host.refresh_menu(&mut tray);
 
@@ -1015,6 +1039,13 @@ pub fn run() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn suite_icon_reflects_errors_and_disabled_state() {
+        assert_eq!(suite_icon_state(false, 1), kit::icon::State::Normal);
+        assert_eq!(suite_icon_state(true, 1), kit::icon::State::Error);
+        assert_eq!(suite_icon_state(false, 0), kit::icon::State::Disabled);
+    }
 
     fn host_with_running_child() -> Host {
         use std::os::windows::process::CommandExt;
@@ -1182,7 +1213,7 @@ mod tests {
         host.force_stop_all();
         host.core.set_enabled("stop-test", false);
         host.plugins[0].plugin.manifest.exe = std::env::var("COMSPEC").unwrap();
-        let icon = kit::icon::letter_rgba('K', [0x3b, 0x6e, 0xa5, 0xff], [0x23, 0x46, 0x6e, 0xff]);
+        let icon = kit::icon::rgba(kit::icon::DESKTOP, kit::icon::State::Normal);
         let mut tray = Tray::new("keyboard-tools-test", icon).unwrap();
 
         host.on_menu(&mut tray, "Restart stop-test");

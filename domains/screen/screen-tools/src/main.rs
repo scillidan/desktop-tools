@@ -414,8 +414,16 @@ fn run() -> Result<()> {
                             new_cfg.mask_mode,
                         );
                         cfg = new_cfg;
+                        tray::set_state(if suspended {
+                            kit::icon::State::Suspended
+                        } else {
+                            kit::icon::State::Normal
+                        });
                     }
-                    Err(e) => logline(&format!("config reload failed, keeping old: {e:#}")),
+                    Err(e) => {
+                        logline(&format!("config reload failed, keeping old: {e:#}"));
+                        tray::set_state(kit::icon::State::Error);
+                    }
                 }
             }
         }
@@ -508,6 +516,11 @@ fn toggle_suspended(
     } else {
         tray::set_menu_model(screen_menu(*suspended, true));
     }
+    tray::set_state(if *suspended {
+        kit::icon::State::Suspended
+    } else {
+        kit::icon::State::Normal
+    });
 }
 
 fn register_hotkeys(hwnd: HWND, cfg: &config::Config, handoff_active: bool) -> hotkeys::Hotkeys {

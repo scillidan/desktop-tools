@@ -192,7 +192,7 @@ fn run_standalone() -> anyhow::Result<()> {
 
     let mut tray = Tray::new(
         APP,
-        kit::icon::letter_rgba('t', [0x50, 0xa0, 0xff, 0xff], [0x20, 0x40, 0x70, 0xff]),
+        kit::icon::rgba(kit::icon::TASKBAR, kit::icon::State::Normal),
     )?;
     tray.set_menu(&menu_model(false, false).render());
     let handles = workers()?;
@@ -204,6 +204,14 @@ fn run_standalone() -> anyhow::Result<()> {
                     let value = !suspended();
                     SUSPENDED.store(value, std::sync::atomic::Ordering::Relaxed);
                     tray.set_menu(&menu_model(false, value).render());
+                    let _ = tray.set_icon(kit::icon::rgba(
+                        kit::icon::TASKBAR,
+                        if value {
+                            kit::icon::State::Suspended
+                        } else {
+                            kit::icon::State::Normal
+                        },
+                    ));
                 }
                 "autostart" => {
                     let value = !kit::win::autostart_enabled(APP);

@@ -794,6 +794,14 @@ fn run() -> anyhow::Result<()> {
 
     tray.run(None, |tray, event| match event {
         Event::Wakeup(state) => {
+            let _ = tray.set_icon(kit::icon::rgba(
+                kit::icon::KEYBOARD_LOCKER,
+                if state == 1 {
+                    kit::icon::State::Disabled
+                } else {
+                    kit::icon::State::Normal
+                },
+            ));
             let (title, body) = if state == 1 {
                 (
                     "keyboard-locker",
@@ -826,7 +834,7 @@ fn run() -> anyhow::Result<()> {
 
 #[cfg(windows)]
 fn icon() -> Vec<u8> {
-    kit::icon::letter_rgba('l', [0x2e, 0x7d, 0x32, 0xff], [0x1b, 0x4d, 0x1d, 0xff])
+    kit::icon::rgba(kit::icon::KEYBOARD_LOCKER, kit::icon::State::Normal)
 }
 
 #[cfg(windows)]

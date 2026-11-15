@@ -18,6 +18,7 @@ pub const WM_TRAY: u32 = WM_APP + 9;
 static TASKBAR_CREATED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 static HOST: AtomicIsize = AtomicIsize::new(0);
 static NOTIFY: AtomicBool = AtomicBool::new(false);
+static ICON_RESOURCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
 static HOST_NOTIFIER: std::sync::Mutex<Option<kit::ipc::PluginNotifier>> =
     std::sync::Mutex::new(None);
 static MENU_MODEL: std::sync::Mutex<Option<kit::menu::MenuModel>> = std::sync::Mutex::new(None);
@@ -121,7 +122,9 @@ unsafe fn add(hwnd: HWND) -> bool {
     let Ok(instance) = GetModuleHandleW(None) else {
         return false;
     };
-    let resource = PCWSTR::from_raw(std::ptr::without_provenance(1));
+    let resource = PCWSTR::from_raw(std::ptr::without_provenance(
+        ICON_RESOURCE.load(Ordering::Relaxed) as usize,
+    ));
     let Ok(icon) = LoadIconW(Some(instance.into()), resource) else {
         return false;
     };
@@ -135,6 +138,36 @@ unsafe fn add(hwnd: HWND) -> bool {
 pub unsafe fn restore(hwnd: HWND) {
     if !add(hwnd) {
         crate::logline("warn: cannot re-add the tray icon");
+    }
+}
+
+/// Switch the standalone tray icon; hosted mode has no native icon to modify.
+pub fn set_state(state: kit::icon::State) {
+    let resource = match state {
+        kit::icon::State::Normal => 1,
+        kit::icon::State::Suspended => 2,
+        kit::icon::State::Error => 3,
+        kit::icon::State::Disabled => 4,
+        _ => 1,
+    };
+    ICON_RESOURCE.store(resource, Ordering::Relaxed);
+    let host = HOST.load(Ordering::Relaxed);
+    if host == 0 {
+        return;
+    }
+    unsafe {
+        let Ok(instance) = GetModuleHandleW(None) else {
+            return;
+        };
+        let resource = PCWSTR::from_raw(std::ptr::without_provenance(resource as usize));
+        let Ok(icon) = LoadIconW(Some(instance.into()), resource) else {
+            return;
+        };
+        let mut data = notify_data(HWND(host as *mut core::ffi::c_void), icon);
+        data.uFlags = NIF_ICON;
+        if !Shell_NotifyIconW(NIM_MODIFY, &data).as_bool() {
+            crate::logline("warn: cannot update the tray icon state");
+        }
     }
 }
 

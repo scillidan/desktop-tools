@@ -244,7 +244,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut tray = Tray::new(
         &tooltip,
-        kit::icon::letter_rgba('g', [0xb8, 0x86, 0x0b, 0xff], [0x7c, 0x59, 0x06, 0xff]),
+        kit::icon::rgba(kit::icon::GOLDENDICT_SEARCH, kit::icon::State::Normal),
     )?;
     refresh_menu(&mut tray, popup, hosted);
 

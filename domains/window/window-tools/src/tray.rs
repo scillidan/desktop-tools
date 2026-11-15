@@ -114,180 +114,17 @@ impl Tray {
     }
 }
 
-/// Logical icon size. 32 px is the tray-icon default; the shell downscales it
-/// to 16/20/24 px, so it is drawn supersampled (see `SS`).
-const N: i32 = 32;
-
-/// An abstract window: a small hollow title bar above a filled blue body.
-/// The 22x22 glyph is large enough for a 16 px tray icon without crowding it.
-/// Grey means suspended; the reload badge remains yellow/red.
 fn icon(state: State, suspended: bool) -> Vec<u8> {
-    draw(state, suspended, N)
-}
-
-/// The same glyph at any square size (tray icon, exe icon). Coordinates are
-/// authored at 32 px and scaled per size.
-fn draw(state: State, suspended: bool, n: i32) -> Vec<u8> {
-    let mut c = Canvas::new(n);
-    let ink = if suspended || state == State::Suspended {
-        GREY
-    } else {
-        BLUE
+    use kit::icon::State as Icon;
+    let state = match (state, suspended) {
+        (State::ReloadOk, true) => Icon::SuspendedSuccess,
+        (State::ReloadFail, true) => Icon::SuspendedError,
+        (State::ReloadOk, false) => Icon::Success,
+        (State::ReloadFail, false) => Icon::Error,
+        (State::Suspended, _) | (_, true) => Icon::Suspended,
+        (State::Normal, false) => Icon::Normal,
     };
-    c.rect(4.0, 6.0, 28.0, 26.0, ink);
-    c.rect(7.0, 9.0, 25.0, 23.0, CLEAR);
-    c.rect(7.0, 9.0, 16.0, 16.0, ink);
-    match state {
-        State::ReloadOk => c.badge(YELLOW),
-        State::ReloadFail => c.badge(RED),
-        _ => {}
-    }
-    c.downsample()
-}
-
-const BLUE: [u8; 4] = [37, 99, 235, 255];
-const GREY: [u8; 4] = [107, 114, 128, 255];
-const YELLOW: [u8; 4] = [245, 179, 1, 255];
-const RED: [u8; 4] = [220, 38, 38, 255];
-const RING: [u8; 4] = [31, 41, 55, 255];
-const CLEAR: [u8; 4] = [0, 0, 0, 0];
-
-/// Supersampling factor: draw at 128x128, box-filter down to 32x32, so the
-/// circle badge and the downscaled 16/20/24 px icons stay clean.
-const SS: i32 = 4;
-
-/// The glyph is authored at 32 px; other sizes scale the coordinates.
-const AUTHORED: i32 = 32;
-
-struct Canvas {
-    n: i32,
-    px: Vec<[u8; 4]>,
-}
-
-impl Canvas {
-    fn new(n: i32) -> Self {
-        Canvas {
-            n,
-            px: vec![[0; 4]; (n * SS * n * SS) as usize],
-        }
-    }
-
-    fn set(&mut self, x: i32, y: i32, color: [u8; 4]) {
-        let w = self.n * SS;
-        if (0..w).contains(&x) && (0..w).contains(&y) {
-            self.px[(y * w + x) as usize] = color;
-        }
-    }
-
-    /// Authored (32-px) coordinates to this canvas's pixels.
-    fn scale(&self) -> f32 {
-        SS as f32 * self.n as f32 / AUTHORED as f32
-    }
-
-    /// Axis-aligned fill in authored coordinates.
-    fn rect(&mut self, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8; 4]) {
-        let s = self.scale();
-        for y in (y0 * s).round() as i32..(y1 * s).round() as i32 {
-            for x in (x0 * s).round() as i32..(x1 * s).round() as i32 {
-                self.set(x, y, color);
-            }
-        }
-    }
-
-    /// Filled circle (the reload badge), in authored coordinates.
-    fn disc(&mut self, cx: f32, cy: f32, r: f32, color: [u8; 4]) {
-        let s = self.scale();
-        for y in ((cy - r) * s).floor() as i32..((cy + r) * s).ceil() as i32 {
-            for x in ((cx - r) * s).floor() as i32..((cx + r) * s).ceil() as i32 {
-                let px = (x as f32 + 0.5) / s;
-                let py = (y as f32 + 0.5) / s;
-                if (px - cx).powi(2) + (py - cy).powi(2) <= r * r {
-                    self.set(x, y, color);
-                }
-            }
-        }
-    }
-
-    /// Bottom-right reload dot. The dark ring keeps yellow visible on a light
-    /// taskbar; on a dark one the dot itself carries the contrast.
-    fn badge(&mut self, color: [u8; 4]) {
-        self.disc(24.0, 24.0, 5.4, RING);
-        self.disc(24.0, 24.0, 4.0, color);
-    }
-
-    /// Premultiplied box filter, so partly covered edges do not get a dark
-    /// fringe against the transparent background.
-    fn downsample(self) -> Vec<u8> {
-        let n = self.n;
-        let samples = (SS * SS) as u32;
-        let mut out = vec![0u8; (n * n * 4) as usize];
-        for y in 0..n {
-            for x in 0..n {
-                let (mut r, mut g, mut b, mut a) = (0u32, 0u32, 0u32, 0u32);
-                for dy in 0..SS {
-                    for dx in 0..SS {
-                        let p = self.px[((y * SS + dy) * n * SS + x * SS + dx) as usize];
-                        let al = p[3] as u32;
-                        r += p[0] as u32 * al;
-                        g += p[1] as u32 * al;
-                        b += p[2] as u32 * al;
-                        a += al;
-                    }
-                }
-                let i = ((y * n + x) * 4) as usize;
-                let a = a.max(1);
-                out[i] = (r / a) as u8;
-                out[i + 1] = (g / a) as u8;
-                out[i + 2] = (b / a) as u8;
-                out[i + 3] = (a / samples) as u8;
-            }
-        }
-        out
-    }
-}
-
-/// The tray glyph as a Windows `.ico`: 48/32/16 px BMP-DIB entries, bottom-up
-/// straight-alpha BGRA with an empty AND mask (alpha does the transparency).
-/// Regenerate `assets/window-tools.ico` with the ignored `write_icon_asset`
-/// test; `build.rs` embeds that file into the exe.
-#[allow(dead_code)] // only the regeneration test reads this in-tree
-pub fn ico_bytes() -> Vec<u8> {
-    const SIZES: [u32; 3] = [48, 32, 16];
-    let images: Vec<Vec<u8>> = SIZES
-        .iter()
-        .map(|&n| draw(State::Normal, false, n as i32))
-        .collect();
-    let mut ico = Vec::new();
-    ico.extend_from_slice(&[0, 0, 1, 0, SIZES.len() as u8, 0]);
-    let mut offset = (6 + 16 * SIZES.len()) as u32;
-    for &n in &SIZES {
-        let mask_row = n.div_ceil(32) * 4;
-        let size = 40 + n * n * 4 + mask_row * n;
-        ico.extend_from_slice(&[n as u8, n as u8, 0, 0]); // width, height, colors, reserved
-        ico.extend_from_slice(&1u16.to_le_bytes()); // planes
-        ico.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
-        ico.extend_from_slice(&size.to_le_bytes());
-        ico.extend_from_slice(&offset.to_le_bytes());
-        offset += size;
-    }
-    for (i, &n) in SIZES.iter().enumerate() {
-        let px = &images[i];
-        let mask_row = (n.div_ceil(32) * 4) as usize;
-        ico.extend_from_slice(&40u32.to_le_bytes()); // BITMAPINFOHEADER
-        ico.extend_from_slice(&n.to_le_bytes());
-        ico.extend_from_slice(&(n * 2).to_le_bytes()); // DIB height: image + AND mask
-        ico.extend_from_slice(&1u16.to_le_bytes()); // planes
-        ico.extend_from_slice(&32u16.to_le_bytes()); // bpp
-        ico.extend_from_slice(&[0; 24]); // BI_RGB: no compression, no palette
-        for y in (0..n).rev() {
-            for x in 0..n {
-                let at = ((y * n + x) * 4) as usize;
-                ico.extend_from_slice(&[px[at + 2], px[at + 1], px[at], px[at + 3]]);
-            }
-        }
-        ico.resize(ico.len() + mask_row * n as usize, 0); // empty AND mask
-    }
-    ico
+    kit::icon::rgba(kit::icon::WINDOW, state)
 }
 
 /// The old builds registered `HKCU\Run\window-tools-rs` / `windowtools-rs` /
@@ -455,66 +292,20 @@ mod tests {
 
     #[test]
     fn every_state_draws_a_distinct_icon() {
-        let normal = draw(State::Normal, false, N);
-        assert_eq!(normal.len(), (N * N * 4) as usize);
-        let suspended = draw(State::Suspended, true, N);
-        let ok = draw(State::ReloadOk, false, N);
-        let fail = draw(State::ReloadFail, false, N);
-        assert_ne!(normal, suspended);
-        assert_ne!(normal, ok);
-        assert_ne!(normal, fail);
-        assert_ne!(ok, fail);
+        let normal = icon(State::Normal, false);
+        assert_ne!(normal, icon(State::Suspended, true));
+        assert_ne!(normal, icon(State::ReloadOk, false));
+        assert_ne!(normal, icon(State::ReloadFail, false));
+        assert_ne!(icon(State::ReloadOk, false), icon(State::ReloadFail, false));
+        assert_ne!(icon(State::ReloadOk, true), icon(State::ReloadOk, false));
     }
 
     #[test]
-    fn abstract_window_has_a_filled_quarter_and_stays_grey_when_suspended() {
-        let normal = draw(State::Normal, false, N);
-        let alpha = |px: &[u8], x: i32, y: i32| px[((y * N + x) * 4 + 3) as usize];
-        assert_eq!(alpha(&normal, 0, 0), 0, "margin is transparent");
-        assert_eq!(alpha(&normal, 4, 6), 255, "outline is opaque");
-        assert_eq!(alpha(&normal, 8, 10), 255, "upper-left quarter is filled");
-        assert_eq!(alpha(&normal, 20, 20), 0, "lower-right window stays clear");
-        assert_eq!(alpha(&normal, 16, 27), 0, "there is no monitor stand");
-
-        let grey = draw(State::ReloadOk, true, N);
-        let at = ((6 * N + 4) * 4) as usize;
-        assert_eq!(&grey[at..at + 3], &GREY[..3], "suspended stays grey");
-    }
-
-    #[test]
-    fn ico_has_three_sizes_and_a_coherent_directory() {
-        let ico = ico_bytes();
-        assert_eq!(&ico[0..4], &[0, 0, 1, 0], "reserved 0, type 1 = icon");
-        assert_eq!(ico[4], 3);
-        let mut expected_offset = (6 + 16 * 3) as u32;
-        for (i, size) in [48u8, 32, 16].iter().enumerate() {
-            let at = 6 + i * 16;
-            assert_eq!(ico[at], *size);
-            assert_eq!(ico[at + 2], 0, "colors");
-            assert_eq!(ico[at + 3], 0, "reserved");
-            assert_eq!(&ico[at + 4..at + 6], &1u16.to_le_bytes(), "planes");
-            assert_eq!(&ico[at + 6..at + 8], &32u16.to_le_bytes(), "bpp");
-            let size = u32::from_le_bytes(ico[at + 8..at + 12].try_into().unwrap());
-            let offset = u32::from_le_bytes(ico[at + 12..at + 16].try_into().unwrap());
-            assert_eq!(
-                offset, expected_offset,
-                "entry {i} starts where the previous ended"
-            );
-            expected_offset += size;
-        }
+    fn embedded_asset_matches_the_shared_renderer() {
         assert_eq!(
-            expected_offset,
-            ico.len() as u32,
-            "the last entry ends at the file end"
+            include_bytes!("../assets/window-tools.ico").as_slice(),
+            kit::icon::ico(kit::icon::WINDOW, kit::icon::State::Normal)
         );
-    }
-
-    #[test]
-    #[ignore = "regenerates assets/window-tools.ico; run explicitly after editing the glyph"]
-    fn write_icon_asset() {
-        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("window-tools.ico"), ico_bytes()).unwrap();
     }
 
     /// End-to-end check of the cmd quoting: an editor path *and* a config path

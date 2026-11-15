@@ -2,7 +2,7 @@
 //!
 //! - [`keys`]: key/combo parsing (`ctrl+shift+c`, `win+f2`) shared by config files
 //! - [`config`]: TOML config created next to the exe on first run
-//! - [`icon`]: generated 32x32 RGBA tray icons
+//! - [`icon`]: shared executable/tray identities, states and multi-size ICO encoding
 //! - Windows only (phase 1): [`tray`], [`hotkey`], [`win`]
 //! - Linux: stubs with an adaptation checklist (see PLAN.md phase 5)
 

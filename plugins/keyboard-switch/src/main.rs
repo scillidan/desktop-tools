@@ -367,7 +367,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut tray = Tray::new(
         APP,
-        kit::icon::letter_rgba('k', [0x3b, 0x6e, 0xa5, 0xff], [0x23, 0x46, 0x6e, 0xff]),
+        kit::icon::rgba(kit::icon::KEYBOARD_SWITCH, kit::icon::State::Normal),
     )?;
     refresh_menu(
         &mut tray,

@@ -76,7 +76,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut tray = Tray::new(
         APP,
-        kit::icon::letter_rgba('k', [0x6a, 0x51, 0xa3, 0xff], [0x42, 0x32, 0x66, 0xff]),
+        kit::icon::rgba(kit::icon::KEYBOARD_KEYMAP, kit::icon::State::Normal),
     )?;
     refresh_menu(&mut tray, hosted);
     tray.run(None, |tray, event| match event {
@@ -90,11 +90,23 @@ fn run() -> anyhow::Result<()> {
             }
             "Edit Config" => win::edit_config(&config_path),
             "Reload" => {
-                if let Err(e) = reload_config(&config_path, &mut hook) {
-                    let _ = tray.notify(
-                        "Key Map — reload failed, old config kept",
-                        &format!("{e:#}"),
-                    );
+                match reload_config(&config_path, &mut hook) {
+                    Ok(()) => {
+                        let _ = tray.set_icon(kit::icon::rgba(
+                            kit::icon::KEYBOARD_KEYMAP,
+                            kit::icon::State::Normal,
+                        ));
+                    }
+                    Err(e) => {
+                        let _ = tray.set_icon(kit::icon::rgba(
+                            kit::icon::KEYBOARD_KEYMAP,
+                            kit::icon::State::Error,
+                        ));
+                        let _ = tray.notify(
+                            "Key Map — reload failed, old config kept",
+                            &format!("{e:#}"),
+                        );
+                    }
                 }
                 last_modified = modified(&config_path);
             }
@@ -103,15 +115,31 @@ fn run() -> anyhow::Result<()> {
         },
         Event::Timer(1) => {
             if reload_changed(&config_path, &mut last_modified) {
-                if let Err(e) = reload_config(&config_path, &mut hook) {
-                    let _ = tray.notify(
-                        "Key Map — reload failed, old config kept",
-                        &format!("{e:#}"),
-                    );
+                match reload_config(&config_path, &mut hook) {
+                    Ok(()) => {
+                        let _ = tray.set_icon(kit::icon::rgba(
+                            kit::icon::KEYBOARD_KEYMAP,
+                            kit::icon::State::Normal,
+                        ));
+                    }
+                    Err(e) => {
+                        let _ = tray.set_icon(kit::icon::rgba(
+                            kit::icon::KEYBOARD_KEYMAP,
+                            kit::icon::State::Error,
+                        ));
+                        let _ = tray.notify(
+                            "Key Map — reload failed, old config kept",
+                            &format!("{e:#}"),
+                        );
+                    }
                 }
             }
         }
         Event::Wakeup(keyboard_keymap::hook::WM_KEYMAP_ERROR) => {
+            let _ = tray.set_icon(kit::icon::rgba(
+                kit::icon::KEYBOARD_KEYMAP,
+                kit::icon::State::Error,
+            ));
             if let Some(error) = keyboard_keymap::hook::take_error() {
                 let _ = tray.notify("Key Map", &error);
             }

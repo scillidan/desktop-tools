@@ -17,7 +17,8 @@ external integrations in documentation, code registration and tray menus.
   Suspend/Resume/Quit, ten-plugin smoke and exit-code verification. Hosted Screen
   hosted and standalone physical acceptance are complete, including feature
   crates and split configuration. P6c Power, Scale and Flameshot handoff are
-  implemented and physically signed.
+  implemented and physically signed. P7 App Toggle and P8 two-window swapping
+  are also signed off, including their default hotkeys.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
@@ -125,6 +126,28 @@ instead has a root-only action config entry, while every feature entry edits
 its own TOML.
 Manifest API remains 1. Newline-JSON wire protocol v3 adds nested
 submenus; host and all plugins must come from the same staged package.
+
+## Icons
+
+All 11 executables embed a shared rounded-keycap identity and use the same glyph
+for their standalone tray. Desktop is `D`, Window `W`, Screen `S`, Taskbar `T`;
+Keyboard and GoldenDict keep their function-specific letters and palettes.
+Suspended icons are grey, errors add a red badge, disabled/locked icons add a
+grey slash, and Window's transient reload success keeps its yellow badge. The
+host icon reflects plugin failure or an entirely disabled suite. A disabled
+standalone process has no tray icon.
+
+`crates/kit/src/icon.rs` is the only renderer. Regenerate every checked-in asset
+and verify all 11 executable assets with:
+
+```powershell
+cargo run -p kit --example icons --target-dir target
+cargo test -p kit every_executable_asset_matches_the_shared_renderer --target-dir target
+```
+
+Each ICO contains 16/20/24/32/48/256-pixel entries. `build.rs` embeds the normal
+icon in every exe; Screen additionally embeds Suspended/Error/Disabled resources
+for its native tray and Frame window class. Staging needs no icon sidecar files.
 
 ## Build and test
 

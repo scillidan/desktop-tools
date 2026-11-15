@@ -979,6 +979,26 @@ implicit last-pair toggle.
   including normal/suspended/error/disabled states. Keep hosted and standalone
   identities aligned and physically compare the final assets at common DPIs;
   do not mix this cosmetic pass into behavior migrations.
+- **P9a icon contract:** one shared rounded-keycap renderer, with letters and
+  palettes identifying suite/plugin and host `D` replacing legacy keyboard `K`.
+  Normal uses the owning color, Suspended/Disabled are grey, Error has a red
+  badge, and Window's transient Reload success badge stays yellow. Embed the
+  normal icon in every Windows executable; native Screen resources include its
+  runtime states, while RGBA trays render the same glyph through kit. Generate
+  16/20/24/32/48/256 px entries from one source. Standalone Suspend updates the
+  icon, including Screen and Taskbar, without changing behavior. Window retains
+  Suspended+Success/Error combinations so Suspend cannot hide a reload result;
+  Locker reuses the grey slashed state while locked. Regenerate all assets with
+  `cargo run -p kit --example icons --target-dir target`; kit tests require all
+  checked-in files to match. Screen keeps group-icon resource 1 for its Frame
+  class and adds resources 2–4 for Suspended/Error/Disabled.
+- **P9b blocking prerequisite:** the live profile still resides under the old
+  `keyboard-tools-rs` repository. Copy it to a stable non-repository location,
+  switch the host explicitly and verify it before retiring that source repo.
+  Packaging preserves profiles and old output directories; the six Scoop AHK
+  manifests are separate products and must not be rewritten. Fresh-install
+  defaults, release CI, one new suite Scoop manifest and legacy autostart cleanup
+  remain separate reviewable changes after P9a visual acceptance.
 - Apply shared-kit extraction one consumer per commit, repeating affected
   physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.

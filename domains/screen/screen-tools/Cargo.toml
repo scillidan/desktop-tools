@@ -22,4 +22,4 @@ screen-record = { path = "../screen-record" }
 windows.workspace = true
 
 [build-dependencies]
-winresource = "0.1"
+winresource.workspace = true

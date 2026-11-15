@@ -196,6 +196,7 @@ dependencies = [
  "kit",
  "plugin",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -532,6 +533,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -544,6 +546,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -666,6 +669,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -677,6 +681,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -688,6 +693,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -699,6 +705,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -710,6 +717,7 @@ dependencies = [
  "serde",
  "toml 0.8.2",
  "windows",
+ "winresource",
 ]
 
 [[package]]
@@ -1515,6 +1523,7 @@ dependencies = [
  "taskbar-hidden",
  "taskbar-pin",
  "windows",
+ "winresource",
 ]
 
 [[package]]

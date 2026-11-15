@@ -382,3 +382,21 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       bare Esc is not captured after cancellation or Suspend.
 - [x] Hold the swap hotkey: it must not repeatedly arm/cancel; ordinary repeatable
       Rectangle shortcuts must still auto-repeat.
+
+## P9a Physical — shared executable and tray icons
+
+- [x] Agent checks: the shared renderer covers all 11 executable assets and all
+      states; ICO files contain 16/20/24/32/48/256-pixel entries. Full tests,
+      Clippy, release/staging and ten-plugin smoke pass. Windows extracted large
+      and small icons from all 11 staged EXEs; Screen exposes resources 1–4.
+- [ ] Hosted Desktop Tools shows one blue `D` tray icon; no plugin creates a
+      second tray icon. Window/Screen/Taskbar menus and hotkeys still work.
+- [ ] Standalone Window shows a blue `W`; Suspend turns it grey, an invalid config
+      adds the red badge, and a valid reload shows the existing yellow badge.
+- [ ] Standalone Screen shows a teal `S`; Suspend greys it and Resume restores it.
+      Its Frame still uses the same Screen identity.
+- [ ] Standalone Taskbar shows a light-blue `T`; standalone Shell Keys shows a
+      purple `S`. Suspend/Resume must grey/restore each icon without changing
+      any hotkey semantics.
+- [ ] In Explorer, inspect several staged EXEs with large and small icon views:
+      the letter and colors must remain recognizable, with no missing/default icon.

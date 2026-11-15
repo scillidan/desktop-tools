@@ -59,7 +59,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut tray = Tray::new(
         APP,
-        kit::icon::letter_rgba('s', [0x6a, 0x51, 0xa3, 0xff], [0x42, 0x32, 0x66, 0xff]),
+        kit::icon::rgba(kit::icon::KEYBOARD_SHELL, kit::icon::State::Normal),
     )?;
     refresh_menu(&mut tray, hosted, shell.is_suspended());
     tray.run(None, |tray, event| {
@@ -107,4 +107,12 @@ fn refresh_menu(tray: &mut kit::tray::Tray, hosted: bool, suspended: bool) {
         entries.push(Entry::Item("Exit"));
     }
     tray.set_menu(&entries);
+    let _ = tray.set_icon(kit::icon::rgba(
+        kit::icon::KEYBOARD_SHELL,
+        if suspended {
+            kit::icon::State::Suspended
+        } else {
+            kit::icon::State::Normal
+        },
+    ));
 }
