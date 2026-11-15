@@ -1006,8 +1006,11 @@ implicit last-pair toggle.
   an empty profile started all ten plugins; the archive has no profile files.
   CI reuses `verify.ps1`; tag releases reuse `package.ps1` and reject a tag/workspace
   version mismatch. Host `--version` and legacy/standalone autostart cleanup are
-  implemented. One new suite Scoop manifest is prepared locally, but is not ready
-  to publish until its tagged release asset exists. The six Scoop AHK manifests
+  implemented. CI and the `v0.1.0` tag release both passed on GitHub. The
+  downloaded release zip matches its checksum and API digest; the new suite Scoop
+  manifest is published as scoop-pile commit `fde211e`. Installation from
+  `pile/desktop-tools`, shortcut creation, uninstall/reinstall profile persistence
+  and a real ten-plugin Scoop-path host all pass. The six Scoop AHK manifests
   are separate products and must not be rewritten. The still-running legacy AHK
   KeyboardSwitch and KeyboardAutoSwitchBack processes were stopped; their two
   Startup shortcuts were moved, not deleted, to

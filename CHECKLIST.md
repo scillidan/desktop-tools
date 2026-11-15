@@ -422,8 +422,11 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       KeyboardAutoSwitchBack processes and moved their two Startup shortcuts to
       `%LOCALAPPDATA%\desktop-tools\legacy-startup-backup`; neither legacy process
       nor either Startup link remains, and the new suite retains its probed hotkeys.
-- [ ] After push/tag, confirm the real CI run and published zip/checksum, then
-      commit the prepared Scoop manifest and test installation from that release.
-- [ ] Later gates: clean install, in-place upgrade preserving configuration,
-      uninstall preserving profile, failed-plugin rollback, and sign-out/sign-in
-      with exactly one host autostart and no legacy AHK/taskbar duplicates.
+- [x] Real CI run 43684828643 and Release run 43684838754 passed. The downloaded
+      v0.1.0 zip is 6,022,648 bytes and matches both its SHA-256 file and GitHub's
+      API digest. Scoop manifest commit `fde211e` is published; installation from
+      `pile/desktop-tools`, Start Menu shortcut creation, `--version`, ten-plugin
+      startup from the Scoop path and hotkey ownership all pass. The current host
+      is PID 26796. Uninstall/reinstall retained the persist marker; it was then
+      removed. Later gates cover only a real next-version upgrade, failed-plugin
+      rollback, and sign-out/sign-in with one host autostart and no duplicates.
