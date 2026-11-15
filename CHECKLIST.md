@@ -418,6 +418,10 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       scripts; both YAML files parse. Host `--version` prints `0.1.0`, and enabling
       host autostart now clears the known old host and standalone Window/Taskbar
       Run values in addition to the previous legacy names.
+- [x] Agent stopped the duplicate legacy AHK KeyboardSwitch and
+      KeyboardAutoSwitchBack processes and moved their two Startup shortcuts to
+      `%LOCALAPPDATA%\desktop-tools\legacy-startup-backup`; neither legacy process
+      nor either Startup link remains, and the new suite retains its probed hotkeys.
 - [ ] After push/tag, confirm the real CI run and published zip/checksum, then
       commit the prepared Scoop manifest and test installation from that release.
 - [ ] Later gates: clean install, in-place upgrade preserving configuration,

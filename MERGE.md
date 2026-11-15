@@ -1008,7 +1008,12 @@ implicit last-pair toggle.
   version mismatch. Host `--version` and legacy/standalone autostart cleanup are
   implemented. One new suite Scoop manifest is prepared locally, but is not ready
   to publish until its tagged release asset exists. The six Scoop AHK manifests
-  are separate products and must not be rewritten.
+  are separate products and must not be rewritten. The still-running legacy AHK
+  KeyboardSwitch and KeyboardAutoSwitchBack processes were stopped; their two
+  Startup shortcuts were moved, not deleted, to
+  `%LOCALAPPDATA%\desktop-tools\legacy-startup-backup`. The replacement suite
+  retained all four probed hotkeys. Other packages, settings and repositories
+  remain untouched.
 - Apply shared-kit extraction one consumer per commit, repeating affected
   physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.
