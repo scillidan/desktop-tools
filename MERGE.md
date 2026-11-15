@@ -994,13 +994,19 @@ implicit last-pair toggle.
   class and adds resources 2–4 for Suspended/Error/Disabled. P9a is physically
   signed off in commit `86c29c8`: hosted identity, Explorer large/small icons,
   and standalone Window/Screen/Taskbar/Shell Suspend/Resume all passed.
-- **P9b blocking prerequisite:** the live profile still resides under the old
-  `keyboard-tools-rs` repository. Copy it to a stable non-repository location,
-  switch the host explicitly and verify it before retiring that source repo.
-  Packaging preserves profiles and old output directories; the six Scoop AHK
-  manifests are separate products and must not be rewritten. Fresh-install
-  defaults, release CI, one new suite Scoop manifest and legacy autostart cleanup
-  remain separate reviewable changes after P9a visual acceptance.
+- **P9b profile prerequisite complete:** the live profile was copied, not moved,
+  to `%LOCALAPPDATA%\desktop-tools\Profile\User`; all 45 file hashes matched,
+  the old profile remains byte-identical, and the host plus ten children now use
+  the new path. `DTTOOLS_PROFILE` is persisted in HKCU so existing autostart
+  resolves the same profile after login. This does not authorize deleting or
+  archiving any source repository yet.
+- **P9b package step complete:** `scripts/package.ps1` runs verification/staging,
+  refuses running repo-local executables, and produces one
+  `dist/desktop-tools-<version>-win64.zip` plus SHA-256. A fresh extraction with
+  an empty profile started all ten plugins; the archive has no profile files.
+  Release CI, one new suite Scoop manifest and legacy autostart cleanup remain
+  separate reviewable changes. The six Scoop AHK manifests are separate products
+  and must not be rewritten.
 - Apply shared-kit extraction one consumer per commit, repeating affected
   physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.

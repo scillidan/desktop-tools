@@ -178,6 +178,16 @@ stage\
     goldendict-auto-search\...
 ```
 
+Build one distribution archive with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\package.ps1
+```
+
+The script runs the full verification and stage pipeline, refuses to package a
+running repo-local executable, and writes `dist/desktop-tools-<version>-win64.zip`
+plus its SHA-256 file. The archive contains no user profile.
+
 Run `stage\desktop-tools.exe`, optionally with `--profile <dir>`. Profile
 priority is `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` >
 `Profile\User` beside the executable. Existing keyboard profiles therefore work

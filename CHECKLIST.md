@@ -399,3 +399,21 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       purple `S`. Suspend/Resume grey/restore each icon without changing menus.
 - [x] In Explorer, staged EXEs keep recognizable letters and colors in large and
       small icon views, with no missing/default icon.
+
+## P9b — stable profile and distribution package
+
+- [x] Agent copied the live profile to `%LOCALAPPDATA%\desktop-tools\Profile\User`
+      without moving or changing the old repository copy; all 45 hashes match,
+      all ten children use the new path, and `DTTOOLS_PROFILE` is persisted for
+      future autostart. No old TOML was rewritten during the switch.
+- [ ] Open one feature's **Edit config** entry and confirm the editor opens the
+      new `%LOCALAPPDATA%\desktop-tools\Profile\User` file. Ordinary hotkeys and
+      menus must behave as before.
+- [x] `scripts/package.ps1` created `desktop-tools-0.1.0-win64.zip` and SHA-256;
+      the archive contains host plus ten plugin exe/manifest pairs and no profile.
+- [x] Agent extracted the zip, started it with an empty isolated profile, and
+      observed all ten plugins running with the fresh defaults. The real host was
+      then restored against the stable profile.
+- [ ] Later gates: clean install, in-place upgrade preserving configuration,
+      uninstall preserving profile, failed-plugin rollback, and sign-out/sign-in
+      with exactly one host autostart and no legacy AHK/taskbar duplicates.

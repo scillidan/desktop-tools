@@ -21,8 +21,8 @@ $plugins = @(
     @{ id = 'screen-tools'; source = 'domains\screen\screen-tools' },
     @{ id = 'taskbar-tools'; source = 'domains\taskbar\taskbar-tools' },
     @{ id = 'keyboard-shell'; source = 'plugins\keyboard-shell' },
-    @{ id = 'keyboard-keymap'; source = 'plugins\keyboard-keymap' }
-@{ id = 'keyboard-locker'; source = 'plugins\keyboard-locker' },
+    @{ id = 'keyboard-keymap'; source = 'plugins\keyboard-keymap' },
+    @{ id = 'keyboard-locker'; source = 'plugins\keyboard-locker' },
     @{ id = 'keyboard-switch'; source = 'plugins\keyboard-switch' },
     @{ id = 'keyboard-auto-switch-back'; source = 'plugins\keyboard-auto-switch-back' },
     @{ id = 'goldendict-search-in-group'; source = 'plugins\goldendict-search-in-group' },

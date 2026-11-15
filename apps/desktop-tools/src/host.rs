@@ -1041,6 +1041,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fresh_profile_enables_every_shipped_plugin() {
+        let core = CoreConfig::parse(DEFAULT_CORE).unwrap();
+        let enabled = core.enabled_set();
+        let expected = [
+            "window-tools",
+            "screen-tools",
+            "taskbar-tools",
+            "keyboard-keymap",
+            "keyboard-auto-switch-back",
+            "keyboard-locker",
+            "keyboard-switch",
+            "keyboard-shell",
+            "goldendict-auto-search",
+            "goldendict-search-in-group",
+        ];
+        assert_eq!(enabled.len(), expected.len());
+        for id in expected {
+            assert!(enabled.contains(id), "fresh profile must enable {id}");
+        }
+    }
+
+    #[test]
     fn suite_icon_reflects_errors_and_disabled_state() {
         assert_eq!(suite_icon_state(false, 1), kit::icon::State::Normal);
         assert_eq!(suite_icon_state(true, 1), kit::icon::State::Error);

@@ -8,9 +8,14 @@ tray = "host"
 
 [plugins]
 enabled = [
+  "window-tools",
+  "screen-tools",
+  "taskbar-tools",
+  "keyboard-keymap",
+  "keyboard-auto-switch-back",
   "keyboard-locker",
   "keyboard-switch",
-  "keyboard-auto-switch-back",
-  "goldendict-search-in-group",
+  "keyboard-shell",
   "goldendict-auto-search",
+  "goldendict-search-in-group",
 ]
