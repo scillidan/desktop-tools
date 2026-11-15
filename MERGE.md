@@ -991,7 +991,9 @@ implicit last-pair toggle.
   Locker reuses the grey slashed state while locked. Regenerate all assets with
   `cargo run -p kit --example icons --target-dir target`; kit tests require all
   checked-in files to match. Screen keeps group-icon resource 1 for its Frame
-  class and adds resources 2–4 for Suspended/Error/Disabled.
+  class and adds resources 2–4 for Suspended/Error/Disabled. P9a is physically
+  signed off in commit `86c29c8`: hosted identity, Explorer large/small icons,
+  and standalone Window/Screen/Taskbar/Shell Suspend/Resume all passed.
 - **P9b blocking prerequisite:** the live profile still resides under the old
   `keyboard-tools-rs` repository. Copy it to a stable non-repository location,
   switch the host explicitly and verify it before retiring that source repo.

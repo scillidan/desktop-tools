@@ -18,7 +18,8 @@ external integrations in documentation, code registration and tray menus.
   hosted and standalone physical acceptance are complete, including feature
   crates and split configuration. P6c Power, Scale and Flameshot handoff are
   implemented and physically signed. P7 App Toggle and P8 two-window swapping
-  are also signed off, including their default hotkeys.
+  are also signed off, including their default hotkeys. P9a shared executable
+  and tray icons passed hosted and standalone visual acceptance.
 
 [`MERGE.md`](MERGE.md) records architecture, source scope and physical gates.
 [`CHECKLIST.md`](CHECKLIST.md) records the current build and handoff.
