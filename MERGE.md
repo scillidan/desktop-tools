@@ -967,10 +967,11 @@ probe cover commit, composite Undo, Esc, timeout, Reload, Suspend/Resume and Qui
 The approved default is enabled in fresh configs and added explicitly to the
 current profile; its other bindings remain unchanged.
 
-Gate: two apps visibly exchange slots; same-window/Esc/timeout/invalid/reload/
-suspend cancel; maximized/minimized cases do nothing; cross-monitor/DPI and
-one-step undo pass physically. The default hotkey is approved; physical checks
-remain pending.
+Gate passed physically: two apps visibly exchange slots; same-window/Esc/timeout/
+invalid/reload/suspend cancel; maximized/minimized cases do nothing; cross-monitor/
+DPI, long-press no-repeat and one-step undo pass. Keep X as select-and-swap only;
+U remains the explicit, exact one-step undo rather than overloading X with an
+implicit last-pair toggle.
 
 ### P9 — Consolidate, package and retire old products
 

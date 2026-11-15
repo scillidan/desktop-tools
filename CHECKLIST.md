@@ -366,7 +366,7 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       clippy, release/staging and ten-plugin smoke pass.
 
 
-## P8 Physical — swapWindows: default enabled, physical acceptance pending
+## P8 Physical — swapWindows: passed
 
 - [x] Agent verified an isolated `Ctrl+Alt+Shift+X` binding with real windows:
       visible slots exchange, B keeps focus, one Undo restores both rectangles,
@@ -375,10 +375,10 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       minimized/maximized, per-window DWM insets and grouped Undo.
 - [x] User approved `Ctrl+Win+Alt+X` as the default; add only that binding to the
       current profile, without changing existing Rectangle bindings.
-- [ ] After enabling it, select A, then B: their slots exchange and B stays focused;
+- [x] After enabling it, select A, then B: their slots exchange and B stays focused;
       one Window Undo restores both. Repeat across monitors with different DPIs.
-- [ ] Re-select the same window, press bare Esc, wait for timeout, and try a
+- [x] Re-select the same window, press bare Esc, wait for timeout, and try a
       minimized or maximized B: each cancels/rejects without moving either window;
       bare Esc is not captured after cancellation or Suspend.
-- [ ] Hold the swap hotkey: it must not repeatedly arm/cancel; ordinary repeatable
+- [x] Hold the swap hotkey: it must not repeatedly arm/cancel; ordinary repeatable
       Rectangle shortcuts must still auto-repeat.
