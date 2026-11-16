@@ -1076,22 +1076,95 @@ project's PowerShell probes) remain part of the relevant checklists.
   host is Windows-first; no Linux regression claim is made without its own
   checks.
 
-## 13. Details awaiting explicit design approval
+## 13. Original design approval record
 
-The architecture and feature semantics above are ready for review. Three proposed
-details were not fully specified by the original request and should be called
-out in the approval rather than silently accepted:
+The original review items are resolved: the four-domain/process architecture is
+implemented; `Ctrl+Win+Alt+X` is approved and physically accepted for
+swapWindows; Key Map intentionally uses immediate matching and rejects prefix
+ambiguity. Current follow-up work is tracked below rather than in this historical
+approval section.
 
-1. Four functional domains own their external integrations, with native tools
-   before external ones in docs/code/menus. Screen is split into focused library
-   crates behind one `screen-tools` composition root. Separate processes are
-   deferred until independent lifecycle/fault isolation justifies the
-   selection-session protocol described in §4.2.
-2. ``Ctrl+Win+Alt+X`` as the default `swapWindows` binding.
-3. Key Map matches immediately without an ending character and rejects maps
-   where one complete trigger prefixes another. This avoids timing/look-ahead
-   ambiguity and is the design intended to eliminate Espanso's residual trigger
-   symbol rather than reproduce AHK's unrelated features.
+## 14. Post-v0.1.0 TODO
 
-Everything else remains an implementation-phase concern, not a reason to start
-a bulk move before this document is approved.
+This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptance
+steps and does not duplicate this design queue.
+
+### Maintenance and retirement gates
+
+- [ ] Exercise the next release through `scoop update` as an in-place upgrade,
+      including failed-plugin rollback; v0.1.0 had no previous release from
+      which this path could be tested.
+- [ ] After sign-out/sign-in, confirm exactly one suite host, ten hosted plugins
+      and no legacy AHK or standalone Taskbar duplicate. Moving the old Startup
+      links did not verify a later login.
+- [ ] Optionally close the remaining physical recording guard: while recording,
+      `Ctrl+F` must not start Flameshot and recording must remain usable.
+- [ ] Archive superseded repositories only after explicit approval, with
+      supersession notices and `keyboard-tools-rs` last because it held the
+      original live profile. Never delete old profiles, `target`/`dist`
+      artifacts, screenshots, recordings or the six installed AHK Scoop packages
+      as part of archival.
+
+### Generic defaults; personal configuration stays as examples
+
+- [ ] Make fresh-profile defaults generic without rewriting the current profile.
+      First pass: leave GoldenDict group names empty and automatic double-click
+      search disabled; keep personal dictionary groups and the Double
+      Commander/WezTerm bindings as commented examples rather than active
+      defaults; make Key Map's text replacements examples instead of live
+      mappings; replace the personal Sarasa mask-font default with a standard
+      Windows font. Empty GoldenDict search groups and Flameshot paths are
+      already suitable defaults.
+- [ ] Review policy defaults separately before changing them: forced US layout
+      on focus change, the 66-entry Shell Keys suppression list, CapsLock layout
+      switching and automatic Taskbar centering all change a fresh system
+      without an explicit feature gesture. Decide whether each needs an opt-in
+      setting or a disabled-by-default plugin; do not hide that policy decision
+      inside the example cleanup.
+- [ ] Add fresh-profile assertions for the selected policy: no active
+      user-specific executable paths, dictionary groups or text replacements.
+      Existing profiles and their accepted hotkeys remain unchanged.
+
+### Double-press hotkeys
+
+- [ ] Reuse GoldenDict Search's existing 400 ms double-press matcher for an
+      explicit binding such as `double:alt+x`, rather than encoding modifiers in
+      a two-letter suffix. Keep the existing single-press grammar binding during
+      migration if requested. A double-press binding reserves the combo: the
+      first press is swallowed, and one combo cannot simultaneously have a
+      single-press and double-press action. Ignore auto-repeat and clear pending
+      state on Suspend, Reload and shutdown.
+- [ ] Do not build a general multi-step chord/leader-key system yet. Extract the
+      matcher into kit only when a second plugin needs the same semantics. Win
+      combinations additionally need low-level-hook physical acceptance because
+      injected input does not exercise that path.
+
+### Standard Windows and portable/Scoop profile discovery
+
+- [ ] Resolve one absolute profile for host and all hosted plugins in this order:
+      explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`);
+      an existing exe-adjacent `Profile/User` for portable mode; otherwise
+      `%APPDATA%\desktop-tools\Profile\User`. The host continues passing that
+      resolved path to every child. Do not add a second `portable_config` alias:
+      Scoop-persisted `Profile/User` already provides mpv-style portable
+      semantics without another ambiguous source.
+- [ ] Keep release zips free of profile files so ordinary installs use the
+      Windows directory; creating `Profile/User` beside the exe opts a manual
+      zip into portable mode. Scoop continues to persist `Profile/User`.
+- [ ] Migrate this machine separately and reversibly: copy the verified current
+      `%LOCALAPPDATA%\desktop-tools\Profile\User` into Scoop's persist location,
+      compare hashes and test all plugins, Edit config paths and representative
+      hotkeys before removing `DTTOOLS_PROFILE`. Until then the explicit
+      environment override intentionally keeps the current profile authoritative.
+      Separate logs from roaming configuration later only if roaming becomes a
+      requirement; screenshots and videos retain their configured output paths.
+
+### Conditional technical debt, not scheduled feature work
+
+- [ ] Upgrade capture to Graphics Capture only if DirectComposition regions are
+      observed black/stale; upgrade recording from `gdigrab` to Desktop
+      Duplication when full-screen frame rate requires it. Add per-window OCR
+      compositing and per-desktop Pin isolation only if those limitations affect
+      real use. Consolidate remaining local Win32 monitor queries during the
+      planned shared-kit cleanup. Existing `shortcut:` comments retain the
+      concrete trigger conditions.

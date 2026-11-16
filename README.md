@@ -224,3 +224,8 @@ host and standalone Window/Taskbar Run entries to prevent duplicate workers.
 
 `core.toml` owns the enabled plugin ids. Restarting a disabled plugin enables
 it, persists that state and shows `Disable <id>` consistently.
+
+## Follow-up
+
+Post-release designs, default-policy cleanup and conditional technical debt are
+tracked in [MERGE.md §14](MERGE.md#14-post-v010-todo).
