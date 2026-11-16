@@ -1087,33 +1087,30 @@ approval section.
 ## 14. Post-v0.1.0 TODO
 
 This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptance
-steps and does not duplicate this design queue.
+steps and does not duplicate this design queue. The user owns legacy cleanup and
+will exercise the local Scoop manifest installation. Taskbar Center/WinUI 3 work
+and failed-plugin rollback are not requested acceptance gates; do not attribute
+those audit ideas to the user.
 
-### Maintenance and retirement gates
+### Maintenance gates
 
-- [ ] Exercise the next release through `scoop update` as an in-place upgrade,
-      including failed-plugin rollback; v0.1.0 had no previous release from
-      which this path could be tested.
 - [ ] After sign-out/sign-in, confirm exactly one suite host, ten hosted plugins
       and no legacy AHK or standalone Taskbar duplicate. Moving the old Startup
       links did not verify a later login.
-- [ ] Optionally close the remaining physical recording guard: while recording,
-      `Ctrl+F` must not start Flameshot and recording must remain usable.
-- [ ] Archive superseded repositories only after explicit approval, with
-      supersession notices and `keyboard-tools-rs` last because it held the
-      original live profile. Never delete old profiles, `target`/`dist`
-      artifacts, screenshots, recordings or the six installed AHK Scoop packages
-      as part of archival.
+- [x] Closed the recording guard with the real external tools: while recording,
+      `Ctrl+F` was rejected without starting Flameshot; normal stop produced 31
+      decodable frames. The full handoff mutex, hotkey release/restoration,
+      daemon reuse and clean Quit regression also passed.
+- Legacy tools/repositories and their cleanup are user-owned; the agent performs
+  no archival or deletion.
 
-### Generic defaults; personal configuration stays as examples
+### Generic defaults; personal configuration stays as examples (paused)
 
-- [ ] Make fresh-profile defaults generic without rewriting the current profile.
-      First pass: leave GoldenDict group names empty and automatic double-click
-      search disabled; keep personal dictionary groups and the Double
-      Commander/WezTerm bindings as commented examples rather than active
-      defaults; make Key Map's text replacements examples instead of live
-      mappings; replace the personal Sarasa mask-font default with a standard
-      Windows font. Empty GoldenDict search groups and Flameshot paths are
+- [ ] Paused by the user: do not change GoldenDict groups, App Toggle, Key Map or
+      other fresh-profile defaults in this work item. When resumed, validate only
+      in an isolated fresh profile and never rewrite the accepted live profile.
+      `Sarasa Term SC Nerd` remains a recommended/example OCR Mask font, not a
+      defect to remove. Empty GoldenDict search groups and Flameshot paths are
       already suitable defaults.
 - [ ] Review policy defaults separately before changing them: forced US layout
       on focus change, the 66-entry Shell Keys suppression list, CapsLock layout
@@ -1125,19 +1122,21 @@ steps and does not duplicate this design queue.
       user-specific executable paths, dictionary groups or text replacements.
       Existing profiles and their accepted hotkeys remain unchanged.
 
-### Double-press hotkeys
+### Multi-step hotkeys (implemented)
 
-- [ ] Reuse GoldenDict Search's existing 400 ms double-press matcher for an
-      explicit binding such as `double:alt+x`, rather than encoding modifiers in
-      a two-letter suffix. Keep the existing single-press grammar binding during
-      migration if requested. A double-press binding reserves the combo: the
-      first press is swallowed, and one combo cannot simultaneously have a
-      single-press and double-press action. Ignore auto-repeat and clear pending
-      state on Suspend, Reload and shutdown.
-- [ ] Do not build a general multi-step chord/leader-key system yet. Extract the
-      matcher into kit only when a second plugin needs the same semantics. Win
-      combinations additionally need low-level-hook physical acceptance because
-      injected input does not exercise that path.
+- [x] Kit owns a platform-independent `SequenceSet`: explicit combos are separated
+      by `>`, each step requires Ctrl/Alt/Win, consecutive steps have a 400 ms
+      window, and duplicate/prefix-ambiguous sequences and single/multi conflicts
+      are rejected. Unique combos are registered once, auto-repeat is disabled,
+      and pending state can be reset. Tests cover double-press, timeout,
+      three-step/shared-prefix dispatch, invalid plain keys and reset.
+- [x] GoldenDict Search converts legacy `!xx` / `alt+shift+zz` and explicit
+      sequences into the same matcher. A real hosted probe with a fake GoldenDict
+      executable verified two-step, three-step/shared-prefix, legacy double-press,
+      ordinary single-press arguments and clean Quit without opening the real
+      dictionary. Existing live bindings were not changed.
+- Extend the same adapter to another plugin only when that plugin has a concrete
+  multi-step binding; do not globally reserve plain-letter second steps.
 
 ### Standard Windows and portable/Scoop profile discovery
 

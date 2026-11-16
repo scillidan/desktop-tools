@@ -96,6 +96,13 @@ menu; it remains an untouched one-time import source. Scale moved to
 `screen-tools.legacy.toml`; existing feature files are not overwritten. All
 files share one hotkey namespace and reload atomically.
 
+`goldendict-search-in-group` supports multi-step hotkeys such as
+`ctrl+alt+shift+z > ctrl+alt+shift+z` in a group binding. Kit registers each
+unique combo once and matches up to 400 ms between steps; every step requires
+Ctrl, Alt or Win, auto-repeat does not advance the sequence, and ambiguous
+prefixes are rejected. Legacy doubled-character bindings such as `!xx` continue
+to use the same matcher. Existing profile bindings are not rewritten.
+
 `taskbar-tools` retains its three worker-based features in `taskbar-center`,
 `taskbar-hidden` and `taskbar-pin`, with automatic reload, group suspend and
 restore-on-exit. Each feature has its own `taskbar-<feature>.toml`, submenu and

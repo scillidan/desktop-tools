@@ -343,8 +343,10 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
 - [x] Exit Flameshot and press `Ctrl+Alt+D`: Draw works immediately.
 - [x] Complete two separate Frame → Flameshot handoffs: no additional Flameshot
       daemon/tray instance appears; each GUI session opens and closes normally.
-- [ ] Optional recording guard: during Frame recording, `Ctrl+F` must not launch
-      Flameshot; stop the recording normally afterward.
+- [x] Recording guard verified with real FFmpeg and Flameshot: during Frame
+      recording, `Ctrl+F` was rejected and did not launch Flameshot; normal stop
+      produced 31 decodable frames. The complete handoff/mutex regression and
+      clean Quit passed afterward.
 
 ## P7 Physical — App Toggle: signed off
 
@@ -428,5 +430,21 @@ Screen process owns `Ctrl+Alt+D` and reads the same split profile files.
       `pile/desktop-tools`, Start Menu shortcut creation, `--version`, ten-plugin
       startup from the Scoop path and hotkey ownership all pass. The current host
       is PID 26796. Uninstall/reinstall retained the persist marker; it was then
-      removed. Later gates cover only a real next-version upgrade, failed-plugin
-      rollback, and sign-out/sign-in with one host autostart and no duplicates.
+      removed. Sign-out/sign-in still needs to confirm one host autostart, ten
+      hosted plugins and no legacy duplicates. The user will test the local Scoop
+      manifest installation; failed-plugin rollback is not a requested gate.
+
+## P10 — multi-step GoldenDict hotkeys and required regressions
+
+- [x] Kit sequence tests pass for double-press, 400 ms timeout, three-step and
+      shared-prefix candidates, conflict/plain-key rejection, unique registration
+      and reset. Every sequence step requires Ctrl, Alt or Win.
+- [x] A real final-binary hosted probe with an isolated profile and fake
+      GoldenDict executable passed two-step, three-step/shared-prefix, legacy
+      `!xx`, ordinary single-press and clean Quit checks with correct group and
+      clipboard arguments. The real dictionary and current bindings were untouched.
+- [x] Full format/workspace tests/Clippy/release/staging and ten-plugin smoke pass.
+      Paused default-config edits were withdrawn; no Taskbar code or live profile
+      was changed.
+- [ ] User sign-out/sign-in gate remains: exactly one suite host, ten hosted
+      plugins, and no legacy AHK or standalone Taskbar duplicate.

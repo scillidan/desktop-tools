@@ -8,8 +8,8 @@
 //! - The AHK original saves/restores `ClipboardAll` but never writes the
 //!   clipboard, so the restore is a no-op; we just read the text.
 //! - AHK hotkey syntax (`!+z`, `^!+g`) parses via kit's combo parser.
-//! - Double-press (`!xx` = press `!x` twice within 400 ms) is detected with
-//!   the same `A_TickCount`-style timestamp map.
+//! - Legacy double-press (`!xx`) and explicit multi-step sequences
+//!   (`alt+x > alt+x > alt+x`) share kit's 400 ms sequence matcher.
 
 fn main() -> anyhow::Result<()> {
     #[cfg(windows)]
@@ -46,6 +46,31 @@ fn split_double_press(hotkey: &str) -> (&str, bool) {
         }
     }
     (hotkey, false)
+}
+
+#[cfg(windows)]
+fn parse_sequence(hotkey: &str) -> anyhow::Result<kit::hotkey_sequence::Sequence> {
+    let hotkey = hotkey.trim();
+    if hotkey.contains('>') {
+        return hotkey.parse();
+    }
+    let (base, double) = split_double_press(hotkey);
+    if double {
+        format!("{base} > {base}").parse()
+    } else {
+        base.parse()
+    }
+}
+
+#[cfg(windows)]
+fn sequence_action(
+    sequences: &mut kit::hotkey_sequence::SequenceSet<usize>,
+    combos: &[kit::keys::Combo],
+    label: &str,
+) -> Option<usize> {
+    let index = label.parse::<usize>().ok()?;
+    let combo = *combos.get(index)?;
+    sequences.press(combo, std::time::Instant::now())
 }
 
 /// AHK `Loop, 10` + `if (groupName != "")`: at most ten slots, empty names
@@ -121,15 +146,14 @@ struct Messages {
 }
 
 #[cfg(windows)]
-const DBL_CLICK_MS: u128 = 400; // AHK DblClickTime
+const DBL_CLICK_MS: u64 = 400; // AHK DblClickTime
 
 #[cfg(windows)]
 fn run() -> anyhow::Result<()> {
+    use kit::hotkey_sequence::SequenceSet;
     use kit::keys::Combo;
     use kit::tray::{Event, Tray};
     use kit::{config, hotkey::Hotkeys, win};
-    use std::collections::HashMap;
-    use std::time::Instant;
 
     const APP: &str = "goldendict-search-in-group";
     let hosted = std::env::args().any(|a| a == "--plugin");
@@ -153,9 +177,9 @@ fn run() -> anyhow::Result<()> {
 
     let groups = load_groups(file.group.unwrap_or_default());
 
-    // Hotkeys: one per group. Double-press groups register their base combo
-    // (AHK: `Hotkey, %baseHk%, HandleDoublePress`).
-    let mut hotkey_defs: Vec<(String, Combo, bool)> = Vec::new(); // (label, combo, double_press)
+    // Every unique step is registered once; SequenceSet owns all timing and
+    // turns completed sequences back into GoldenDict group indexes.
+    let mut bindings = Vec::new();
     let mut tooltip = String::from("GoldenDict Search\nGroups and hotkeys");
     for (i, g) in groups.iter().enumerate() {
         if let Some(hk) = &g.hotkey {
@@ -163,26 +187,25 @@ fn run() -> anyhow::Result<()> {
             if hk.is_empty() {
                 continue;
             }
-            let (base, dbl) = split_double_press(hk);
-            let combo: Combo = base.parse()?;
+            bindings.push((i, parse_sequence(hk)?));
             tooltip.push_str(&format!("\n  {} = {}", g.name, hk));
-            hotkey_defs.push((i.to_string(), combo, dbl));
         }
     }
-    if hotkey_defs.is_empty() {
+    if bindings.is_empty() {
         tooltip.push_str("\n  (no group hotkeys configured)");
     }
-
-    let hotkeys = Hotkeys::register(
-        &hotkey_defs
-            .iter()
-            .map(|(l, c, _)| (l.as_str(), *c))
-            .collect::<Vec<_>>(),
-    )?;
+    let mut sequences = SequenceSet::new(bindings, std::time::Duration::from_millis(DBL_CLICK_MS))?;
+    let combos = sequences.combos();
+    let labels: Vec<String> = (0..combos.len()).map(|index| index.to_string()).collect();
+    let registrations: Vec<(&str, Combo)> = labels
+        .iter()
+        .zip(&combos)
+        .map(|(label, combo)| (label.as_str(), *combo))
+        .collect();
+    let hotkeys = Hotkeys::register(&registrations)?;
 
     let mut popup = gd.clipboard_hotkey_enabled.unwrap_or(false);
     let exe = gd.executable.unwrap_or_else(|| "goldendict".into());
-    let mut last_press: HashMap<String, Instant> = HashMap::new();
 
     if no_tray {
         use kit::ipc::{HostCommand, PluginLink};
@@ -190,30 +213,7 @@ fn run() -> anyhow::Result<()> {
         link.ready(menu_model(popup), Some(status_text(popup)))?;
         kit::tray::run_headless(Some(&hotkeys), |event| match event {
             Event::Hotkey(label) => {
-                let Ok(i) = label.parse::<usize>() else {
-                    return;
-                };
-                let Some((_, _, dbl)) = hotkey_defs.get(i) else {
-                    return;
-                };
-                if *dbl {
-                    let now = Instant::now();
-                    let hit = last_press
-                        .get(&label)
-                        .is_some_and(|t| now.duration_since(*t).as_millis() < DBL_CLICK_MS);
-                    if hit {
-                        last_press.remove(&label);
-                        search_with_notify(
-                            &exe,
-                            &groups[i].name,
-                            popup,
-                            &no_selection,
-                            Some(&link),
-                        );
-                    } else {
-                        last_press.insert(label, now);
-                    }
-                } else {
+                if let Some(i) = sequence_action(&mut sequences, &combos, &label) {
                     search_with_notify(&exe, &groups[i].name, popup, &no_selection, Some(&link));
                 }
             }
@@ -250,24 +250,7 @@ fn run() -> anyhow::Result<()> {
 
     tray.run(Some(&hotkeys), |tray, event| match event {
         Event::Hotkey(label) => {
-            let Ok(i) = label.parse::<usize>() else {
-                return;
-            };
-            let Some((_, _, dbl)) = hotkey_defs.get(i) else {
-                return;
-            };
-            if *dbl {
-                let now = Instant::now();
-                let hit = last_press
-                    .get(&label)
-                    .is_some_and(|t| now.duration_since(*t).as_millis() < DBL_CLICK_MS);
-                if hit {
-                    last_press.remove(&label);
-                    search(&exe, &groups[i].name, popup, &no_selection);
-                } else {
-                    last_press.insert(label, now);
-                }
-            } else {
+            if let Some(i) = sequence_action(&mut sequences, &combos, &label) {
                 search(&exe, &groups[i].name, popup, &no_selection);
             }
         }
@@ -382,7 +365,20 @@ fn refresh_menu(tray: &mut kit::tray::Tray, popup: bool, hosted: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::{group_parameter, load_groups, set_popup_line, split_double_press, Group};
+    use super::{
+        group_parameter, load_groups, parse_sequence, set_popup_line, split_double_press, Group,
+    };
+
+    #[test]
+    fn legacy_double_and_new_multistep_share_one_sequence_parser() {
+        assert_eq!(parse_sequence("!xx").unwrap().to_string(), "alt+x > alt+x");
+        assert_eq!(
+            parse_sequence("alt+x > ctrl+shift+t > alt+x")
+                .unwrap()
+                .to_string(),
+            "alt+x > ctrl+shift+t > alt+x"
+        );
+    }
 
     #[test]
     fn double_press_detection() {

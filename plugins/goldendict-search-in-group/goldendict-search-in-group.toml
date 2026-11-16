@@ -16,6 +16,9 @@ no_selection = "No text copied. Please select the word to query first."
 # (alt+shift+z) or AHK style (!+z, ^!+g, #f2 — ^=ctrl !=alt +=shift #=win).
 # A doubled final character means "press twice within 400 ms":
 # !xx = press Alt+X twice. Empty `name` entries are ignored.
+# Multi-step: "ctrl+alt+x > ctrl+alt+x > alt+g", with at most 400 ms between
+# steps. Every step needs Ctrl, Alt or Win. Auto-repeat never advances a step.
+# One combo cannot be both a single action and any step of a sequence.
 [[group]]
 name = ""
 hotkey = ""

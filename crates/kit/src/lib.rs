@@ -7,6 +7,7 @@
 //! - Linux: stubs with an adaptation checklist (see PLAN.md phase 5)
 
 pub mod config;
+pub mod hotkey_sequence;
 pub mod icon;
 pub mod ipc;
 pub mod keys;
