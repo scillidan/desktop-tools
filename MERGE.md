@@ -1,54 +1,26 @@
 # desktop-tools — merge architecture and staged plan
 
-Status: **design for review, 2026-11-06**. This revision supersedes the
-2026-11-01 product-merge-only draft. No product code has been moved or changed
-by this revision.
+Status: **design for review, 2026-11-06**. This revision supersedes the 2026-11-01 product-merge-only draft. No product code has been moved or changed by this revision.
 
-This document is the gate before implementation. Each implementation phase is
-small, separately reviewable and separately verified. A phase is not complete
-until its automated checks and its hand-off physical checklist pass.
+This document is the gate before implementation. Each implementation phase is small, separately reviewable and separately verified. A phase is not complete until its automated checks and its hand-off physical checklist pass.
 
 ## 1. Decisions confirmed for this revision
 
-1. Merge the products into this repository as **one Cargo workspace**, with
-   four functional groups: `window`, `screen`, `keyboard`, `taskbar`.
-   A group is a code/config/menu ownership boundary, not necessarily a process.
-2. Keep the previously accepted runtime architecture: **one host, one tray,
-   out-of-process executable plugins**. Do not replace it with a DLL plugin
-   system or one monolithic process. Related modules may share a process when
-   forcing a group boundary into IPC would add state without a user benefit.
-3. The authoritative keyboard source is `../keyboard-tools-rs`, including its
-   host, kit and five plugins. `../keytools-rs` is a historical baseline and
-   must not be built or copied over the newer code.
-4. Rename `dt-ocr` to **`screen-tools-rs`** and split its implementation into
-   focused draw/capture/OCR/record/power modules. `screen-tools` remains the
-   thin suite composition root; module splitting does not imply five processes.
-5. Put external integrations in their functional domain, after native tools in
-   README, code/registration and tray order:
+1. Merge the products into this repository as **one Cargo workspace**, with four functional groups: `window`, `screen`, `keyboard`, `taskbar`. A group is a code/config/menu ownership boundary, not necessarily a process.
+2. Keep the previously accepted runtime architecture: **one host, one tray, out-of-process executable plugins**. Do not replace it with a DLL plugin system or one monolithic process. Related modules may share a process when forcing a group boundary into IPC would add state without a user benefit.
+3. The authoritative keyboard source is `../keyboard-tools-rs`, including its host, kit and five plugins. `../keytools-rs` is a historical baseline and must not be built or copied over the newer code.
+4. Rename `dt-ocr` to **`screen-tools-rs`** and split its implementation into focused draw/capture/OCR/record/power modules. `screen-tools` remains the thin suite composition root; module splitting does not imply five processes.
+5. Put external integrations in their functional domain, after native tools in README, code/registration and tray order:
    - window: `Win+E` → `ToggleDoubleCommander`, ``Ctrl+` `` → `ToggleWezTerm`;
    - screen: selected frame → Flameshot handoff;
-   - keyboard: native keyboard tools and KeyMap before the GoldenDict tools.
-   There is no separate Others group. ``Alt+` `` and ``Alt+Shift+` `` retain
-   their existing window-cycling roles.
-6. Add rectangle `swapWindows`: select A, then select B; the applications
-   exchange their complete rectangles. The two occupied slots therefore stay
-   unchanged. This is the Workspacer-like interpretation, not a center-point
-   swap that preserves each application's original width/height.
-7. Add a small native Rust keymap engine to the keyboard group, using
-   [Gustice/AHK-KeyMap](https://github.com/Gustice/AHK-KeyMap) only as a
-   behavioral reference. Users define literal trigger → Unicode replacement
-   mappings with any symbol prefix. Expansion is immediate, leaves no trigger
-   or ending character, and never uses the clipboard. Calculator, dynamic
-   dates, special AltGr/numpad handling and decimal clipboard conversion are
-   explicitly out of scope.
-8. The current phase produces this design only. Product changes wait for
-   review of this document.
+   - keyboard: native keyboard tools and KeyMap before the GoldenDict tools. There is no separate Others group. ``Alt+` `` and ``Alt+Shift+` `` retain their existing window-cycling roles.
+6. Add rectangle `swapWindows`: select A, then select B; the applications exchange their complete rectangles. The two occupied slots therefore stay unchanged. This is the Workspacer-like interpretation, not a center-point swap that preserves each application's original width/height.
+7. Add a small native Rust keymap engine to the keyboard group, using [Gustice/AHK-KeyMap](https://github.com/Gustice/AHK-KeyMap) only as a behavioral reference. Users define literal trigger → Unicode replacement mappings with any symbol prefix. Expansion is immediate, leaves no trigger or ending character, and never uses the clipboard. Calculator, dynamic dates, special AltGr/numpad handling and decimal clipboard conversion are explicitly out of scope.
+8. The current phase produces this design only. Product changes wait for review of this document.
 
 ## 2. Audited starting point
 
-All six repositories (`desktop-tools`, `desktop-tools-rs`,
-`desktop-tools-rs-ex`, `keytools-rs`, `keyboard-tools-rs`,
-`taskbar-tools-rs`) had clean working trees when audited on 2026-11-06.
+All six repositories (`desktop-tools`, `desktop-tools-rs`, `desktop-tools-rs-ex`, `keytools-rs`, `keyboard-tools-rs`, `taskbar-tools-rs`) had clean working trees when audited on 2026-11-06.
 
 | Source | Keep as authoritative | Relevant state |
 |---|---|---|
@@ -61,13 +33,10 @@ All six repositories (`desktop-tools`, `desktop-tools-rs`,
 
 Important consequences:
 
-- Do not import the old `keytools-rs/apps/*`: doing so would lose profile,
-  hosted-mode, low-level hook, password-lock and menu-model fixes.
-- Do not build the old `keytools-rs` apps. The repositories currently inherit a
-  shared `CARGO_TARGET_DIR`, and equal binary names can overwrite newer exes.
+- Do not import the old `keytools-rs/apps/*`: doing so would lose profile, hosted-mode, low-level hook, password-lock and menu-model fixes.
+- Do not build the old `keytools-rs` apps. The repositories currently inherit a shared `CARGO_TARGET_DIR`, and equal binary names can overwrite newer exes.
 - The host must be physically verified before more plugins depend on it.
-- Existing behavior-sensitive Win32/UIA/hook/OCR code is imported, not rewritten
-  for style. Refactors follow behavior-preserving imports and physical checks.
+- Existing behavior-sensitive Win32/UIA/hook/OCR code is imported, not rewritten for style. Refactors follow behavior-preserving imports and physical checks.
 
 ## 3. Target architecture
 
@@ -121,11 +90,7 @@ Profile/User/*.toml
 Profile/logs/*.log
 ```
 
-Staging flattens executable crates in `domains/*/*` into `plugins/<id>/`.
-Library crates such as `screen-draw` and `app-toggle` are linked into their
-owning executable and produce no runtime plugin directory. This preserves the
-existing catalog discovery/update contract instead of inventing nested runtime
-plugin discovery.
+Staging flattens executable crates in `domains/*/*` into `plugins/<id>/`. Library crates such as `screen-draw` and `app-toggle` are linked into their owning executable and produce no runtime plugin directory. This preserves the existing catalog discovery/update contract instead of inventing nested runtime plugin discovery.
 
 ### 3.2 Runtime processes
 
@@ -144,31 +109,15 @@ The full suite is the host plus ten plugins (eleven processes):
 | keyboard | `goldendict-auto-search` | `goldendict-auto-search.exe` | `goldendict-auto-search.toml` |
 | taskbar | `taskbar-tools` | `taskbar-tools-rs.exe` | `taskbar-center.toml` / `taskbar-hidden.toml` / `taskbar-pin.toml` |
 
-`window-tools` loads `app-toggle` and `screen-tools` loads
-`flameshot-handoff`; neither adds a process. App toggles use window's local
-focus/hook helpers and `[double_commander]` / `[wezterm]` in
-`window-tools.toml`. Flameshot uses the live screen frame and
-`[external].flameshot` in `screen-flameshot.toml`, without IPC.
-Lifecycle controls stay with the owning
-executable, and external actions appear after native actions in its menu.
+`window-tools` loads `app-toggle` and `screen-tools` loads `flameshot-handoff`; neither adds a process. App toggles use window's local focus/hook helpers and `[double_commander]` / `[wezterm]` in `window-tools.toml`. Flameshot uses the live screen frame and `[external].flameshot` in `screen-flameshot.toml`, without IPC. Lifecycle controls stay with the owning executable, and external actions appear after native actions in its menu.
 
-The keyboard tools remain separate processes. Combining their hotkey ids,
-message loops and low-level hooks would be a rewrite, would remove per-tool
-lifecycle controls, and would make a GoldenDict/clipboard failure capable of
-taking down the keyboard locker. The two GoldenDict tools may be reconsidered
-as a pair later, but that is not part of this merge.
+The keyboard tools remain separate processes. Combining their hotkey ids, message loops and low-level hooks would be a rewrite, would remove per-tool lifecycle controls, and would make a GoldenDict/clipboard failure capable of taking down the keyboard locker. The two GoldenDict tools may be reconsidered as a pair later, but that is not part of this merge.
 
-Every plugin remains usable standalone. Hosted mode uses
-`--profile <dir> --plugin --no-tray`; standalone mode retains its local tray
-and diagnostics. Hosted stdout is protocol-only; diagnostics go to stderr.
+Every plugin remains usable standalone. Hosted mode uses `--profile <dir> --plugin --no-tray`; standalone mode retains its local tray and diagnostics. Hosted stdout is protocol-only; diagnostics go to stderr.
 
 ### 3.3 One tray, four functional groups
 
-Add a validated primary `group = "window" | "screen" | "keyboard" |
-"taskbar"` to each executable manifest and retain `external = true` for external
-integrations. The host orders native tools/actions first, then external ones;
-README and code/registration tables use the same order. Item ids remain
-namespaced by the contributing plugin.
+Add a validated primary `group = "window" | "screen" | "keyboard" | "taskbar"` to each executable manifest and retain `external = true` for external integrations. The host orders native tools/actions first, then external ones; README and code/registration tables use the same order. Item ids remain namespaced by the contributing plugin.
 
 The host menu becomes:
 
@@ -204,20 +153,11 @@ About
 Exit
 ```
 
-Single-plugin primary groups render native items first and external integrations
-last. Keyboard uses one nested submenu per tool. The host continues to namespace
-item ids by plugin; two plugins may use the same local item id.
+Single-plugin primary groups render native items first and external integrations last. Keyboard uses one nested submenu per tool. The host continues to namespace item ids by plugin; two plugins may use the same local item id.
 
-Native plugins and Window feature submenus sort alphabetically by display name;
-external integrations remain after all native entries. Keyboard therefore reads
-Key Map / Keyboard Auto Switch Back / Keyboard Locker / Keyboard Switch /
-Shell Keys, then GoldenDict.
+Native plugins and Window feature submenus sort alphabetically by display name; external integrations remain after all native entries. Keyboard therefore reads Key Map / Keyboard Auto Switch Back / Keyboard Locker / Keyboard Switch / Shell Keys, then GoldenDict.
 
-`screen-tools` is installed and enabled in the full suite so `toggleScreen`
-keeps working by default. Its external OCR engines remain optional runtime
-dependencies. A suite variant without the screen package may omit it from
-`core.toml`; manifest `optional` controls whether absence is an error, while
-`[plugins].enabled` remains the only enable/disable switch.
+`screen-tools` is installed and enabled in the full suite so `toggleScreen` keeps working by default. Its external OCR engines remain optional runtime dependencies. A suite variant without the screen package may omit it from `core.toml`; manifest `optional` controls whether absence is an error, while `[plugins].enabled` remains the only enable/disable switch.
 
 ## 4. Domain ownership and migration rules
 
@@ -231,8 +171,7 @@ dependencies. A suite variant without the screen package may omit it from
 - two-window `swapWindows`;
 - `scale.rs` from the old `dt-ocr`, moved as a separate reviewed change.
 
-**Confirmed P3b structure (2026-11-06).** Keep one `window-tools`
-process, but split the old monolith into native modules with explicit ownership:
+**Confirmed P3b structure (2026-11-06).** Keep one `window-tools` process, but split the old monolith into native modules with explicit ownership:
 
 | Module | Owns | Later additions |
 |---|---|---|
@@ -247,22 +186,7 @@ process, but split the old monolith into native modules with explicit ownership:
 | `window-tools` | global Undo history, config assembly, hook/action dispatch, shared Win32 loop, menu/profile/IPC and standalone entry | composition only |
 | `app-toggle` (external) | no native window actions | Double Commander and WezTerm in P7 |
 
-These modules share the current keyboard/mouse hooks, Win32 message loop,
-foreground-window state and reload/suspend lifecycle. Separate exes would
-duplicate those mechanisms without a required independent lifecycle or fault
-boundary. P3c gives each module its own schema/parser/tests/default/edit entry.
-The composition root validates cross-file hotkey conflicts and reloads all
-modules atomically. Fresh profiles use split defaults. An existing imported full
-`window-tools.toml` stays authoritative only for modules without a split file;
-first use of an edit entry materializes that module's effective config without
-rewriting the legacy file or any other module.
-P3c names align with the module crates: `window-rectangle.toml`,
-`window-resize.toml`, `window-scale.toml` (added in P6c),
-`window-mouse-drag.toml`, `window-on-top-bottom.toml`,
-`window-maximize-minimize.toml`, `window-app-switch.toml`,
-`window-quick-switch.toml` and `window-virtual-desktops.toml`. Global Undo and
-legacy compatibility stay in `window-tools.toml`; resize presets keep their
-existing separate file. Do not invent per-module enable switches in P3b/P3c.
+These modules share the current keyboard/mouse hooks, Win32 message loop, foreground-window state and reload/suspend lifecycle. Separate exes would duplicate those mechanisms without a required independent lifecycle or fault boundary. P3c gives each module its own schema/parser/tests/default/edit entry. The composition root validates cross-file hotkey conflicts and reloads all modules atomically. Fresh profiles use split defaults. An existing imported full `window-tools.toml` stays authoritative only for modules without a split file; first use of an edit entry materializes that module's effective config without rewriting the legacy file or any other module. P3c names align with the module crates: `window-rectangle.toml`, `window-resize.toml`, `window-scale.toml` (added in P6c), `window-mouse-drag.toml`, `window-on-top-bottom.toml`, `window-maximize-minimize.toml`, `window-app-switch.toml`, `window-quick-switch.toml` and `window-virtual-desktops.toml`. Global Undo and legacy compatibility stay in `window-tools.toml`; resize presets keep their existing separate file. Do not invent per-module enable switches in P3b/P3c.
 
 Recommended menu shape:
 
@@ -286,38 +210,21 @@ Window
 └── Open window-tools log
 ```
 
-Clear all pins is a feature-scoped action, not Restart/Reload. Stop/Restart
-share its cleanup primitive so no pinned HWND is orphaned; Reload preserves
-pins. Global Undo can reverse both geometry and window-state actions. Config
-files auto-reload about one second after saving; no manual Reload menu is needed.
-Restart remains the root-level process/hook recovery action.
+Clear all pins is a feature-scoped action, not Restart/Reload. Stop/Restart share its cleanup primitive so no pinned HWND is orphaned; Reload preserves pins. Global Undo can reverse both geometry and window-state actions. Config files auto-reload about one second after saving; no manual Reload menu is needed. Restart remains the root-level process/hook recovery action.
 
-A small internal `window-core` crate owns only domain primitives (`WinId`,
-`Rect`, `Monitor`), narrow window-query traits and the shared binding parser.
-It has no tray, IPC, feature policy or host knowledge; feature crates must not
-depend back on `window-tools`.
+A small internal `window-core` crate owns only domain primitives (`WinId`, `Rect`, `Monitor`), narrow window-query traits and the shared binding parser. It has no tray, IPC, feature policy or host knowledge; feature crates must not depend back on `window-tools`.
 
-The nested module menu requires an explicit menu-model/host rendering change;
-it must not be emulated with fake plugin ids or extra processes. Standalone
-uses the same module model. The existing P3a single-plugin menu is only the
-behavior-import baseline, not the desired final structure.
+The nested module menu requires an explicit menu-model/host rendering change; it must not be emulated with fake plugin ids or extra processes. Standalone uses the same module model. The existing P3a single-plugin menu is only the behavior-import baseline, not the desired final structure.
 
-The executable also links `window/app-toggle`. Its code and configuration are
-window-owned, its actions follow native window actions in the menu, and its
-hotkeys stay local to the process rather than being routed through the host.
+The executable also links `window/app-toggle`. Its code and configuration are window-owned, its actions follow native window actions in the menu, and its hotkeys stay local to the process rather than being routed through the host.
 
-`toggleScreen` leaves this plugin for `screen-tools`. The default
-`desktop-tools.toml` migrates to `window-tools.toml`; `resize.toml` migrates to
-`window-resize.toml`. Legacy names are imported once, never overwritten.
+`toggleScreen` leaves this plugin for `screen-tools`. The default `desktop-tools.toml` migrates to `window-tools.toml`; `resize.toml` migrates to `window-resize.toml`. Legacy names are imported once, never overwritten.
 
-The existing ``Alt+` `` / ``Alt+Shift+` `` bindings remain unchanged. `Win+E`
-is installed by window's app-toggle module; it must not also remain in the
-keyboard suppression list once that toggle is installed.
+The existing ``Alt+` `` / ``Alt+Shift+` `` bindings remain unchanged. `Win+E` is installed by window's app-toggle module; it must not also remain in the keyboard suppression list once that toggle is installed.
 
 ### 4.2 Screen
 
-`screen-tools-rs` remains the executable and suite name, but its current large
-modules are separated into library crates with explicit inputs/outputs:
+`screen-tools-rs` remains the executable and suite name, but its current large modules are separated into library crates with explicit inputs/outputs:
 
 | Crate | Owns | Must not own |
 |---|---|---|
@@ -329,76 +236,30 @@ modules are separated into library crates with explicit inputs/outputs:
 | `flameshot-handoff` | selected-frame → Flameshot bridge, daemon/session state and failure recovery | capture policy or frame lifecycle |
 | `screen-tools` | config assembly, hotkeys, action/state coordination, menu/profile/IPC, standalone entry | feature implementation details |
 
-Use ordinary typed Rust interfaces such as `Rect`, `FrameId`, `CaptureImage`,
-`OcrRequest` and `RecordSession`; do not introduce a generic event bus. The
-composition root explicitly enforces cross-feature rules already present in the
-product: recording blocks other actions, capture dismisses stale OCR masks, and
-retargeting restarts auto OCR. Module boundaries must make those transitions
-visible rather than hide them behind globals.
+Use ordinary typed Rust interfaces such as `Rect`, `FrameId`, `CaptureImage`, `OcrRequest` and `RecordSession`; do not introduce a generic event bus. The composition root explicitly enforces cross-feature rules already present in the product: recording blocks other actions, capture dismisses stale OCR masks, and retargeting restarts auto OCR. Module boundaries must make those transitions visible rather than hide them behind globals.
 
-Configuration is split by the same ownership boundaries as the code and menus:
-`screen-draw.toml` owns Frame/Pin and their actions, `screen-capture.toml` owns
-capture and the ordinary image editor, `screen-ocr.toml` owns OCR/Mask/notify,
-`screen-power.toml` owns monitor power, `screen-record.toml` owns recording and
-`screen-flameshot.toml` owns the external annotation path. The transitional
-`screen-actions.toml` is only an untouched import source, not runtime configuration.
-The existing parser is reused to merge these slices rather than duplicating
-field parsers. A one-time migration preserves effective legacy values, never
-overwrites existing feature files, and renames the aggregate to
-`screen-tools.legacy.toml`. All files share one hotkey namespace and reload
-atomically. This is structural unification, not six copies of config/tray/menu
-plumbing.
+Configuration is split by the same ownership boundaries as the code and menus: `screen-draw.toml` owns Frame/Pin and their actions, `screen-capture.toml` owns capture and the ordinary image editor, `screen-ocr.toml` owns OCR/Mask/notify, `screen-power.toml` owns monitor power, `screen-record.toml` owns recording and `screen-flameshot.toml` owns the external annotation path. The transitional `screen-actions.toml` is only an untouched import source, not runtime configuration. The existing parser is reused to merge these slices rather than duplicating field parsers. A one-time migration preserves effective legacy values, never overwrites existing feature files, and renames the aggregate to `screen-tools.legacy.toml`. All files share one hotkey namespace and reload atomically. This is structural unification, not six copies of config/tray/menu plumbing.
 
-The DWM window zoom (`scale`) belongs to window and moved out. Flameshot is a
-separate screen-owned handoff module using `[external].flameshot`; the normal
-image-editor handoff stays with capture unless separately requested. Both
-external handoffs follow native capture actions in code and menu order. The
-per-desktop frame lifecycle stays in
-`screen-draw`; it may use shared virtual-desktop primitives. `frame_window` is
-a capture/draw action even though it uses window-discovery helpers.
+The DWM window zoom (`scale`) belongs to window and moved out. Flameshot is a separate screen-owned handoff module using `[external].flameshot`; the normal image-editor handoff stays with capture unless separately requested. Both external handoffs follow native capture actions in code and menu order. The per-desktop frame lifecycle stays in `screen-draw`; it may use shared virtual-desktop primitives. `frame_window` is a capture/draw action even though it uses window-discovery helpers.
 
-The names “Pin frame (click-through)” and “Pin screenshot” must be used in the
-merged menu so they cannot be confused with window “Always on top”.
+The names “Pin frame (click-through)” and “Pin screenshot” must be used in the merged menu so they cannot be confused with window “Always on top”.
 
-**Why not five processes now:** these modules share one live selection and
-cross-feature state. Separate exes would require a selection-session RPC,
-cross-process overlay exclusion and coordinated cancellation merely to preserve
-current behavior, without a new user-visible benefit. TODO: reconsider separate
-processes only when independent installation/lifecycle or fault isolation is an
-actual requirement; that change first requires an explicit selection-session
-protocol and its physical test matrix.
+**Why not five processes now:** these modules share one live selection and cross-feature state. Separate exes would require a selection-session RPC, cross-process overlay exclusion and coordinated cancellation merely to preserve current behavior, without a new user-visible benefit. TODO: reconsider separate processes only when independent installation/lifecycle or fault isolation is an actual requirement; that change first requires an explicit selection-session protocol and its physical test matrix.
 
 ### 4.3 Keyboard
 
-The five current `keyboard-tools-rs` plugins move unchanged first. Two separate
-native plugins own the new behavior:
+The five current `keyboard-tools-rs` plugins move unchanged first. Two separate native plugins own the new behavior:
 
-- **Shell Keys** (`keyboard-shell`, `keyboard-shell.toml`) owns shell shortcuts
-  formerly written as `"combo" = "suppress"` in `desktop-tools.toml` and has an
-  independent `Suspend Shell Keys` menu toggle which really removes/reinstalls
-  its hook. It has no text-replacement responsibility.
-- **Key Map** (`keyboard-keymap`, `keyboard-keymap.toml`) owns only user-defined
-  literal trigger → Unicode replacement mappings. Its hook consumes the final
-  trigger character, deletes exactly the preceding trigger characters, and sends
-  static UTF-16 replacement input while ignoring injected events. Focus, mouse,
-  non-text and unrecognized input reset bounded history. Ambiguous prefix/suffix
-  pairs are rejected. A same-process timer reload preserves the previous valid
-  recognizer on any error instead of restarting or partially applying mappings.
+- **Shell Keys** (`keyboard-shell`, `keyboard-shell.toml`) owns shell shortcuts formerly written as `"combo" = "suppress"` in `desktop-tools.toml` and has an independent `Suspend Shell Keys` menu toggle which really removes/reinstalls its hook. It has no text-replacement responsibility.
+- **Key Map** (`keyboard-keymap`, `keyboard-keymap.toml`) owns only user-defined literal trigger → Unicode replacement mappings. Its hook consumes the final trigger character, deletes exactly the preceding trigger characters, and sends static UTF-16 replacement input while ignoring injected events. Focus, mouse, non-text and unrecognized input reset bounded history. Ambiguous prefix/suffix pairs are rejected. A same-process timer reload preserves the previous valid recognizer on any error instead of restarting or partially applying mappings.
 
-The generic low-level Win-combo hook implementation belongs in `crates/kit`,
-not in a cross-process hotkey broker. `window-tools` and `keyboard-shell`
-each install it for their own local binding table and execute their own
-actions. There is no hook → host IPC → plugin round trip on a hotkey path.
+The generic low-level Win-combo hook implementation belongs in `crates/kit`, not in a cross-process hotkey broker. `window-tools` and `keyboard-shell` each install it for their own local binding table and execute their own actions. There is no hook → host IPC → plugin round trip on a hotkey path.
 
-Only the shell-suppression policy moves to keyboard. Window-specific Win
-bindings stay local to window; otherwise snapping and desktop actions would
-gain IPC latency, stale binding-index races and a hard dependency on another
-process.
+Only the shell-suppression policy moves to keyboard. Window-specific Win bindings stay local to window; otherwise snapping and desktop actions would gain IPC latency, stale binding-index races and a hard dependency on another process.
 
 ### 4.4 Taskbar
 
-`taskbar-tools` imports its modules without rewriting their behavior-sensitive
-internals:
+`taskbar-tools` imports its modules without rewriting their behavior-sensitive internals:
 
 - physical drag and pin matching/order;
 - UIA mutex and COM drop order;
@@ -406,45 +267,25 @@ internals:
 - hidden-taskbar restore and snapped-window handling;
 - `--dump`, `--inspect` and `--once` diagnostics.
 
-Standalone diagnostics keep their working console behavior. In hosted mode,
-logs and errors go to stderr, never to stdout or a modal message box.
+Standalone diagnostics keep their working console behavior. In hosted mode, logs and errors go to stderr, never to stdout or a modal message box.
 
 ### 4.5 Menu semantics
 
-Nested plugin wrappers own the `(running)` status. Their inner menu starts with
-one grey manifest `description` and a separator; it does not repeat status,
-version or restart counters. A single-plugin group stays inline and puts that
-status on the group title itself (for example `Window (running)`), avoiding a
-duplicate plugin wrapper. Multi-plugin groups keep status on each plugin.
+Nested plugin wrappers own the `(running)` status. Their inner menu starts with one grey manifest `description` and a separator; it does not repeat status, version or restart counters. A single-plugin group stays inline and puts that status on the group title itself (for example `Window (running)`), avoiding a duplicate plugin wrapper. Multi-plugin groups keep status on each plugin.
 
-Suspend is temporary hook/feature suspension while the process remains running.
-Disable is persistent lifecycle removal with graceful cleanup. Keep both where
-their meanings differ; do not turn them into aliases. Feature config entries
-edit split files. Window and Taskbar no longer expose or load aggregate TOMLs.
-Window's root-only bindings live in `window-actions.toml`. A one-time migration
-preserves existing feature files, materializes missing effective settings, then
-renames the old aggregate to a non-overwriting `.legacy.toml` backup.
+Suspend is temporary hook/feature suspension while the process remains running. Disable is persistent lifecycle removal with graceful cleanup. Keep both where their meanings differ; do not turn them into aliases. Feature config entries edit split files. Window and Taskbar no longer expose or load aggregate TOMLs. Window's root-only bindings live in `window-actions.toml`. A one-time migration preserves existing feature files, materializes missing effective settings, then renames the old aggregate to a non-overwriting `.legacy.toml` backup.
 
 ### 4.6 External integrations and ordering
 
-External applications do not require a separate top-level group. Window owns
-Double Commander/WezTerm toggles, screen owns the Flameshot bridge, and keyboard
-owns GoldenDict integration. Each domain lists native modules, configuration
-sections and menu actions first, then external integrations. Manifest
-`external = true` supplies the same ordering for discovered executable plugins.
+External applications do not require a separate top-level group. Window owns Double Commander/WezTerm toggles, screen owns the Flameshot bridge, and keyboard owns GoldenDict integration. Each domain lists native modules, configuration sections and menu actions first, then external integrations. Manifest `external = true` supplies the same ordering for discovered executable plugins.
 
-`window-tools` invokes `app-toggle` directly with its normal Win32 window/hook
-primitives. `screen-tools` invokes `flameshot-handoff` directly with the current
-frame id and geometry. Neither path serializes a live window or selection
-through the host. Logs identify both the external feature and owning process.
+`window-tools` invokes `app-toggle` directly with its normal Win32 window/hook primitives. `screen-tools` invokes `flameshot-handoff` directly with the current frame id and geometry. Neither path serializes a live window or selection through the host. Logs identify both the external feature and owning process.
 
-Ordinary capture/save/copy, OCR, recording and the non-Flameshot image editor
-remain native screen functionality.
+Ordinary capture/save/copy, OCR, recording and the non-Flameshot image editor remain native screen functionality.
 
 ## 5. Window application-toggle contract
 
-`window-tools.toml` uses named sections for external applications (the exact
-schema is proposed here):
+`window-tools.toml` uses named sections for external applications (the exact schema is proposed here):
 
 ```toml
 [double_commander]
@@ -458,12 +299,9 @@ command = "wezterm-gui.exe"
 process = "wezterm-gui.exe"
 ```
 
-Commands may be a PATH-resolved executable or an absolute path. Launch uses an
-executable plus argument list, not an interpolated shell command. No arbitrary
-argument template is needed in v1.
+Commands may be a PATH-resolved executable or an absolute path. Launch uses an executable plus argument list, not an interpolated shell command. No arbitrary argument template is needed in v1.
 
-For each press, query current state rather than relying on a saved visible
-flag:
+For each press, query current state rather than relying on a saved visible flag:
 
 | Current state | Action |
 |---|---|
@@ -472,26 +310,15 @@ flag:
 | Matching window exists but is not foreground | Restore if minimized, show and activate it |
 | Launch is pending | Do not launch a duplicate; allow retry after a 5 s timeout |
 
-Matching compares canonicalized complete executable paths case-insensitively,
-so Scoop `current` aliases and versioned install directories identify the same
-app without operating on another installation with the same basename. The most
-recently active/topmost matching visible window is selected when WezTerm has
-multiple windows. The toggle does not cycle through all WezTerm windows.
+Matching compares canonicalized complete executable paths case-insensitively, so Scoop `current` aliases and versioned install directories identify the same app without operating on another installation with the same basename. The most recently active/topmost matching visible window is selected when WezTerm has multiple windows. The toggle does not cycle through all WezTerm windows.
 
-Focus/restore reuses the existing Win32 focus helper and reports failure to the
-plugin status/log. Elevated-window and Windows foreground-lock restrictions are
-documented, not hidden.
+Focus/restore reuses the existing Win32 focus helper and reports failure to the plugin status/log. Elevated-window and Windows foreground-lock restrictions are documented, not hidden.
 
-`Win+E` is handled by the `window-tools` process's local Win hook before
-Explorer opens its own file manager. ``Ctrl+` `` uses
-normal hotkey registration. Held-key auto-repeat
-must be swallowed without repeatedly toggling; repeat policy is per action so
-existing repeatable rectangle actions do not change.
+`Win+E` is handled by the `window-tools` process's local Win hook before Explorer opens its own file manager. ``Ctrl+` `` uses normal hotkey registration. Held-key auto-repeat must be swallowed without repeatedly toggling; repeat policy is per action so existing repeatable rectangle actions do not change.
 
 ## 6. Rectangle `swapWindows` contract
 
-Default binding: ``Ctrl+Win+Alt+X`` (`x` = exchange), approved separately after
-implementation and isolated real-window verification passed.
+Default binding: ``Ctrl+Win+Alt+X`` (`x` = exchange), approved separately after implementation and isolated real-window verification passed.
 
 ### 6.1 State machine
 
@@ -506,37 +333,23 @@ Armed(A)
 ```
 
 - Armed stores A's stable window id and deadline, not stale geometry.
-- The timeout is 15 s. A short status tip says “Swap: select second window;
-  Esc cancels”. Hosted mode sends the same state as plugin status text.
-- Other rectangle actions cancel Armed before running, avoiding an ambiguous
-  implicit second selection.
+- The timeout is 15 s. A short status tip says “Swap: select second window; Esc cancels”. Hosted mode sends the same state as plugin status text.
+- Other rectangle actions cancel Armed before running, avoiding an ambiguous implicit second selection.
 - Alt+Tab and ordinary foreground changes are allowed; that is how B is chosen.
-- A/B must be visible, zonable, neither minimized nor maximized at selection
-  and commit. Invalid B cancels with a status message and changes no geometry.
+- A/B must be visible, zonable, neither minimized nor maximized at selection and commit. Invalid B cancels with a status message and changes no geometry.
 - Esc is swallowed only while Armed. There is no permanent capture state.
 
 ### 6.2 Geometry and history
 
-At commit, read both current outer rectangles and DWM visible frames. Expand
-B's visible frame by A's own invisible-border insets for A's new outer rectangle;
-do the converse for B. Do not apply snap gaps or work-area scaling. This
-preserves the two visible slots and works across monitors/DPIs.
+At commit, read both current outer rectangles and DWM visible frames. Expand B's visible frame by A's own invisible-border insets for A's new outer rectangle; do the converse for B. Do not apply snap gaps or work-area scaling. This preserves the two visible slots and works across monitors/DPIs.
 
-The two moves form one composite undo entry. One `undo` restores both original
-rectangles; it is not two user-visible undo steps. B keeps foreground focus.
+The two moves form one composite undo entry. One `undo` restores both original rectangles; it is not two user-visible undo steps. B keeps foreground focus.
 
-Unit tests cover Idle/Armed/cancel/timeout, same-window selection, invalid or
-closed windows, maximized/minimized rejection, cross-monitor rectangles,
-per-window DWM insets, repeat hotkeys and atomic undo. Real-window tests are
-ignored by default and included in the physical checklist.
+Unit tests cover Idle/Armed/cancel/timeout, same-window selection, invalid or closed windows, maximized/minimized rejection, cross-monitor rectangles, per-window DWM insets, repeat hotkeys and atomic undo. Real-window tests are ignored by default and included in the physical checklist.
 
 ## 7. `keyboard-keymap` contract
 
-`Gustice/AHK-KeyMap` is now only a behavioral reference. The requested product
-is the small core mapping engine, not a port of the reference's calculator,
-dates, AltGr table, numpad workaround or clipboard conversion. No AHK runtime
-is required. If example mappings are derived from the reference, retain its
-MIT attribution with those examples.
+`Gustice/AHK-KeyMap` is now only a behavioral reference. The requested product is the small core mapping engine, not a port of the reference's calculator, dates, AltGr table, numpad workaround or clipboard conversion. No AHK runtime is required. If example mappings are derived from the reference, retain its MIT attribution with those examples.
 
 ### 7.1 User-defined static mappings
 
@@ -551,179 +364,97 @@ MIT attribution with those examples.
 ";em" = "—"
 ```
 
-- `#` is an example, not a reserved prefix. A trigger may start with any
-  printable symbol and may contain multiple characters; `>>star` and `;em` are
-  first-class mappings just like `#alpha`.
-- Replacement is static Unicode text. There is no variable expansion, date
-  function, regex, script, process launch or clipboard step.
-- Matching is exact and case-sensitive. There is no implicit case conversion,
-  word-boundary rule, ending Space/Enter or other hidden syntax.
-- An empty trigger is invalid. Empty replacements are allowed and erase the
-  complete trigger. Config reload is atomic: invalid input keeps the last good
-  map and reports a concise non-modal error.
-- If one complete trigger is a prefix of another (for example `#a` and `#ab`),
-  immediate matching is ambiguous. Reject that map with an error naming both
-  triggers. Do not add a timeout or guess from the next character; the user can
-  choose unambiguous triggers. This determinism is part of the stability goal.
-- There is no bundled dynamic AHK feature inventory. Users can put the symbols
-  they actually need in this file; an example file may contain static mappings.
+- `#` is an example, not a reserved prefix. A trigger may start with any printable symbol and may contain multiple characters; `>>star` and `;em` are first-class mappings just like `#alpha`.
+- Replacement is static Unicode text. There is no variable expansion, date function, regex, script, process launch or clipboard step.
+- Matching is exact and case-sensitive. There is no implicit case conversion, word-boundary rule, ending Space/Enter or other hidden syntax.
+- An empty trigger is invalid. Empty replacements are allowed and erase the complete trigger. Config reload is atomic: invalid input keeps the last good map and reports a concise non-modal error.
+- If one complete trigger is a prefix of another (for example `#a` and `#ab`), immediate matching is ambiguous. Reject that map with an error naming both triggers. Do not add a timeout or guess from the next character; the user can choose unambiguous triggers. This determinism is part of the stability goal.
+- There is no bundled dynamic AHK feature inventory. Users can put the symbols they actually need in this file; an example file may contain static mappings.
 
 ### 7.2 Exact replacement without a residual trigger symbol
 
-This engine specifically replaces the Espanso workflow that leaves an extra
-trigger character. Correct final text and input ordering matter more than a
-large built-in symbol catalog.
+This engine specifically replaces the Espanso workflow that leaves an extra trigger character. Correct final text and input ordering matter more than a large built-in symbol catalog.
 
-1. A low-level keyboard hook feeds a bounded, in-memory character buffer. Its
-   maximum length is the longest configured trigger; its contents are never
-   written to logs or disk.
-2. Ordinary characters pass through while the recognizer tracks suffixes. On
-   the final character of an unambiguous exact match, swallow that final key,
-   send exactly `trigger_character_count - 1` Backspaces for the characters
-   already passed through, then send the replacement with `SendInput` +
-   `KEYEVENTF_UNICODE`. A one-character trigger needs zero Backspaces.
-3. Backspace count is based on input characters, never UTF-8 bytes. Deletion,
-   replacement and the next ordinary input are serialized so fast typing cannot
-   insert a character between deletion and replacement.
-4. The replacement therefore contains no `#`/prefix and needs no ending
-   character. Typing `#alpha` produces exactly `α`; typing `#alpha.` produces
-   exactly `α.` with one ordinary dot. No Space is injected or consumed.
-5. Injected Backspaces and replacement text are marked and ignored by the
-   recognizer. A replacement equal to a trigger must still run only once, never
-   recurse.
-6. Backspace edits the buffer. The buffer resets after replacement, focus
-   change, mouse click, arrow/Home/End/Page navigation and modifier chords.
-   Before deleting anything, verify that the foreground window is unchanged;
-   otherwise leave the typed text alone and abort.
-7. Suspend/Resume affects only keymap expansion. It does not unexpectedly
-   re-enable shell shortcuts by disabling the separate suppression module.
-   Disabling the whole plugin still disables both through the normal lifecycle
-   control.
+1. A low-level keyboard hook feeds a bounded, in-memory character buffer. Its maximum length is the longest configured trigger; its contents are never written to logs or disk.
+2. Ordinary characters pass through while the recognizer tracks suffixes. On the final character of an unambiguous exact match, swallow that final key, send exactly `trigger_character_count - 1` Backspaces for the characters already passed through, then send the replacement with `SendInput` + `KEYEVENTF_UNICODE`. A one-character trigger needs zero Backspaces.
+3. Backspace count is based on input characters, never UTF-8 bytes. Deletion, replacement and the next ordinary input are serialized so fast typing cannot insert a character between deletion and replacement.
+4. The replacement therefore contains no `#`/prefix and needs no ending character. Typing `#alpha` produces exactly `α`; typing `#alpha.` produces exactly `α.` with one ordinary dot. No Space is injected or consumed.
+5. Injected Backspaces and replacement text are marked and ignored by the recognizer. A replacement equal to a trigger must still run only once, never recurse.
+6. Backspace edits the buffer. The buffer resets after replacement, focus change, mouse click, arrow/Home/End/Page navigation and modifier chords. Before deleting anything, verify that the foreground window is unchanged; otherwise leave the typed text alone and abort.
+7. Suspend/Resume affects only keymap expansion. It does not unexpectedly re-enable shell shortcuts by disabling the separate suppression module. Disabling the whole plugin still disables both through the normal lifecycle control.
 
-The initial implementation spike must validate `ToUnicodeEx`/scan-code behavior
-with the active layout, dead keys and Chinese IME. The LL hook sees keyboard
-events, not arbitrary text committed by an IME; IME-composed trigger support is
-not claimed without a separate verified design. Higher-integrity applications
-remain outside a normal-integrity global hook.
+The initial implementation spike must validate `ToUnicodeEx`/scan-code behavior with the active layout, dead keys and Chinese IME. The LL hook sees keyboard events, not arbitrary text committed by an IME; IME-composed trigger support is not claimed without a separate verified design. Higher-integrity applications remain outside a normal-integrity global hook.
 
-Pure model tests cover every configured mapping, exact output with no residual
-prefix/end character, one-character and non-ASCII triggers, empty replacement,
-case sensitivity, unmatched suffixes, prefix-conflict rejection, Backspace and
-reset rules, focus changes, injected-input recursion, fast following characters,
-bounded memory and last-good reload. Physical tests compare exact text in
-Notepad, WezTerm, a browser edit control and an Office-style rich edit, including
-fast typing and Chinese IME/German layout where available. CopyQ should confirm
-that expansion never touches the clipboard.
+Pure model tests cover every configured mapping, exact output with no residual prefix/end character, one-character and non-ASCII triggers, empty replacement, case sensitivity, unmatched suffixes, prefix-conflict rejection, Backspace and reset rules, focus changes, injected-input recursion, fast following characters, bounded memory and last-good reload. Physical tests compare exact text in Notepad, WezTerm, a browser edit control and an Office-style rich edit, including fast typing and Chinese IME/German layout where available. CopyQ should confirm that expansion never touches the clipboard.
 
 ### 7.3 Shell Keys is separate from Key Map
 
-`keyboard-shell.exe` and `keyboard-shell.toml` own suppression independently of
-`keyboard-keymap`. `Suspend Shell Keys` is an immediate, non-persistent menu
-toggle: suspend uninstalls the hook, resume restores the configured bindings.
-The two plugins share only kit code, never recognizer or suspension state.
+`keyboard-shell.exe` and `keyboard-shell.toml` own suppression independently of `keyboard-keymap`. `Suspend Shell Keys` is an immediate, non-persistent menu toggle: suspend uninstalls the hook, resume restores the configured bindings. The two plugins share only kit code, never recognizer or suspension state.
 
 - Existing suppress-only Win bindings move here from `desktop-tools.toml`.
 - `Win+C` remains suppressed; the reference's calculator mapping is not ported.
 - `Win+E` remains suppressed only until the window app toggle replaces it.
-- Lock arbitration and repeat rules follow §8. No clipboard, calculator, date,
-  AltGr or numpad special case is reintroduced through this module.
+- Lock arbitration and repeat rules follow §8. No clipboard, calculator, date, AltGr or numpad special case is reintroduced through this module.
 
 ## 8. Host and shared-kit prerequisites
 
 These are corrections required by the audit, not optional polish:
 
-1. **Drain IPC on every wakeup.** The current stdout reader posts wakeup 2,
-   while the host loop only runs lifecycle work for wakeup 1. Status/menu events
-   can otherwise wait for the 500 ms timer.
-2. **Graceful stop with timeout.** Current stop writes `quit` and immediately
-   force-kills the tree. Introduce a `Stopping` state reaped by the host timer:
-   wait up to 2 s, then kill the tree. Taskbar must get time to restore hidden
-   and centered state; screen must get time to stop/mux recording. Never block
-   the host UI thread for the full timeout.
-3. **Hosted failures are non-modal.** Single-instance and startup failures go
-   to stderr and exit nonzero; no background plugin waits behind a message box.
-4. **Hosted notifications use the host.** Add the specified notify event and
-   route system notifications through the single tray identity. Command/silent
-   remain plugin-local options. No hosted plugin calls `Shell_NotifyIconW`.
-5. **Profile and autostart migration:** `--profile` >
-   `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > exe `Profile/User`.
-   Quote autostart executable paths. Migrate old Run values to one
-   `desktop-tools` value; do not leave two hosts starting at login.
-6. **Editor parity:** shared Edit Config supports `EDITOR` then `VISUAL`, with
-   the existing safe quoting behavior. Window's second presets file gets a
-   plugin-contributed Edit Presets action.
-7. **Lock arbitration:** the keyboard locker publishes a named lock-state
-   event/shared flag. Other low-level hooks pass events while it is set so the
-   locker can swallow them regardless of hook installation order. Otherwise
-   window or layout hooks could still act while the keyboard is locked.
-8. **Hotkey repeat policy:** a hook result distinguishes pass, swallow+dispatch
-   and swallow-only. Non-idempotent toggles use swallow-only on auto-repeat;
-   current repeatable actions retain their behavior.
+1. **Drain IPC on every wakeup.** The current stdout reader posts wakeup 2, while the host loop only runs lifecycle work for wakeup 1. Status/menu events can otherwise wait for the 500 ms timer.
+2. **Graceful stop with timeout.** Current stop writes `quit` and immediately force-kills the tree. Introduce a `Stopping` state reaped by the host timer: wait up to 2 s, then kill the tree. Taskbar must get time to restore hidden and centered state; screen must get time to stop/mux recording. Never block the host UI thread for the full timeout.
+3. **Hosted failures are non-modal.** Single-instance and startup failures go to stderr and exit nonzero; no background plugin waits behind a message box.
+4. **Hosted notifications use the host.** Add the specified notify event and route system notifications through the single tray identity. Command/silent remain plugin-local options. No hosted plugin calls `Shell_NotifyIconW`.
+5. **Profile and autostart migration:** `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > exe `Profile/User`. Quote autostart executable paths. Migrate old Run values to one `desktop-tools` value; do not leave two hosts starting at login.
+6. **Editor parity:** shared Edit Config supports `EDITOR` then `VISUAL`, with the existing safe quoting behavior. Window's second presets file gets a plugin-contributed Edit Presets action.
+7. **Lock arbitration:** the keyboard locker publishes a named lock-state event/shared flag. Other low-level hooks pass events while it is set so the locker can swallow them regardless of hook installation order. Otherwise window or layout hooks could still act while the keyboard is locked.
+8. **Hotkey repeat policy:** a hook result distinguishes pass, swallow+dispatch and swallow-only. Non-idempotent toggles use swallow-only on auto-repeat; current repeatable actions retain their behavior.
 
 ### Shared-kit extraction order
 
 Import exact copies first, then unify one consumer at a time:
 
 1. profile resolver, legacy import and modified-time helpers;
-2. key/combo parser union (`Enter`, `Snapshot`, `Pause`, `AltGr`, `CapsLock`,
-   numpad and OEM aliases) with compatibility tests;
-3. hotkey registration (both HWND-less and HWND-owned, partial-failure lists,
-   suspend/resume);
+2. key/combo parser union (`Enter`, `Snapshot`, `Pause`, `AltGr`, `CapsLock`, numpad and OEM aliases) with compatibility tests;
+3. hotkey registration (both HWND-less and HWND-owned, partial-failure lists, suspend/resume);
 4. menu model, IPC and native tray rendering;
 5. single instance, quoted autostart, editor and notification helpers;
 6. generic Win-combo hook and lock gate;
 7. geometry only where semantics are actually equal.
 
-Do not force the two different `SizeSpec` models together during the move.
-Do not deduplicate taskbar geometry merely because types share the name `Rect`.
-Do not rewrite physical drag, UIA/COM, OCR, recording or hook logic for style.
+Do not force the two different `SizeSpec` models together during the move. Do not deduplicate taskbar geometry merely because types share the name `Rect`. Do not rewrite physical drag, UIA/COM, OCR, recording or hook logic for style.
 
 ## 9. `screen-tools-rs` rename boundary
 
-The rename is a standalone phase before host integration. It includes all of
-the following; renaming only the Cargo package is incomplete:
+The rename is a standalone phase before host integration. It includes all of the following; renaming only the Cargo package is incomplete:
 
 - workspace/package/exe, plugin id and `screen-tools.toml`;
-- one-time import of exe-adjacent/profile `dt-ocr.toml`, never overwriting an
-  existing new config;
+- one-time import of exe-adjacent/profile `dt-ocr.toml`, never overwriting an existing new config;
 - log, mutex, temp directories, temp-file prefixes and default output names;
 - capture/record default directories with documented old-file retention;
 - tray/menu labels, build resource and icon filename;
-- every owned Win32 class/title **and** `capture.rs`'s `OWN_CLASSES` in the same
-  change, so capture cannot start including the tool's own overlays;
-- rebuild/freshness scripts, process cleanup for old and new exe names, CI and
-  release archives;
-- unit/integration scripts, external physical-test harnesses, README/ROADMAP/
-  AGENTS and cross-repo links;
-- a new Scoop manifest/release mapping when release work is reached. The old
-  AHK `screen-ocr` manifest is a different product and is not overwritten.
+- every owned Win32 class/title **and** `capture.rs`'s `OWN_CLASSES` in the same change, so capture cannot start including the tool's own overlays;
+- rebuild/freshness scripts, process cleanup for old and new exe names, CI and release archives;
+- unit/integration scripts, external physical-test harnesses, README/ROADMAP/ AGENTS and cross-repo links;
+- a new Scoop manifest/release mapping when release work is reached. The old AHK `screen-ocr` manifest is a different product and is not overwritten.
 
-Temp cleanup recognizes both old and new prefixes for one release. Old capture
-and recording files are never moved or deleted automatically.
+Temp cleanup recognizes both old and new prefixes for one release. Old capture and recording files are never moved or deleted automatically.
 
-`scale` does not move in the rename commit. `dt-common` does not get a separate
-cosmetic rename if it will immediately be folded into the merged workspace.
+`scale` does not move in the rename commit. `dt-common` does not get a separate cosmetic rename if it will immediately be folded into the merged workspace.
 
 ## 10. Implementation phases and gates
 
-No phase starts until the previous phase's checklist is signed off. Commits are
-per phase or smaller; there is no single bulk “merge everything” commit.
+No phase starts until the previous phase's checklist is signed off. Commits are per phase or smaller; there is no single bulk “merge everything” commit.
 
 ### P0 — Design record (this phase)
 
 - Record architecture, ownership, feature contracts and phase gates here.
 - No product code changes.
 
-Done when the user approves the design, including the proposed swap hotkey and
-the static KeyMap contract in §7.
+Done when the user approves the design, including the proposed swap hotkey and the static KeyMap contract in §7.
 
 ### P1 — Prove and repair the existing host
 
-**Status 2026-11-06: signed off.** §8 items 1–4, disabled→Restart state
-consistency and native-before-external ordering passed automated and physical
-checks. The previous single-repo P2–P6/P8 baseline is also accepted. Build
-identity and results are recorded in `keyboard-tools-rs/CHECKLIST.md` under
-“Merge P1 — host readiness”.
+**Status 2026-11-06: signed off.** §8 items 1–4, disabled→Restart state consistency and native-before-external ordering passed automated and physical checks. The previous single-repo P2–P6/P8 baseline is also accepted. Build identity and results are recorded in `keyboard-tools-rs/CHECKLIST.md` under “Merge P1 — host readiness”.
 
 Work first in `keyboard-tools-rs`; do not move code yet.
 
@@ -731,301 +462,98 @@ Work first in `keyboard-tools-rs`; do not move code yet.
 - Complete the existing P8 one-tray physical checklist for all five plugins.
 - Record actual exe paths/timestamps/hashes and physical results in CHECKLIST.
 
-Gate: one tray, all menu actions, no hosted dialogs, notifications, graceful
-quit and no orphaned children pass physically.
+Gate: one tray, all menu actions, no hosted dialogs, notifications, graceful quit and no orphaned children pass physically.
 
 ### P2 — Bootstrap `desktop-tools`
 
-**Status 2026-11-06: signed off.** Hosted identity/grouping/lifecycle/autostart,
-host exit and the standalone keyboard-switch recheck all passed. See
-`CHECKLIST.md`.
+**Status 2026-11-06: signed off.** Hosted identity/grouping/lifecycle/autostart, host exit and the standalone keyboard-switch recheck all passed. See `CHECKLIST.md`.
 
 - Import `keyboard-tools-rs` host/kit/plugin/five plugins exactly.
-- Rename the host to `desktop-tools`, add profile/autostart compatibility and
-  four-group menu metadata and native-before-external ordering.
+- Rename the host to `desktop-tools`, add profile/autostart compatibility and four-group menu metadata and native-before-external ordering.
 - Stage flat runtime plugins; keep standalone plugin behavior.
 - Add explicit repo-local target-dir handling to every build/CI script.
 
-Gate: the same P8 physical checklist passes from `desktop-tools`, with only the
-new host identity and grouped menu as intentional differences.
+Gate: the same P8 physical checklist passes from `desktop-tools`, with only the new host identity and grouped menu as intentional differences.
 
 ### P3 — Import and modularize window
 
-**Status 2026-11-07:** behavior import, feature ownership and P3c config split
-have 131 passing tests (plus eight intentionally ignored real-desktop tests),
-clean fmt/clippy/release/staging, six-plugin smoke and real wire-v3 checks for
-module reload, invalid-config rollback and Suspend/Resume/Quit. Hosted and
-standalone physical passes are signed off. Wire v3 adds nested submenus; use one
-staged package for host and all plugins.
+**Status 2026-11-07:** behavior import, feature ownership and P3c config split have 131 passing tests (plus eight intentionally ignored real-desktop tests), clean fmt/clippy/release/staging, six-plugin smoke and real wire-v3 checks for module reload, invalid-config rollback and Suspend/Resume/Quit. Hosted and standalone physical passes are signed off. Wire v3 adds nested submenus; use one staged package for host and all plugins.
 
-- P3a: import `desktop-tools-rs` as `window-tools`; add profile/plugin/no-tray and
-  menu IPC.
-- Migrate config/presets and autostart once; keep `--action`, `--pid`, `--config`
-  and X11 standalone behavior.
-- P3b (approved 2026-11-06): extract the §4.1 native modules and their menu structure
-  one at a time, with tests after each extraction; do not add feature redesign.
-- P3c (approved 2026-11-07, after the P3 behavior baseline): give each native
-  module its own config schema/parser/tests and edit entry; validate cross-file
-  hotkey conflicts and reload all module configs atomically. Preserve legacy
-  `window-tools.toml` compatibility and never silently rewrite user comments.
-- Temporarily keep current screen/suppress behavior until their owning phases,
-  so there is no feature gap during migration.
+- P3a: import `desktop-tools-rs` as `window-tools`; add profile/plugin/no-tray and menu IPC.
+- Migrate config/presets and autostart once; keep `--action`, `--pid`, `--config` and X11 standalone behavior.
+- P3b (approved 2026-11-06): extract the §4.1 native modules and their menu structure one at a time, with tests after each extraction; do not add feature redesign.
+- P3c (approved 2026-11-07, after the P3 behavior baseline): give each native module its own config schema/parser/tests and edit entry; validate cross-file hotkey conflicts and reload all module configs atomically. Preserve legacy `window-tools.toml` compatibility and never silently rewrite user comments.
+- Temporarily keep current screen/suppress behavior until their owning phases, so there is no feature gap during migration.
 
-Gate: all current window/desktop/QuickSwitch/mouse/undo physical checks pass,
-plus hosted Reload/Restart/Exit and standalone parity.
+Gate: all current window/desktop/QuickSwitch/mouse/undo physical checks pass, plus hosted Reload/Restart/Exit and standalone parity.
 
 ### P4 — Add Key Map and move shell suppression
 
-**P4a status 2026-11-07:** after physical feedback, suppression is a separate
-`keyboard-shell` / **Shell Keys** plugin with a real suspend/resume menu. The
-shared hook, 67-binding import and Window ownership removal pass 140 tests,
-clippy, release/staging and seven-plugin smoke. Wire probes verify both suspend
-transitions and clean Quit; the real profile preserves 67/67 rows. Physical
-P4 physical verification and sign-off completed on 2026-11-07 after fixing
-low-level Shift translation for `#`, `>` and uppercase triggers.
+**P4a status 2026-11-07:** after physical feedback, suppression is a separate `keyboard-shell` / **Shell Keys** plugin with a real suspend/resume menu. The shared hook, 67-binding import and Window ownership removal pass 140 tests, clippy, release/staging and seven-plugin smoke. Wire probes verify both suspend transitions and clean Quit; the real profile preserves 67/67 rows. Physical P4 physical verification and sign-off completed on 2026-11-07 after fixing low-level Shift translation for `#`, `>` and uppercase triggers.
 
 Split into reviewable substeps:
 
-- P4a: the separate Shell Keys plugin owns suppression; window ignores migrated
-  suppress rows. It temporarily retains `Win+E` suppression until P7 installs
-  the app toggle, so Explorer never regains that key during migration. `Win+C`
-  stays suppressed. Verify every default Win binding, not a spot check, and
-  verify lock arbitration.
-- P4b: implement only the user-defined static mapping engine and its exact
-  replacement/reset/config-validation state machine. No calculator, dynamic
-  dates, AltGr/numpad special cases or clipboard conversion.
+- P4a: the separate Shell Keys plugin owns suppression; window ignores migrated suppress rows. It temporarily retains `Win+E` suppression until P7 installs the app toggle, so Explorer never regains that key during migration. `Win+C` stays suppressed. Verify every default Win binding, not a spot check, and verify lock arbitration.
+- P4b: implement only the user-defined static mapping engine and its exact replacement/reset/config-validation state machine. No calculator, dynamic dates, AltGr/numpad special cases or clipboard conversion.
 
-Gate: §7's mapping and physical text comparisons pass with no residual/extra
-trigger character; no hotkey/hook regression in locker, switch or window; no
-trigger/replacement text appears in logs and expansion never touches clipboard.
+Gate: §7's mapping and physical text comparisons pass with no residual/extra trigger character; no hotkey/hook regression in locker, switch or window; no trigger/replacement text appears in logs and expansion never touches clipboard.
 
 ### P5 — Import taskbar
 
-**Signed 2026-11-07:** hosted and standalone physical passes are complete; 177
-workspace tests and clippy pass.
-Taskbar is now one process with `taskbar-center` / `taskbar-hidden` /
-`taskbar-pin` crates, three alphabetically ordered feature submenus and separate
-TOMLs. Existing aggregates migrate to split files plus backups; neither Window
-nor Taskbar exposes a runtime aggregate config entry. Real wire verifies nested
-descriptions/separators, Suspend/Unpin/Quit and hotkey ownership; diagnostics
-run against the real Explorer and nine-plugin smoke passes. A real hidden-taskbar
-graceful Disable restored the taskbar; Enable restored its hotkey and original
-core file. Hosted and standalone physical acceptance is signed. Standalone
-regression testing exposed and fixed stable MenuId dispatch; group Suspend now
-pauses Center/Pin and restores Center's saved layout in addition to suspending
-the Hidden hotkey. Standalone Exit and worker cleanup were physically verified.
+**Signed 2026-11-07:** hosted and standalone physical passes are complete; 177 workspace tests and clippy pass. Taskbar is now one process with `taskbar-center` / `taskbar-hidden` / `taskbar-pin` crates, three alphabetically ordered feature submenus and separate TOMLs. Existing aggregates migrate to split files plus backups; neither Window nor Taskbar exposes a runtime aggregate config entry. Real wire verifies nested descriptions/separators, Suspend/Unpin/Quit and hotkey ownership; diagnostics run against the real Explorer and nine-plugin smoke passes. A real hidden-taskbar graceful Disable restored the taskbar; Enable restored its hotkey and original core file. Hosted and standalone physical acceptance is signed. Standalone regression testing exposed and fixed stable MenuId dispatch; group Suspend now pauses Center/Pin and restores Center's saved layout in addition to suspending the Hidden hotkey. Standalone Exit and worker cleanup were physically verified.
 
 - Add profile/hosted menu/IPC while preserving diagnostics and standalone mode.
 - Keep existing taskbar algorithms unchanged.
 - Exercise graceful disable/restart/quit, including forced timeout behavior.
 
-Gate: `--dump`, `--inspect`, `--once`, pin ordering, native/legacy centering,
-hide/show, snapped windows and all restore-on-quit paths pass physically with
-one host tray and one autostart entry.
+Gate: `--dump`, `--inspect`, `--once`, pin ordering, native/legacy centering, hide/show, snapped windows and all restore-on-quit paths pass physically with one host tray and one autostart entry.
 
 ### P6 — Rename and import screen
 
-- P6a: perform the complete `screen-tools-rs` rename in the old repo and verify
-  the existing OCR/capture/recording physical suite. **Code/automated checks
-  completed 2026-11-07** in old-repo commit `034d0e7`: 116 tests, clippy,
-  release, hotkey occupation, new-instance mutex, config byte preservation and
-  real renamed window classes pass. The documented `tools/physical.ps1` is
-  absent; standalone tray, draw/resize, capture/OCR and Ctrl+Alt+R recording
-  were physically signed on 2026-11-07.
-- P6b baseline: `screen-tools` is a hosted Screen plugin with shared profile
-  and config migration, native-before-external registration, host notifications,
-  custom Win32 IPC wakeup and no legacy hosted Quit hotkey. The original capture,
-  OCR, recording, overlay and CLI code remains intact for subsequent per-module
-  commits. Kit now owns the shared layout primitives; `window-core` re-exports
-  them. Hosted Suspend releases/re-registers Screen hotkeys independently.
-  Quit drops COM-owning frames before `CoUninitialize`; the real wire probe
-  verifies exit code 0 rather than mere process disappearance.
-- P6b module commit 1: `screen-record` owns recording, audio, auto-stop and
-  cleanup. The composition root still owns its hotkey and frame coordination;
-  environment expansion is shared through kit. All six recording/audio tests
-  moved with the implementation, and the hosted wire/ten-plugin smoke stayed green.
-- P6b module commit 2: `screen-capture` owns pixels, target selection, clipboard
-  and PNG/file-dialog operations. The composition-root facade retains only
-  capture transitions involving Frame or Pin, so feature code has no reverse UI
-  dependency. All five capture tests moved; workspace tests and final wire/smoke
-  checks passed.
-- P6b module commit 3: `screen-ocr` owns Windows/RapidOCR/Tesseract engines,
-  text layout, automatic sampling and the embedded Python worker. A narrow
-  `FrameOps` adapter and UI callbacks preserve overlay coordination without a
-  feature-to-root dependency. All 23 OCR tests moved; a real staged run completed
-  frame/capture/OCR/result and exited cleanly without clipboard writes.
-- P6b module commit 4: `screen-draw` owns Frame, selection overlays, OCR Mask,
-  Pin and per-virtual-desktop frame coordination. Flameshot handoff initially
-  moved here with the Frame code, then received its P6c feature crate below.
-  The composition root no longer contains those Win32 implementations; real OCR
-  and hosted lifecycle checks remain green.
-- P6b menu/config completion: hosted and standalone shared alphabetical Capture /
-  Draw / OCR / Record submenus and split configs, initially with root-only Screen actions.
-  The real legacy profile migrated without losing effective values; hosted
-  physical acceptance and standalone native-menu/Exit pass B are signed off.
-- Multi-monitor Frame regression: `WM_WINDOWPOSCHANGING` previously clamped a
-  proposed cross-monitor rectangle against the frame's old monitor. It now uses
-  `MonitorFromRect` on the proposed rectangle. The same real secondary-monitor
-  probe failed before and passes after for both `Ctrl+Alt+W` and pointer drawing;
-  the explicit multi-monitor unit test, OCR cycle and ten-plugin smoke also pass.
-  A second physical regression was a trailing Draw hotkey about 300 ms after
-  mouse-up: it reopened the overlay and hid the new frame. Draw now ignores
-  re-entry while its overlay is active and for 500 ms after actual completion;
-  the red/green probe injects that trailing event and checks visible cyan pixels.
-  The user physically confirmed the secondary-monitor Draw retry is normal.
-- P6b: import into `domains/screen`, add hosted/profile behavior, then extract
-  draw/capture/OCR/record one module per commit with tests after each. Code,
-  automated checks and hosted/standalone physical sign-off are complete. Power is
-  deliberately transferred from Window in P6c, not invented during this import.
-  Final hosted/standalone menus use alphabetical Capture / Draw / OCR / Record
-  submenus with descriptions, separators and per-feature Edit Config entries.
-  Split configs are `screen-capture.toml` (capture/editor), `screen-draw.toml`
-  (Frame/Pin and their bindings), `screen-ocr.toml` (OCR/Mask/notify), and
-  `screen-record.toml`; transitional `screen-actions.toml` owns only scale and
-  Flameshot until P6c moves them. The aggregate `screen-tools.toml` migrates
-  once without overwriting split files and is archived as `.legacy.toml`.
-  Reload reads every file and checks one shared hotkey namespace before applying.
-- P6c: `toggleScreen` now lives in `screen-power`, with `screen-power.toml`,
-  a Power submenu and one-time non-destructive import from `window-actions.toml`.
-  Automated migration, ownership, wire-menu, Quit and ten-plugin checks pass;
-  physical power/wake acceptance is signed off. `scale` now lives in
-  `window-resize`, with independent `window-scale.toml` imported once from
-  `screen-actions.toml`; the existing `window-resize.toml` and source file are
-  never rewritten. Its Resize submenu has separate Resize / Scale / presets
-  entries. Migration, real DWM overlay toggle, clean Quit and ten-plugin checks
-  pass; physical zoom acceptance, including Scale with a live Screen Frame, is
-  signed off. Flameshot handoff is now extracted as described below.
-  Keep these calls in their current owning processes; add no frame IPC.
-- P6c Flameshot handoff: `flameshot-handoff` owns executable discovery,
-  daemon/GUI handoff, timeout and external-session diagnostics. Draw still owns
-  Frame hide/failure-restore through narrow callbacks; no process or frame IPC
-  was added. `screen-flameshot.toml` imports `[external].flameshot` once without
-  rewriting `screen-actions.toml`; existing target files win. Runtime reload and
-  menus no longer use the transitional actions file. Native Screen modules stay
-  alphabetical and Flameshot Handoff is last as an external integration. Final
-  binaries verify six wire menus, missing-executable Frame recovery, clean Quit,
-  292 workspace tests, clippy and ten-plugin smoke. Successful annotation and
-  the menu/config entries are physically signed.
-- An active Flameshot handoff temporarily unregisters Screen's global hotkeys,
-  except monitor Power; ignoring a dispatched `RegisterHotKey` action is not
-  enough because Windows has already swallowed the external editor's shortcut.
-  Start/end callbacks post to the existing UI message loop, which owns hotkey
-  release/restoration. Suspend/Resume and config reload preserve the handoff
-  ownership state. Host lifecycle remains available. Recording also rejects
-  Frame-local Ctrl+F, so the two sessions cannot overlap. Normal exit,
-  cancellation and launch failure all release the gate and restore hotkeys.
-  Frame-local WM_CHAR/WM_KEYDOWN also check the same session flag: hidden windows
-  can still receive posted input, so visibility alone is not an input lock.
-  The daemon launcher reuses an existing same-name Flameshot process instead of
-  unconditionally spawning another daemon; the session flag prevents reentry.
-  Real probes reproduced Screen retaining the configured global Ctrl+T before
-  the fix, then verified its release and restoration, retained Power, blocked
-  posted Ctrl+A and duplicate Ctrl+F, no second daemon launch, Draw restoration,
-  and clean Quit. Physical Ctrl+T pinning, Draw restoration and repeated handoff
-  without additional Flameshot instances are signed off; P6c is complete.
+- P6a: perform the complete `screen-tools-rs` rename in the old repo and verify the existing OCR/capture/recording physical suite. **Code/automated checks completed 2026-11-07** in old-repo commit `034d0e7`: 116 tests, clippy, release, hotkey occupation, new-instance mutex, config byte preservation and real renamed window classes pass. The documented `tools/physical.ps1` is absent; standalone tray, draw/resize, capture/OCR and Ctrl+Alt+R recording were physically signed on 2026-11-07.
+- P6b baseline: `screen-tools` is a hosted Screen plugin with shared profile and config migration, native-before-external registration, host notifications, custom Win32 IPC wakeup and no legacy hosted Quit hotkey. The original capture, OCR, recording, overlay and CLI code remains intact for subsequent per-module commits. Kit now owns the shared layout primitives; `window-core` re-exports them. Hosted Suspend releases/re-registers Screen hotkeys independently. Quit drops COM-owning frames before `CoUninitialize`; the real wire probe verifies exit code 0 rather than mere process disappearance.
+- P6b module commit 1: `screen-record` owns recording, audio, auto-stop and cleanup. The composition root still owns its hotkey and frame coordination; environment expansion is shared through kit. All six recording/audio tests moved with the implementation, and the hosted wire/ten-plugin smoke stayed green.
+- P6b module commit 2: `screen-capture` owns pixels, target selection, clipboard and PNG/file-dialog operations. The composition-root facade retains only capture transitions involving Frame or Pin, so feature code has no reverse UI dependency. All five capture tests moved; workspace tests and final wire/smoke checks passed.
+- P6b module commit 3: `screen-ocr` owns Windows/RapidOCR/Tesseract engines, text layout, automatic sampling and the embedded Python worker. A narrow `FrameOps` adapter and UI callbacks preserve overlay coordination without a feature-to-root dependency. All 23 OCR tests moved; a real staged run completed frame/capture/OCR/result and exited cleanly without clipboard writes.
+- P6b module commit 4: `screen-draw` owns Frame, selection overlays, OCR Mask, Pin and per-virtual-desktop frame coordination. Flameshot handoff initially moved here with the Frame code, then received its P6c feature crate below. The composition root no longer contains those Win32 implementations; real OCR and hosted lifecycle checks remain green.
+- P6b menu/config completion: hosted and standalone shared alphabetical Capture / Draw / OCR / Record submenus and split configs, initially with root-only Screen actions. The real legacy profile migrated without losing effective values; hosted physical acceptance and standalone native-menu/Exit pass B are signed off.
+- Multi-monitor Frame regression: `WM_WINDOWPOSCHANGING` previously clamped a proposed cross-monitor rectangle against the frame's old monitor. It now uses `MonitorFromRect` on the proposed rectangle. The same real secondary-monitor probe failed before and passes after for both `Ctrl+Alt+W` and pointer drawing; the explicit multi-monitor unit test, OCR cycle and ten-plugin smoke also pass. A second physical regression was a trailing Draw hotkey about 300 ms after mouse-up: it reopened the overlay and hid the new frame. Draw now ignores re-entry while its overlay is active and for 500 ms after actual completion; the red/green probe injects that trailing event and checks visible cyan pixels. The user physically confirmed the secondary-monitor Draw retry is normal.
+- P6b: import into `domains/screen`, add hosted/profile behavior, then extract draw/capture/OCR/record one module per commit with tests after each. Code, automated checks and hosted/standalone physical sign-off are complete. Power is deliberately transferred from Window in P6c, not invented during this import. Final hosted/standalone menus use alphabetical Capture / Draw / OCR / Record submenus with descriptions, separators and per-feature Edit Config entries. Split configs are `screen-capture.toml` (capture/editor), `screen-draw.toml` (Frame/Pin and their bindings), `screen-ocr.toml` (OCR/Mask/notify), and `screen-record.toml`; transitional `screen-actions.toml` owns only scale and Flameshot until P6c moves them. The aggregate `screen-tools.toml` migrates once without overwriting split files and is archived as `.legacy.toml`. Reload reads every file and checks one shared hotkey namespace before applying.
+- P6c: `toggleScreen` now lives in `screen-power`, with `screen-power.toml`, a Power submenu and one-time non-destructive import from `window-actions.toml`. Automated migration, ownership, wire-menu, Quit and ten-plugin checks pass; physical power/wake acceptance is signed off. `scale` now lives in `window-resize`, with independent `window-scale.toml` imported once from `screen-actions.toml`; the existing `window-resize.toml` and source file are never rewritten. Its Resize submenu has separate Resize / Scale / presets entries. Migration, real DWM overlay toggle, clean Quit and ten-plugin checks pass; physical zoom acceptance, including Scale with a live Screen Frame, is signed off. Flameshot handoff is now extracted as described below. Keep these calls in their current owning processes; add no frame IPC.
+- P6c Flameshot handoff: `flameshot-handoff` owns executable discovery, daemon/GUI handoff, timeout and external-session diagnostics. Draw still owns Frame hide/failure-restore through narrow callbacks; no process or frame IPC was added. `screen-flameshot.toml` imports `[external].flameshot` once without rewriting `screen-actions.toml`; existing target files win. Runtime reload and menus no longer use the transitional actions file. Native Screen modules stay alphabetical and Flameshot Handoff is last as an external integration. Final binaries verify six wire menus, missing-executable Frame recovery, clean Quit, 292 workspace tests, clippy and ten-plugin smoke. Successful annotation and the menu/config entries are physically signed.
+- An active Flameshot handoff temporarily unregisters Screen's global hotkeys, except monitor Power; ignoring a dispatched `RegisterHotKey` action is not enough because Windows has already swallowed the external editor's shortcut. Start/end callbacks post to the existing UI message loop, which owns hotkey release/restoration. Suspend/Resume and config reload preserve the handoff ownership state. Host lifecycle remains available. Recording also rejects Frame-local Ctrl+F, so the two sessions cannot overlap. Normal exit, cancellation and launch failure all release the gate and restore hotkeys. Frame-local WM_CHAR/WM_KEYDOWN also check the same session flag: hidden windows can still receive posted input, so visibility alone is not an input lock. The daemon launcher reuses an existing same-name Flameshot process instead of unconditionally spawning another daemon; the session flag prevents reentry. Real probes reproduced Screen retaining the configured global Ctrl+T before the fix, then verified its release and restoration, retained Power, blocked posted Ctrl+A and duplicate Ctrl+F, no second daemon launch, Draw restoration, and clean Quit. Physical Ctrl+T pinning, Draw restoration and repeated handoff without additional Flameshot instances are signed off; P6c is complete.
 
-Gate: frame states, OCR engines/results/editing, image copy/save/pin, external
-handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all
-pass physically after every extraction. Verify that capture excludes every
-owned overlay class and that Flameshot still receives the current live frame.
+Gate: frame states, OCR engines/results/editing, image copy/save/pin, external handoffs, recording/audio/stop, monitor power/wake recovery and window zoom all pass physically after every extraction. Verify that capture excludes every owned overlay class and that Flameshot still receives the current live frame.
 
 ### P7 — Add window application toggles
 
-- Implement `window/app-toggle`: `ToggleDoubleCommander` on `Win+E` and
-  `ToggleWezTerm` on ``Ctrl+` `` with the §5 state machine. `window-tools`
-  links the module and exposes the actions after native window actions. In the
-  same phase, remove Shell Keys' temporary `Win+E` suppression so there is neither
-  a gap nor a duplicate owner.
-- Test absent/minimized/background/foreground/pending-launch states, multiple
-  WezTerm windows, auto-repeat, elevated focus failure and lock state.
+- Implement `window/app-toggle`: `ToggleDoubleCommander` on `Win+E` and `ToggleWezTerm` on ``Ctrl+` `` with the §5 state machine. `window-tools` links the module and exposes the actions after native window actions. In the same phase, remove Shell Keys' temporary `Win+E` suppression so there is neither a gap nor a duplicate owner.
+- Test absent/minimized/background/foreground/pending-launch states, multiple WezTerm windows, auto-repeat, elevated focus failure and lock state.
 - Confirm ``Alt+` `` and ``Alt+Shift+` `` still cycle same-app windows.
 
-Gate: every transition is physically checked; Explorer never opens on `Win+E`;
-holding either key cannot oscillate the window.
+Gate: every transition is physically checked; Explorer never opens on `Win+E`; holding either key cannot oscillate the window.
 
-Implementation: `window-app-toggle` is one Window module with independent TOML,
-full-path window matching, minimized-window restore, previous-application return
-and per-binding auto-repeat policy. Shell Keys now has 66 defaults and no `Win+E`.
-The final binary passed the real WezTerm focus/return/Quit probe using a temporary
-``Ctrl+Alt+` `` binding because CopyQ owned the default ``Ctrl+` `` at probe time.
-Physical `Win+E`/Explorer, previous-application return, no-duplicate restore and
-held-key behavior are signed off. CopyQ was moved to `Alt+D`, leaving ``Ctrl+` ``,
-``Alt+` `` and ``Alt+Shift+` `` unoccupied. P7 is complete; P8 may start.
+Implementation: `window-app-toggle` is one Window module with independent TOML, full-path window matching, minimized-window restore, previous-application return and per-binding auto-repeat policy. Shell Keys now has 66 defaults and no `Win+E`. The final binary passed the real WezTerm focus/return/Quit probe using a temporary ``Ctrl+Alt+` `` binding because CopyQ owned the default ``Ctrl+` `` at probe time. Physical `Win+E`/Explorer, previous-application return, no-duplicate restore and held-key behavior are signed off. CopyQ was moved to `Alt+D`, leaving ``Ctrl+` ``, ``Alt+` `` and ``Alt+Shift+` `` unoccupied. P7 is complete; P8 may start.
 
 ### P8 — Add `swapWindows`
 
-- Implement Armed/cancel/timeout, complete-rectangle exchange and composite
-  undo.
-- The default hotkey is explicitly approved; existing files are never rewritten
-  automatically, and the current profile receives only the reviewed binding.
+- Implement Armed/cancel/timeout, complete-rectangle exchange and composite undo.
+- The default hotkey is explicitly approved; existing files are never rewritten automatically, and the current profile receives only the reviewed binding.
 
-Implementation is complete in `window-rectangle` and the Window composition root.
-It uses per-window DWM insets, one atomic history group, bare-Esc registration only
-while Armed, the existing one-second reload tick for timeout, and per-binding
-no-repeat handling. Undo also cancels Armed. Unit tests and a real-window/hotkey
-probe cover commit, composite Undo, Esc, timeout, Reload, Suspend/Resume and Quit.
-The approved default is enabled in fresh configs and added explicitly to the
-current profile; its other bindings remain unchanged.
+Implementation is complete in `window-rectangle` and the Window composition root. It uses per-window DWM insets, one atomic history group, bare-Esc registration only while Armed, the existing one-second reload tick for timeout, and per-binding no-repeat handling. Undo also cancels Armed. Unit tests and a real-window/hotkey probe cover commit, composite Undo, Esc, timeout, Reload, Suspend/Resume and Quit. The approved default is enabled in fresh configs and added explicitly to the current profile; its other bindings remain unchanged.
 
-Gate passed physically: two apps visibly exchange slots; same-window/Esc/timeout/
-invalid/reload/suspend cancel; maximized/minimized cases do nothing; cross-monitor/
-DPI, long-press no-repeat and one-step undo pass. Keep X as select-and-swap only;
-U remains the explicit, exact one-step undo rather than overloading X with an
-implicit last-pair toggle.
+Gate passed physically: two apps visibly exchange slots; same-window/Esc/timeout/ invalid/reload/suspend cancel; maximized/minimized cases do nothing; cross-monitor/ DPI, long-press no-repeat and one-step undo pass. Keep X as select-and-swap only; U remains the explicit, exact one-step undo rather than overloading X with an implicit last-pair toggle.
 
 ### P9 — Consolidate, package and retire old products
 
-- Unify every suite/standalone executable and tray `.ico` in one visual style,
-  including normal/suspended/error/disabled states. Keep hosted and standalone
-  identities aligned and physically compare the final assets at common DPIs;
-  do not mix this cosmetic pass into behavior migrations.
-- **P9a icon contract:** one shared rounded-keycap renderer, with letters and
-  palettes identifying suite/plugin and host `D` replacing legacy keyboard `K`.
-  Normal uses the owning color, Suspended/Disabled are grey, Error has a red
-  badge, and Window's transient Reload success badge stays yellow. Embed the
-  normal icon in every Windows executable; native Screen resources include its
-  runtime states, while RGBA trays render the same glyph through kit. Generate
-  16/20/24/32/48/256 px entries from one source. Standalone Suspend updates the
-  icon, including Screen and Taskbar, without changing behavior. Window retains
-  Suspended+Success/Error combinations so Suspend cannot hide a reload result;
-  Locker reuses the grey slashed state while locked. Regenerate all assets with
-  `cargo run -p kit --example icons --target-dir target`; kit tests require all
-  checked-in files to match. Screen keeps group-icon resource 1 for its Frame
-  class and adds resources 2–4 for Suspended/Error/Disabled. P9a is physically
-  signed off in commit `86c29c8`: hosted identity, Explorer large/small icons,
-  and standalone Window/Screen/Taskbar/Shell Suspend/Resume all passed.
-- **P9b profile prerequisite complete:** the live profile was copied, not moved,
-  to `%LOCALAPPDATA%\desktop-tools\Profile\User`; all 45 file hashes matched,
-  the old profile remains byte-identical, and the host plus ten children now use
-  the new path. `DTTOOLS_PROFILE` is persisted in HKCU so existing autostart
-  resolves the same profile after login. This does not authorize deleting or
-  archiving any source repository yet.
-- **P9b package step complete:** `scripts/package.ps1` runs verification/staging,
-  refuses running repo-local executables, and produces one
-  `dist/desktop-tools-<version>-win64.zip` plus SHA-256. A fresh extraction with
-  an empty profile started all ten plugins; the archive has no profile files.
-  CI reuses `verify.ps1`; tag releases reuse `package.ps1` and reject a tag/workspace
-  version mismatch. Host `--version` and legacy/standalone autostart cleanup are
-  implemented. CI and the `v0.1.0` tag release both passed on GitHub. The
-  downloaded release zip matches its checksum and API digest; the new suite Scoop
-  manifest is published as scoop-pile commit `fde211e`. Installation from
-  `pile/desktop-tools`, shortcut creation, uninstall/reinstall profile persistence
-  and a real ten-plugin Scoop-path host all pass. The user physically confirmed
-  the new profile's Edit config path and ordinary hotkey/menu behavior, signing
-  off P9b on 2026-11-15. The six Scoop AHK manifests
-  are separate products and must not be rewritten. The still-running legacy AHK
-  KeyboardSwitch and KeyboardAutoSwitchBack processes were stopped; their two
-  Startup shortcuts were moved, not deleted, to
-  `%LOCALAPPDATA%\desktop-tools\legacy-startup-backup`. The replacement suite
-  retained all four probed hotkeys. Other packages, settings and repositories
-  remain untouched.
-- Apply shared-kit extraction one consumer per commit, repeating affected
-  physical checks.
+- Unify every suite/standalone executable and tray `.ico` in one visual style, including normal/suspended/error/disabled states. Keep hosted and standalone identities aligned and physically compare the final assets at common DPIs; do not mix this cosmetic pass into behavior migrations.
+- **P9a icon contract:** one shared rounded-keycap renderer, with letters and palettes identifying suite/plugin and host `D` replacing legacy keyboard `K`. Normal uses the owning color, Suspended/Disabled are grey, Error has a red badge, and Window's transient Reload success badge stays yellow. Embed the normal icon in every Windows executable; native Screen resources include its runtime states, while RGBA trays render the same glyph through kit. Generate 16/20/24/32/48/256 px entries from one source. Standalone Suspend updates the icon, including Screen and Taskbar, without changing behavior. Window retains Suspended+Success/Error combinations so Suspend cannot hide a reload result; Locker reuses the grey slashed state while locked. Regenerate all assets with `cargo run -p kit --example icons --target-dir target`; kit tests require all checked-in files to match. Screen keeps group-icon resource 1 for its Frame class and adds resources 2–4 for Suspended/Error/Disabled. P9a is physically signed off in commit `86c29c8`: hosted identity, Explorer large/small icons, and standalone Window/Screen/Taskbar/Shell Suspend/Resume all passed.
+- **P9b profile prerequisite complete:** the live profile was copied, not moved, to `%LOCALAPPDATA%\desktop-tools\Profile\User`; all 45 file hashes matched, the old profile remains byte-identical, and the host plus ten children now use the new path. `DTTOOLS_PROFILE` is persisted in HKCU so existing autostart resolves the same profile after login. This does not authorize deleting or archiving any source repository yet.
+- **P9b package step complete:** `scripts/package.ps1` runs verification/staging, refuses running repo-local executables, and produces one `dist/desktop-tools-<version>-win64.zip` plus SHA-256. A fresh extraction with an empty profile started all ten plugins; the archive has no profile files. CI reuses `verify.ps1`; tag releases reuse `package.ps1` and reject a tag/workspace version mismatch. Host `--version` and legacy/standalone autostart cleanup are implemented. CI and the `v0.1.0` tag release both passed on GitHub. The downloaded release zip matches its checksum and API digest; the new suite Scoop manifest is published as scoop-pile commit `fde211e`. Installation from `pile/desktop-tools`, shortcut creation, uninstall/reinstall profile persistence and a real ten-plugin Scoop-path host all pass. The user physically confirmed the new profile's Edit config path and ordinary hotkey/menu behavior, signing off P9b on 2026-11-15. The six Scoop AHK manifests are separate products and must not be rewritten. The still-running legacy AHK KeyboardSwitch and KeyboardAutoSwitchBack processes were stopped; their two Startup shortcuts were moved, not deleted, to `%LOCALAPPDATA%\desktop-tools\legacy-startup-backup`. The replacement suite retained all four probed hotkeys. Other packages, settings and repositories remain untouched.
+- Apply shared-kit extraction one consumer per commit, repeating affected physical checks.
 - Produce standalone and suite packages, update Scoop and release workflows.
-- Verify clean profile, upgrade with existing profile, uninstall preserving
-  profile and rollback of a failed plugin.
-- Only after the full suite is signed off, mark old repos archived/read-only.
-  Do not delete user profiles, outputs or old repositories automatically.
+- Verify clean profile, upgrade with existing profile, uninstall preserving profile and rollback of a failed plugin.
+- Only after the full suite is signed off, mark old repos archived/read-only. Do not delete user profiles, outputs or old repositories automatically.
 
 ## 11. Verification and build rules
 
@@ -1039,9 +567,7 @@ cargo build --release
 cargo check --target x86_64-unknown-linux-gnu   # portable standalone crates
 ```
 
-Every build command/script/CI job sets an explicit repo-local `CARGO_TARGET_DIR`.
-A repo-local `.cargo/config.toml` alone does not override the existing global
-environment variable. Before each physical hand-off:
+Every build command/script/CI job sets an explicit repo-local `CARGO_TARGET_DIR`. A repo-local `.cargo/config.toml` alone does not override the existing global environment variable. Before each physical hand-off:
 
 1. stop the owning old process/plugin;
 2. rebuild from the authoritative repository last;
@@ -1050,120 +576,47 @@ environment variable. Before each physical hand-off:
 5. relaunch that exact staged exe;
 6. separate automated evidence from the user's physical checklist.
 
-Hotkeys, hooks, tray state, focus, window geometry, clipboard, OCR, recording,
-layouts and Explorer/UIA behavior are never declared physically verified from
-unit tests alone. Existing external tools (Hotkey Detective, CopyQ and the
-project's PowerShell probes) remain part of the relevant checklists.
+Hotkeys, hooks, tray state, focus, window geometry, clipboard, OCR, recording, layouts and Explorer/UIA behavior are never declared physically verified from unit tests alone. Existing external tools (Hotkey Detective, CopyQ and the project's PowerShell probes) remain part of the relevant checklists.
 
 ## 12. Deferred or rejected work
 
-- **Rejected:** DLL plugins, one monolithic binary, per-plugin tray icons,
-  zip-only runtime, one giant config file, centralized host-mediated hotkeys.
-- **Deferred:** merging the five keyboard tools into one process; splitting
-  screen modules into separate processes until independent lifecycle/fault
-  isolation justifies a selection-session protocol; DDA/high-FPS recording;
-  Magpie-style shader scaling/input passthrough; merging the two different
-  resize-spec languages; hot-plug zip inbox; code signing; Linux host tray;
-  Wayland/macOS.
-- **Deferred — OBS recording bridge; trigger: the user chooses OBS as an active
-  recording backend.** Add an external `obs-cmd` backend under Screen Record,
-  preserving native FFmpeg as the default. Start with status, start/stop,
-  pause/resume and replay-buffer save; require an existing OBS 30+ / WebSocket v5
-  setup. Do not auto-launch OBS, put its password in TOML, or stop a recording
-  that Screen did not start. Frame-to-OBS source/crop mapping needs a separate
-  coordinate design and is not promised by process control alone.
-- Existing standalone X11 behavior remains where it already exists. The merged
-  host is Windows-first; no Linux regression claim is made without its own
-  checks.
+- **Rejected:** DLL plugins, one monolithic binary, per-plugin tray icons, zip-only runtime, one giant config file, centralized host-mediated hotkeys.
+- **Deferred:** merging the five keyboard tools into one process; splitting screen modules into separate processes until independent lifecycle/fault isolation justifies a selection-session protocol; DDA/high-FPS recording; Magpie-style shader scaling/input passthrough; merging the two different resize-spec languages; hot-plug zip inbox; code signing; Linux host tray; Wayland/macOS.
+- **Deferred — OBS recording bridge; trigger: the user chooses OBS as an active recording backend.** Add an external `obs-cmd` backend under Screen Record, preserving native FFmpeg as the default. Start with status, start/stop, pause/resume and replay-buffer save; require an existing OBS 30+ / WebSocket v5 setup. Do not auto-launch OBS, put its password in TOML, or stop a recording that Screen did not start. Frame-to-OBS source/crop mapping needs a separate coordinate design and is not promised by process control alone.
+- Existing standalone X11 behavior remains where it already exists. The merged host is Windows-first; no Linux regression claim is made without its own checks.
 
 ## 13. Original design approval record
 
-The original review items are resolved: the four-domain/process architecture is
-implemented; `Ctrl+Win+Alt+X` is approved and physically accepted for
-swapWindows; Key Map intentionally uses immediate matching and rejects prefix
-ambiguity. Current follow-up work is tracked below rather than in this historical
-approval section.
+The original review items are resolved: the four-domain/process architecture is implemented; `Ctrl+Win+Alt+X` is approved and physically accepted for swapWindows; Key Map intentionally uses immediate matching and rejects prefix ambiguity. Current follow-up work is tracked below rather than in this historical approval section.
 
 ## 14. Post-v0.1.0 TODO
 
-This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptance
-steps and does not duplicate this design queue. The user owns legacy cleanup and
-will exercise the local Scoop manifest installation. Taskbar Center/WinUI 3 work
-and failed-plugin rollback are not requested acceptance gates; do not attribute
-those audit ideas to the user.
+This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptance steps and does not duplicate this design queue. The user owns legacy cleanup and will exercise the local Scoop manifest installation. Taskbar Center/WinUI 3 work and failed-plugin rollback are not requested acceptance gates; do not attribute those audit ideas to the user.
 
 ### Maintenance gates
 
-- [ ] After sign-out/sign-in, confirm exactly one suite host, ten hosted plugins
-      and no legacy AHK or standalone Taskbar duplicate. Moving the old Startup
-      links did not verify a later login.
-- [x] Closed the recording guard with the real external tools: while recording,
-      `Ctrl+F` was rejected without starting Flameshot; normal stop produced 31
-      decodable frames. The full handoff mutex, hotkey release/restoration,
-      daemon reuse and clean Quit regression also passed.
-- Legacy tools/repositories and their cleanup are user-owned; the agent performs
-  no archival or deletion.
+- [ ] After sign-out/sign-in, confirm exactly one suite host, ten hosted plugins and no legacy AHK or standalone Taskbar duplicate. Moving the old Startup links did not verify a later login.
+- [x] Closed the recording guard with the real external tools: while recording, `Ctrl+F` was rejected without starting Flameshot; normal stop produced 31 decodable frames. The full handoff mutex, hotkey release/restoration, daemon reuse and clean Quit regression also passed.
+- Legacy tools/repositories and their cleanup are user-owned; the agent performs no archival or deletion.
 
 ### Generic defaults; personal configuration stays as examples (paused)
 
-- [ ] Paused by the user: do not change GoldenDict groups, App Toggle, Key Map or
-      other fresh-profile defaults in this work item. When resumed, validate only
-      in an isolated fresh profile and never rewrite the accepted live profile.
-      `Sarasa Term SC Nerd` remains a recommended/example OCR Mask font, not a
-      defect to remove. Empty GoldenDict search groups and Flameshot paths are
-      already suitable defaults.
-- [ ] Review policy defaults separately before changing them: forced US layout
-      on focus change, the 66-entry Shell Keys suppression list, CapsLock layout
-      switching and automatic Taskbar centering all change a fresh system
-      without an explicit feature gesture. Decide whether each needs an opt-in
-      setting or a disabled-by-default plugin; do not hide that policy decision
-      inside the example cleanup.
-- [ ] Add fresh-profile assertions for the selected policy: no active
-      user-specific executable paths, dictionary groups or text replacements.
-      Existing profiles and their accepted hotkeys remain unchanged.
+- [ ] Paused by the user: do not change GoldenDict groups, App Toggle, Key Map or other fresh-profile defaults in this work item. When resumed, validate only in an isolated fresh profile and never rewrite the accepted live profile. `Sarasa Term SC Nerd` remains a recommended/example OCR Mask font, not a defect to remove. Empty GoldenDict search groups and Flameshot paths are already suitable defaults.
+- [ ] Review policy defaults separately before changing them: forced US layout on focus change, the 66-entry Shell Keys suppression list, CapsLock layout switching and automatic Taskbar centering all change a fresh system without an explicit feature gesture. Decide whether each needs an opt-in setting or a disabled-by-default plugin; do not hide that policy decision inside the example cleanup.
+- [ ] Add fresh-profile assertions for the selected policy: no active user-specific executable paths, dictionary groups or text replacements. Existing profiles and their accepted hotkeys remain unchanged.
 
 ### Multi-step hotkeys (implemented)
 
-- [x] Kit owns a platform-independent `SequenceSet`: explicit combos are separated
-      by `>`, each step requires Ctrl/Alt/Win, consecutive steps have a 400 ms
-      window, and duplicate/prefix-ambiguous sequences and single/multi conflicts
-      are rejected. Unique combos are registered once, auto-repeat is disabled,
-      and pending state can be reset. Tests cover double-press, timeout,
-      three-step/shared-prefix dispatch, invalid plain keys and reset.
-- [x] GoldenDict Search converts legacy `!xx` / `alt+shift+zz` and explicit
-      sequences into the same matcher. A real hosted probe with a fake GoldenDict
-      executable verified two-step, three-step/shared-prefix, legacy double-press,
-      ordinary single-press arguments and clean Quit without opening the real
-      dictionary. Existing live bindings were not changed.
-- Extend the same adapter to another plugin only when that plugin has a concrete
-  multi-step binding; do not globally reserve plain-letter second steps.
+- [x] Kit owns a platform-independent `SequenceSet`: explicit combos are separated by `>`, each step requires Ctrl/Alt/Win, consecutive steps have a 400 ms window, and duplicate/prefix-ambiguous sequences and single/multi conflicts are rejected. Unique combos are registered once, auto-repeat is disabled, and pending state can be reset. Tests cover double-press, timeout, three-step/shared-prefix dispatch, invalid plain keys and reset.
+- [x] GoldenDict Search converts legacy `!xx` / `alt+shift+zz` and explicit sequences into the same matcher. A real hosted probe with a fake GoldenDict executable verified two-step, three-step/shared-prefix, legacy double-press, ordinary single-press arguments and clean Quit without opening the real dictionary. Existing live bindings were not changed.
+- Extend the same adapter to another plugin only when that plugin has a concrete multi-step binding; do not globally reserve plain-letter second steps.
 
 ### Standard Windows and portable/Scoop profile discovery
 
-- [ ] Resolve one absolute profile for host and all hosted plugins in this order:
-      explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`);
-      an existing exe-adjacent `Profile/User` for portable mode; otherwise
-      `%APPDATA%\desktop-tools\Profile\User`. The host continues passing that
-      resolved path to every child. Do not add a second `portable_config` alias:
-      Scoop-persisted `Profile/User` already provides mpv-style portable
-      semantics without another ambiguous source.
-- [ ] Keep release zips free of profile files so ordinary installs use the
-      Windows directory; creating `Profile/User` beside the exe opts a manual
-      zip into portable mode. Scoop continues to persist `Profile/User`.
-- [ ] Migrate this machine separately and reversibly: copy the verified current
-      `%LOCALAPPDATA%\desktop-tools\Profile\User` into Scoop's persist location,
-      compare hashes and test all plugins, Edit config paths and representative
-      hotkeys before removing `DTTOOLS_PROFILE`. Until then the explicit
-      environment override intentionally keeps the current profile authoritative.
-      Separate logs from roaming configuration later only if roaming becomes a
-      requirement; screenshots and videos retain their configured output paths.
+- [ ] Resolve one absolute profile for host and all hosted plugins in this order: explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`); an existing exe-adjacent `Profile/User` for portable mode; otherwise `%APPDATA%\desktop-tools\Profile\User`. The host continues passing that resolved path to every child. Do not add a second `portable_config` alias: Scoop-persisted `Profile/User` already provides mpv-style portable semantics without another ambiguous source.
+- [ ] Keep release zips free of profile files so ordinary installs use the Windows directory; creating `Profile/User` beside the exe opts a manual zip into portable mode. Scoop continues to persist `Profile/User`.
+- [ ] Migrate this machine separately and reversibly: copy the verified current `%LOCALAPPDATA%\desktop-tools\Profile\User` into Scoop's persist location, compare hashes and test all plugins, Edit config paths and representative hotkeys before removing `DTTOOLS_PROFILE`. Until then the explicit environment override intentionally keeps the current profile authoritative. Separate logs from roaming configuration later only if roaming becomes a requirement; screenshots and videos retain their configured output paths.
 
 ### Conditional technical debt, not scheduled feature work
 
-- [ ] Upgrade capture to Graphics Capture only if DirectComposition regions are
-      observed black/stale; upgrade recording from `gdigrab` to Desktop
-      Duplication when full-screen frame rate requires it. Add per-window OCR
-      compositing and per-desktop Pin isolation only if those limitations affect
-      real use. Consolidate remaining local Win32 monitor queries during the
-      planned shared-kit cleanup. Existing `shortcut:` comments retain the
-      concrete trigger conditions.
+- [ ] Upgrade capture to Graphics Capture only if DirectComposition regions are observed black/stale; upgrade recording from `gdigrab` to Desktop Duplication when full-screen frame rate requires it. Add per-window OCR compositing and per-desktop Pin isolation only if those limitations affect real use. Consolidate remaining local Win32 monitor queries during the planned shared-kit cleanup. Existing `shortcut:` comments retain the concrete trigger conditions.
