@@ -139,6 +139,21 @@ mod tests {
     }
 
     #[test]
+    fn default_suppressions_describe_their_windows_function() {
+        let entries: Vec<&str> = DEFAULT_CONFIG
+            .lines()
+            .filter(|line| line.trim_start().starts_with('"'))
+            .collect();
+        assert_eq!(entries.len(), 66);
+        for entry in entries {
+            let (_, description) = entry
+                .split_once('#')
+                .unwrap_or_else(|| panic!("missing Windows function for {entry}"));
+            assert!(description.trim().len() > 10, "empty description: {entry}");
+        }
+    }
+
+    #[test]
     fn rejects_duplicate_or_non_win_bindings() {
         assert!(parse("[shell]\nsuppress=[\"win+e\",\"win+e\"]").is_err());
         assert!(parse("[shell]\nsuppress=[\"ctrl+c\"]").is_err());

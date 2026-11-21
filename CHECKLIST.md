@@ -209,5 +209,11 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 
 - [x] Kit sequence tests pass for double-press, 400 ms timeout, three-step and shared-prefix candidates, conflict/plain-key rejection, unique registration and reset. Every sequence step requires Ctrl, Alt or Win.
 - [x] A real final-binary hosted probe with an isolated profile and fake GoldenDict executable passed two-step, three-step/shared-prefix, legacy `!xx`, ordinary single-press and clean Quit checks with correct group and clipboard arguments. The real dictionary and current bindings were untouched.
-- [x] Full format/workspace tests/Clippy/release/staging and ten-plugin smoke pass. Paused default-config edits were withdrawn; no Taskbar code or live profile was changed.
+- [x] Full format/workspace tests/Clippy/release/staging and ten-plugin smoke pass. Paused default-config semantic edits were withdrawn; no Taskbar code was changed.
 - [ ] User sign-out/sign-in gate remains: exactly one suite host, ten hosted plugins, and no legacy AHK or standalone Taskbar duplicate.
+
+## P10 follow-up — Quick Switch activation and Shell Keys reference
+
+- [x] Quick Switch automatically navigates a file dialog once per activation, with no automatic retry after success or failure. Leaving and returning to the dialog permits one new attempt; the manual `fileDialog` binding is unchanged. A real Save As dialog reproduced four initial/eight total attempts on the old release, then measured one initial/two total attempts on the new binary, with no periodic retry while focus stayed put.
+- [x] All 66 default Shell Keys entries have inline Windows-function descriptions. A parser test requires every entry to be documented; the live profile received comments only, with TOML semantic equality and unchanged binding order verified before replacement.
+- [ ] Physical pass: leave a Quick Switch-compatible file dialog open and confirm its folder/address field is not repeatedly refreshed. Switch to another window and back: it refreshes once more. Open **Shell Keys → Edit config** and confirm the inline Windows-function reference is visible.

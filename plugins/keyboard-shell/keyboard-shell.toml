@@ -1,70 +1,71 @@
 # Windows shell keys owned by Shell Keys, not window-tools or Key Map.
+# Inline comments describe the Windows function each default binding suppresses.
 [shell]
 suppress = [
-    "win+shift+=",
-    "win+-",
-    "win+esc",
-    "win+ctrl+enter",
-    "win+ctrl+n",
-    "win+ctrl+c",
-    "win+g",
-    "win+alt+r",
-    "win+alt+g",
-    "win+alt+m",
-    "win+alt+prtscn",
-    "win+h",
-    "win+v",
-    "win+.",
-    "win+;",
-    "win+w",
-    "win+c",
-    "win+p",
-    "win+k",
-    "win+f",
-    "win+pause",
-    "win+u",
-    "win+1",
-    "win+2",
-    "win+3",
-    "win+4",
-    "win+5",
-    "win+6",
-    "win+7",
-    "win+8",
-    "win+9",
-    "win+0",
-    "win+shift+0",
-    "win+ctrl+1",
-    "win+ctrl+2",
-    "win+ctrl+3",
-    "win+ctrl+4",
-    "win+ctrl+5",
-    "win+ctrl+6",
-    "win+ctrl+7",
-    "win+ctrl+8",
-    "win+ctrl+9",
-    "win+ctrl+0",
-    "win+t",
-    "win+b",
-    "win+left",
-    "win+right",
-    "win+up",
-    "win+down",
-    "win+shift+left",
-    "win+shift+right",
-    "win+shift+up",
-    "win+shift+down",
-    "win+m",
-    "win+shift+m",
-    "win+home",
-    "win+z",
-    "win+ctrl+d",
-    "win+ctrl+f4",
-    "win+ctrl+left",
-    "win+ctrl+right",
-    "win+i",
-    "win+s",
-    "win+x",
-    "win+shift+s",
-    "win+prtscn",
+    "win+shift+=",       # Magnifier: zoom in (Win+'+'; Shift+Win+= on a US layout).
+    "win+-",             # Magnifier: zoom out while Magnifier is running.
+    "win+esc",           # Magnifier: turn it off / exit.
+    "win+ctrl+enter",    # Narrator: start or stop the built-in screen reader.
+    "win+ctrl+n",        # Narrator: open settings.
+    "win+ctrl+c",        # Toggle color filters on or off.
+    "win+g",             # Open Xbox Game Bar.
+    "win+alt+r",         # Game Bar: start or stop screen/game recording.
+    "win+alt+g",         # Game Bar: "Record that" (requires background recording).
+    "win+alt+m",         # Game Bar: start or stop microphone recording.
+    "win+alt+prtscn",    # Game Bar: screenshot the active game (Videos\Captures by default).
+    "win+h",             # Open voice dictation / voice typing.
+    "win+v",             # Open clipboard history (enable it in Settings > System > Clipboard first).
+    "win+.",             # Open the emoji / kaomoji / symbol panel.
+    "win+;",             # Same as Win+.: open the emoji panel.
+    "win+w",             # Windows 11: Widgets; Windows 10: Windows Ink Workspace.
+    "win+c",             # Windows 11: Copilot or Search fallback; Windows 10: Cortana listening mode.
+    "win+p",             # Project: PC only / Duplicate / Extend / Second screen only.
+    "win+k",             # Windows 11: Cast from Quick Settings; Windows 10: Connect pane.
+    "win+f",             # Open Feedback Hub / the "Provide feedback" flow.
+    "win+pause",         # Settings > System > About (classic System Properties on Windows 10).
+    "win+u",             # Open Settings > Accessibility.
+    "win+1",             # Open or switch to the app pinned in taskbar slot 1.
+    "win+2",             # Open or switch to the app pinned in taskbar slot 2.
+    "win+3",             # Open or switch to the app pinned in taskbar slot 3.
+    "win+4",             # Open or switch to the app pinned in taskbar slot 4.
+    "win+5",             # Open or switch to the app pinned in taskbar slot 5.
+    "win+6",             # Open or switch to the app pinned in taskbar slot 6.
+    "win+7",             # Open or switch to the app pinned in taskbar slot 7.
+    "win+8",             # Open or switch to the app pinned in taskbar slot 8.
+    "win+9",             # Open or switch to the app pinned in taskbar slot 9.
+    "win+0",             # Open or switch to the app pinned in the 10th taskbar slot.
+    "win+shift+0",       # Open a new instance of the app pinned in the 10th taskbar slot.
+    "win+ctrl+1",        # Switch to the last active window of the app in taskbar slot 1.
+    "win+ctrl+2",        # Switch to the last active window of the app in taskbar slot 2.
+    "win+ctrl+3",        # Switch to the last active window of the app in taskbar slot 3.
+    "win+ctrl+4",        # Switch to the last active window of the app in taskbar slot 4.
+    "win+ctrl+5",        # Switch to the last active window of the app in taskbar slot 5.
+    "win+ctrl+6",        # Switch to the last active window of the app in taskbar slot 6.
+    "win+ctrl+7",        # Switch to the last active window of the app in taskbar slot 7.
+    "win+ctrl+8",        # Switch to the last active window of the app in taskbar slot 8.
+    "win+ctrl+9",        # Switch to the last active window of the app in taskbar slot 9.
+    "win+ctrl+0",        # Switch to the last active window of the app in the 10th taskbar slot.
+    "win+t",             # Cycle through taskbar apps (letter T, not Win+Tab).
+    "win+b",             # Focus the notification area / first system-tray icon.
+    "win+left",          # Snap the active window to the left half of the screen.
+    "win+right",         # Snap the active window to the right half of the screen.
+    "win+up",            # Maximize the active window / place it in the top snap zone.
+    "win+down",          # Minimize, or restore down from a maximized/snapped state.
+    "win+shift+left",    # Move the active window to the monitor on the left.
+    "win+shift+right",   # Move the active window to the monitor on the right.
+    "win+shift+up",      # Stretch vertically from top to bottom; width unchanged.
+    "win+shift+down",    # Restore/minimize vertically while keeping the width.
+    "win+m",             # Minimize all windows.
+    "win+shift+m",       # Restore the minimized windows.
+    "win+home",          # Minimize all except the active window; press again to restore.
+    "win+z",             # Windows 11: Snap layouts; older Windows: full-screen app-command bar.
+    "win+ctrl+d",        # Create a new virtual desktop.
+    "win+ctrl+f4",       # Close the current virtual desktop.
+    "win+ctrl+left",     # Switch to the virtual desktop on the left.
+    "win+ctrl+right",    # Switch to the virtual desktop on the right.
+    "win+i",             # Open the Settings app.
+    "win+s",             # Open Windows Search.
+    "win+x",             # Open the Quick Link / Power User menu (right-click Start equivalent).
+    "win+shift+s",       # Snipping Tool: capture a screen region to the clipboard.
+    "win+prtscn",        # Capture the whole screen to Pictures\Screenshots.
 ]

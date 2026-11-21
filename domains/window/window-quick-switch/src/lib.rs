@@ -1,10 +1,11 @@
 //! Put Save/Open dialogs into Explorer's current folder (Windows only).
 //!
 //! A 250 ms timer watches the foreground window: an Explorer window refreshes
-//! the remembered folder, a file dialog (class `#32770` with an `Edit`,
-//! `ToolbarWindow32` and a shell view) is navigated there through its address
-//! bar (`Ctrl+L`, path, Enter). Only the most recently active Explorer window
-//! is used, like QuickSwitch's auto mode; no menu, no per-dialog lists.
+//! the remembered folder, a newly activated file dialog (class `#32770` with an
+//! `Edit`, `ToolbarWindow32` and a shell view) is navigated there once through
+//! its file name box (path, Enter). Leaving and returning to the dialog
+//! permits one new attempt; there is no periodic address-bar refresh. Only the
+//! most recently active Explorer window is used, like QuickSwitch's auto mode.
 
 pub mod config;
 
@@ -33,18 +34,28 @@ const CLSID_SHELL_WINDOWS: GUID = GUID::from_u128(0x9BA05972_F6A8_11CF_A442_00A0
 struct State {
     /// Folder of the most recently active file manager.
     folder: Option<PathBuf>,
-    /// Dialog already handled, as a raw HWND, so focus changes inside it do
-    /// not navigate again.
+    /// Dialog already handled in this activation, as a raw HWND. Leaving the
+    /// dialog clears it, so returning permits one new attempt.
     dialog: isize,
-    /// Auto attempts spent on that dialog; a dialog that is still loading can
-    /// fail once and then succeed.
-    tries: u8,
+}
+
+impl State {
+    fn dialog_activation(&mut self, dialog: Option<isize>) -> bool {
+        let Some(dialog) = dialog else {
+            self.dialog = 0;
+            return false;
+        };
+        if self.dialog == dialog {
+            return false;
+        }
+        self.dialog = dialog;
+        true
+    }
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
     folder: None,
     dialog: 0,
-    tries: 0,
 });
 static FILLING: AtomicBool = AtomicBool::new(false);
 
@@ -64,15 +75,12 @@ pub fn tick(auto: bool) {
         let class = class_name(fg);
         if let Some(folder) = file_manager_folder(fg, &class) {
             let mut st = state();
-            st.dialog = 0;
-            st.tries = 0;
+            st.dialog_activation(None);
             st.folder = Some(folder);
             return;
         }
         if class != "#32770" || !is_file_dialog(fg) {
-            let mut st = state();
-            st.dialog = 0;
-            st.tries = 0;
+            state().dialog_activation(None);
             return;
         }
         if !auto || FILLING.load(Ordering::Acquire) {
@@ -81,14 +89,9 @@ pub fn tick(auto: bool) {
 
         let folder = {
             let mut st = state();
-            if st.dialog != fg.0 as isize {
-                st.dialog = fg.0 as isize;
-                st.tries = 0;
-            }
-            if st.tries >= 4 {
+            if !st.dialog_activation(Some(fg.0 as isize)) {
                 return;
             }
-            st.tries += 1;
             st.folder.clone()
         };
         let Some(folder) = folder else {
@@ -119,14 +122,8 @@ where
             }
         }
         let _reset = Reset;
-        match fill(dialog, &folder) {
-            Ok(()) => {
-                let mut st = state();
-                if st.dialog == dialog.0 as isize {
-                    st.tries = 4;
-                }
-            }
-            Err(e) => eprintln!("warn: dialog folder: {e:#}"),
+        if let Err(e) = fill(dialog, &folder) {
+            eprintln!("warn: dialog folder: {e:#}");
         }
     });
 }
@@ -461,6 +458,20 @@ mod tests {
             let _ = EnumWindows(Some(collect), LPARAM(&mut out as *mut _ as isize));
         }
         out
+    }
+
+    #[test]
+    fn auto_fill_runs_once_per_dialog_activation() {
+        let mut st = State {
+            folder: None,
+            dialog: 0,
+        };
+        assert!(st.dialog_activation(Some(10)));
+        assert!(!st.dialog_activation(Some(10)));
+        assert!(!st.dialog_activation(None));
+        assert!(st.dialog_activation(Some(10)));
+        assert!(!st.dialog_activation(Some(10)));
+        assert!(st.dialog_activation(Some(11)));
     }
 
     #[test]

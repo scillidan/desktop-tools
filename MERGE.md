@@ -611,6 +611,11 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 - [x] GoldenDict Search converts legacy `!xx` / `alt+shift+zz` and explicit sequences into the same matcher. A real hosted probe with a fake GoldenDict executable verified two-step, three-step/shared-prefix, legacy double-press, ordinary single-press arguments and clean Quit without opening the real dictionary. Existing live bindings were not changed.
 - Extend the same adapter to another plugin only when that plugin has a concrete multi-step binding; do not globally reserve plain-letter second steps.
 
+### Quick Switch activation and Shell Keys reference (implemented)
+
+- [x] Quick Switch keeps watching the latest file-manager folder, but a dialog activation permits only one automatic navigation attempt; success and failure both wait for the dialog to lose and regain foreground before another attempt. Manual `fileDialog` remains unchanged. The real Save As failure-path probe measured the old release at four attempts on initial activation and eight after leaving/returning, versus one and two on the new binary; sustained focus caused no further attempts.
+- [x] Every one of the 66 default Shell Keys suppressions has an inline Windows-function description in `keyboard-shell.toml`. A parser test rejects undocumented default entries. The live profile was annotated in its existing order with comments only; before/after TOML parsing proved identical semantics, and a pre-change backup was retained outside the profile.
+
 ### Standard Windows and portable/Scoop profile discovery
 
 - [ ] Resolve one absolute profile for host and all hosted plugins in this order: explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`); an existing exe-adjacent `Profile/User` for portable mode; otherwise `%APPDATA%\desktop-tools\Profile\User`. The host continues passing that resolved path to every child. Do not add a second `portable_config` alias: Scoop-persisted `Profile/User` already provides mpv-style portable semantics without another ambiguous source.
