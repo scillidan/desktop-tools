@@ -190,7 +190,7 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 
 [[package]]
 name = "desktop-tools"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "flameshot-handoff"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -525,7 +525,7 @@ dependencies = [
 
 [[package]]
 name = "goldendict-auto-search"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -538,7 +538,7 @@ dependencies = [
 
 [[package]]
 name = "goldendict-search-in-group"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -662,7 +662,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "keyboard-auto-switch-back"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -674,7 +674,7 @@ dependencies = [
 
 [[package]]
 name = "keyboard-keymap"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -686,7 +686,7 @@ dependencies = [
 
 [[package]]
 name = "keyboard-locker"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -698,7 +698,7 @@ dependencies = [
 
 [[package]]
 name = "keyboard-shell"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -710,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "keyboard-switch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -733,7 +733,7 @@ dependencies = [
 
 [[package]]
 name = "kit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -1086,7 +1086,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "plugin"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -1259,7 +1259,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "screen-capture"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1268,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "screen-draw"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "flameshot-handoff",
@@ -1280,7 +1280,7 @@ dependencies = [
 
 [[package]]
 name = "screen-ocr"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1291,7 +1291,7 @@ dependencies = [
 
 [[package]]
 name = "screen-power"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "kit",
  "windows",
@@ -1299,7 +1299,7 @@ dependencies = [
 
 [[package]]
 name = "screen-record"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1308,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "screen-tools"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "flameshot-handoff",
@@ -1470,7 +1470,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "taskbar-center"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1481,7 +1481,7 @@ dependencies = [
 
 [[package]]
 name = "taskbar-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1492,7 +1492,7 @@ dependencies = [
 
 [[package]]
 name = "taskbar-hidden"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1503,7 +1503,7 @@ dependencies = [
 
 [[package]]
 name = "taskbar-pin"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1514,7 +1514,7 @@ dependencies = [
 
 [[package]]
 name = "taskbar-tools"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1815,7 +1815,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "window-app-switch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "window-core",
@@ -1823,7 +1823,7 @@ dependencies = [
 
 [[package]]
 name = "window-app-toggle"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -1833,7 +1833,7 @@ dependencies = [
 
 [[package]]
 name = "window-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "toml 0.8.2",
@@ -1842,7 +1842,7 @@ dependencies = [
 
 [[package]]
 name = "window-maximize-minimize"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "window-core",
@@ -1850,7 +1850,7 @@ dependencies = [
 
 [[package]]
 name = "window-mouse-drag"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "window-core",
@@ -1859,7 +1859,7 @@ dependencies = [
 
 [[package]]
 name = "window-on-top-bottom"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "window-core",
@@ -1867,7 +1867,7 @@ dependencies = [
 
 [[package]]
 name = "window-quick-switch"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1877,7 +1877,7 @@ dependencies = [
 
 [[package]]
 name = "window-rectangle"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "window-core",
@@ -1886,7 +1886,7 @@ dependencies = [
 
 [[package]]
 name = "window-resize"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1896,7 +1896,7 @@ dependencies = [
 
 [[package]]
 name = "window-tools"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
@@ -1919,7 +1919,7 @@ dependencies = [
 
 [[package]]
 name = "window-virtual-desktops"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "kit",
