@@ -223,3 +223,8 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Agent verified the final binaries in five isolated launch modes: ordinary `%APPDATA%` fallback, existing exe-adjacent portable `Profile/User`, explicit relative `--profile`, `DTTOOLS_PROFILE` precedence, and legacy `KBTOOLS_PROFILE` fallback after an empty `DTTOOLS_PROFILE`. Ordinary and portable full installations each passed one absolute profile to all ten children and exited cleanly.
 - [x] Full workspace tests, Clippy, release/staging and ten-plugin smoke pass. The current staged host is PID 19584 with ten children; its explicit `%LOCALAPPDATA%` profile remains authoritative and all 34 real TOML files stayed byte-identical. No migration to Scoop persist or environment-variable removal has occurred.
 - [x] Physical regression passed: a feature's **Edit config** still opens the existing `%LOCALAPPDATA%\desktop-tools\Profile\User` file, and an ordinary hotkey plus the menu/tray behavior remain unchanged.
+
+## Post-P10 — Open Profile Folder (current host PID 12376)
+
+- [x] Agent verified full fmt/test/Clippy/release/staging and ten-plugin smoke.
+- [ ] Click the top-level **Open Profile Folder**, between **Start with Windows** and **About**. Explorer must open `%LOCALAPPDATA%\desktop-tools\Profile\User` (the actual selected profile), without opening a second host or changing any configuration.

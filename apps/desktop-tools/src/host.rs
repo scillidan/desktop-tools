@@ -257,6 +257,7 @@ impl Host {
             "Start with Windows",
             kit::win::autostart_enabled(APP),
         ));
+        entries.push(Entry::Item("Open Profile Folder"));
         entries.push(Entry::Item("About"));
         entries.push(Entry::Item("Exit"));
         tray.set_menu(&entries);
@@ -293,6 +294,10 @@ impl Host {
                     kit::win::message_box(APP, &format!("Autostart failed:\n{e:#}"));
                 }
                 self.refresh_menu(tray);
+                return;
+            }
+            "Open Profile Folder" => {
+                kit::win::open_folder(&self.profile);
                 return;
             }
             "About" => {
