@@ -212,11 +212,11 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Full format/workspace tests/Clippy/release/staging and ten-plugin smoke pass. Paused default-config semantic edits were withdrawn; no Taskbar code was changed.
 - [x] Real reboot gate passed: Windows booted at 20:18:39 and Scoop autostart created one new host, PID 16380 at 20:19:33, with ten hosted plugins using `current\config`; no legacy AHK or standalone Taskbar duplicate appeared. The sole Run entry targets Scoop `current`, all 34 TOML files match the rollback copy, and four representative hotkeys remain owned.
 
-## P10 follow-up — Quick Switch activation and Shell Keys reference
+## P10 follow-up — Quick Switch activation and Shell Keys reference (signed off)
 
 - [x] Quick Switch automatically navigates a file dialog once per activation, with no automatic retry after success or failure. Leaving and returning to the dialog permits one new attempt; the manual `fileDialog` binding is unchanged. A real Save As dialog reproduced four initial/eight total attempts on the old release, then measured one initial/two total attempts on the new binary, with no periodic retry while focus stayed put.
 - [x] All 66 default Shell Keys entries have inline Windows-function descriptions. A parser test requires every entry to be documented; the live profile received comments only, with TOML semantic equality and unchanged binding order verified before replacement.
-- [ ] Physical pass: leave a Quick Switch-compatible file dialog open and confirm its folder/address field is not repeatedly refreshed. Switch to another window and back: it refreshes once more. Open **Shell Keys → Edit config** and confirm the inline Windows-function reference is visible.
+- [x] Physical pass: leave a Quick Switch-compatible file dialog open and confirm its folder/address field is not repeatedly refreshed. Switch to another window and back: it refreshes once more. Open **Shell Keys → Edit config** and confirm the inline Windows-function reference is visible.
 
 ## P10 follow-up — Windows standard and portable profile discovery
 
@@ -240,13 +240,13 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Agent copied 45 files to `persist\desktop-tools\config`; all 34 TOML files match the retained legacy profile byte-for-byte. Real `scoop update` upgraded 0.1.0 to 0.2.0, verified the asset hash and created the config persist link. Scoop started ten plugins without profile environment variables and passed hotkey checks.
 - [x] Final runtime is Scoop v0.2.0 host PID 20764 with ten children, all using `current\config`. Both persistent profile variables are absent; four representative hotkeys remain owned and the old profile is retained unchanged.
 
-## Post-v0.2.0 Physical — shortened config
+## Post-v0.2.0 Physical — shortened config: signed off
 
-- [ ] The tray still has one host icon and the same feature groups. **Open Profile
+- [x] The tray still has one host icon and the same feature groups. **Open Profile
       Folder** opens `C:\Users\User\Scoop\apps\desktop-tools\current\config`,
       the stable Scoop link to `persist\desktop-tools\config`.
-- [ ] Open an existing TOML from that folder: personal bindings, Shell Keys
+- [x] Open an existing TOML from that folder: personal bindings, Shell Keys
       comments and other settings are still present; there is no second host or
       duplicate plugin tray icon.
-- [ ] Use a common hotkey such as `Ctrl+Alt+D`: Draw, its menu and the rest of
+- [x] Use a common hotkey such as `Ctrl+Alt+D`: Draw, its menu and the rest of
       the suite behave as before the directory move.
