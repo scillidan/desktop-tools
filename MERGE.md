@@ -595,7 +595,7 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 
 ### Maintenance gates
 
-- [ ] After sign-out/sign-in, confirm exactly one suite host, ten hosted plugins and no legacy AHK or standalone Taskbar duplicate. Moving the old Startup links did not verify a later login. Preflight found and corrected the existing `desktop-tools` Run value from the staged executable to Scoop `current`; there is still exactly one suite Run entry and the old value is backed up. The read-only post-login probe passes against the current instance, but this does not replace the actual sign-out/sign-in check.
+- [x] After a real Windows reboot (boot 20:18:39), Scoop autostart created one new host, PID 16380 at 20:19:33, with ten hosted plugins using `current\config`. There is exactly one suite Run entry targeting Scoop `current`, no legacy AHK or standalone Taskbar duplicate, no persistent profile override, all 34 TOML files still match the rollback copy, and four representative hotkeys remain owned. Preflight had corrected the previous staged Run target and retained its backup.
 - [x] Closed the recording guard with the real external tools: while recording, `Ctrl+F` was rejected without starting Flameshot; normal stop produced 31 decodable frames. The full handoff mutex, hotkey release/restoration, daemon reuse and clean Quit regression also passed.
 - Legacy tools/repositories and their cleanup are user-owned; the agent performs no archival or deletion.
 
