@@ -210,7 +210,7 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Kit sequence tests pass for double-press, 400 ms timeout, three-step and shared-prefix candidates, conflict/plain-key rejection, unique registration and reset. Every sequence step requires Ctrl, Alt or Win.
 - [x] A real final-binary hosted probe with an isolated profile and fake GoldenDict executable passed two-step, three-step/shared-prefix, legacy `!xx`, ordinary single-press and clean Quit checks with correct group and clipboard arguments. The real dictionary and current bindings were untouched.
 - [x] Full format/workspace tests/Clippy/release/staging and ten-plugin smoke pass. Paused default-config semantic edits were withdrawn; no Taskbar code was changed.
-- [ ] User sign-out/sign-in gate remains: exactly one suite host, ten hosted plugins, and no legacy AHK or standalone Taskbar duplicate.
+- [ ] User sign-out/sign-in gate remains: exactly one suite host, ten hosted plugins, and no legacy AHK or standalone Taskbar duplicate. Preflight corrected the sole autostart value to Scoop `current`; the post-login read-only probe is prepared and passes before restart, pending the real login cycle.
 
 ## P10 follow-up — Quick Switch activation and Shell Keys reference
 
