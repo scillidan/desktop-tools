@@ -1,8 +1,9 @@
 //! TOML config: profile resolution, first-run creation, one-time legacy import.
 //!
 //! The profile root is `--profile <dir>` > `DTTOOLS_PROFILE` >
-//! legacy `KBTOOLS_PROFILE` > `<exe_dir>/Profile/User`, mirroring the
-//! Keypirinha profile layout.
+//! legacy `KBTOOLS_PROFILE` > an existing `<exe_dir>/Profile/User` >
+//! `%APPDATA%/desktop-tools/Profile/User`. The exe-adjacent path is also
+//! the compatibility fallback when `APPDATA` is unavailable.
 
 use anyhow::{bail, Context, Result};
 use std::path::{Path, PathBuf};
@@ -10,14 +11,22 @@ use std::path::{Path, PathBuf};
 pub const PROFILE_ENV: &str = "DTTOOLS_PROFILE";
 pub const LEGACY_PROFILE_ENV: &str = "KBTOOLS_PROFILE";
 
-/// Resolve the profile root without touching the filesystem or the process
-/// environment. Kept pure so the resolution order is testable.
-pub fn resolve_profile_dir(args: &[String], env: Option<&str>, exe_dir: &Path) -> Result<PathBuf> {
+/// Resolve the profile root. The only filesystem probe is whether portable
+/// `<exe_dir>/Profile/User` already exists; no directory is created here.
+pub fn resolve_profile_dir(
+    args: &[String],
+    env: Option<&str>,
+    exe_dir: &Path,
+    app_data: Option<&Path>,
+) -> Result<PathBuf> {
     let mut i = 0;
     while i < args.len() {
         let arg = &args[i];
         if arg == "--profile" {
             let dir = args.get(i + 1).context("--profile requires a directory")?;
+            if dir.is_empty() {
+                bail!("--profile requires a directory");
+            }
             return Ok(PathBuf::from(dir));
         }
         if let Some(dir) = arg.strip_prefix("--profile=") {
@@ -31,7 +40,14 @@ pub fn resolve_profile_dir(args: &[String], env: Option<&str>, exe_dir: &Path) -
     if let Some(dir) = env.filter(|s| !s.is_empty()) {
         return Ok(PathBuf::from(dir));
     }
-    Ok(exe_dir.join("Profile").join("User"))
+    let portable = exe_dir.join("Profile").join("User");
+    if portable.is_dir() {
+        return Ok(portable);
+    }
+    if let Some(app_data) = app_data.filter(|path| !path.as_os_str().is_empty()) {
+        return Ok(app_data.join("desktop-tools").join("Profile").join("User"));
+    }
+    Ok(portable)
 }
 
 /// Resolve the profile root from the current process arguments and executable.
@@ -39,10 +55,17 @@ pub fn profile_dir() -> Result<PathBuf> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let env = std::env::var(PROFILE_ENV)
         .ok()
-        .or_else(|| std::env::var(LEGACY_PROFILE_ENV).ok());
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            std::env::var(LEGACY_PROFILE_ENV)
+                .ok()
+                .filter(|value| !value.is_empty())
+        });
+    let app_data = std::env::var_os("APPDATA").map(PathBuf::from);
     let exe = std::env::current_exe().context("cannot locate own executable")?;
     let dir = exe.parent().context("executable has no parent directory")?;
-    resolve_profile_dir(&args, env.as_deref(), dir)
+    let profile = resolve_profile_dir(&args, env.as_deref(), dir, app_data.as_deref())?;
+    std::path::absolute(profile).context("cannot resolve an absolute profile directory")
 }
 
 /// `<profile>/<name>`; the caller is responsible for creating the directory.
@@ -194,31 +217,51 @@ mod tests {
 
     #[test]
     fn profile_resolution_order() {
-        let exe = PathBuf::from("C:/app");
+        let root = temp_dir("resolution");
+        let exe = root.join("app");
+        let app_data = root.join("roaming");
+        let portable = exe.join("Profile").join("User");
+        let standard = app_data.join("desktop-tools").join("Profile").join("User");
+        std::fs::create_dir_all(&exe).unwrap();
+
         assert_eq!(
-            resolve_profile_dir(&[], None, &exe).unwrap(),
-            exe.join("Profile").join("User")
+            resolve_profile_dir(&[], None, &exe, Some(&app_data)).unwrap(),
+            standard
+        );
+        // Preserve the legacy fallback for platforms/environments without APPDATA.
+        assert_eq!(
+            resolve_profile_dir(&[], None, &exe, None).unwrap(),
+            portable
+        );
+
+        std::fs::create_dir_all(&portable).unwrap();
+        assert_eq!(
+            resolve_profile_dir(&[], None, &exe, Some(&app_data)).unwrap(),
+            portable
+        );
+        assert_eq!(
+            resolve_profile_dir(&[], Some("E:/env"), &exe, Some(&app_data)).unwrap(),
+            PathBuf::from("E:/env")
         );
 
         let args = vec!["--profile".to_string(), "D:/cfg".to_string()];
         assert_eq!(
-            resolve_profile_dir(&args, Some("E:/env"), &exe).unwrap(),
+            resolve_profile_dir(&args, Some("E:/env"), &exe, Some(&app_data)).unwrap(),
             PathBuf::from("D:/cfg")
         );
-
         let args = vec!["--profile=D:/cfg2".to_string()];
         assert_eq!(
-            resolve_profile_dir(&args, None, &exe).unwrap(),
+            resolve_profile_dir(&args, None, &exe, Some(&app_data)).unwrap(),
             PathBuf::from("D:/cfg2")
         );
 
-        assert_eq!(
-            resolve_profile_dir(&[], Some("E:/env"), &exe).unwrap(),
-            PathBuf::from("E:/env")
+        assert!(resolve_profile_dir(&["--profile".to_string()], None, &exe, None).is_err());
+        assert!(resolve_profile_dir(&["--profile=".to_string()], None, &exe, None).is_err());
+        assert!(
+            resolve_profile_dir(&["--profile".to_string(), String::new()], None, &exe, None)
+                .is_err()
         );
-
-        assert!(resolve_profile_dir(&["--profile".to_string()], None, &exe).is_err());
-        assert!(resolve_profile_dir(&["--profile=".to_string()], None, &exe).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
