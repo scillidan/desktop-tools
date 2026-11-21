@@ -229,10 +229,24 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Agent verified full fmt/test/Clippy/release/staging and ten-plugin smoke.
 - [x] Agent copied 45 files to `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`; all 34 TOML files match the retained source byte-for-byte. The old target's test marker was backed up before removal.
 - [x] Scoop manifest commit `9210bb8` adds only `"persist": "Profile/User"`. Scoop without profile environment variables passed ten-plugin startup, child-path and hotkey checks. The staged host and its ten children now use the same persist directory; `DTTOOLS_PROFILE` was repointed there.
-- [ ] Click the top-level **Open Profile Folder**, between **Start with Windows** and **About**. Explorer must open `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`, without opening a second host or changing any configuration. Open one existing TOML and confirm its personal settings remain present.
+- [x] Superseded by the completed `config` migration below; use the Post-v0.2.0
+      physical checklist for the current native-menu click.
 
 ## Config directory migration
 
 - [x] Resolver tests and six real isolated launch cases pass: fresh standard/portable `config`, legacy portable/standard `Profile/User`, and new-over-legacy precedence when both exist. Every case started ten plugins with one absolute profile and exited cleanly.
 - [x] Full fmt/workspace tests/Clippy/release/staging pass. Existing explicit `--profile` and environment-variable behavior is unchanged; no current profile was rewritten by resolver tests.
-- [ ] Publish the release containing this resolver, migrate Scoop's persist target to `config`, and verify the real ten-plugin host, representative hotkeys, **Open Profile Folder** and existing personal TOML content. Retain `Profile/User` as the rollback copy.
+- [x] v0.2.0 CI Release run 44882940399 passed in 6m8s. Its 6,051,706-byte zip matches the published SHA-256 file and GitHub API digest. Scoop manifest `baea89d` persists `config`.
+- [x] Agent copied 45 files to `persist\desktop-tools\config`; all 34 TOML files match the retained legacy profile byte-for-byte. Real `scoop update` upgraded 0.1.0 to 0.2.0, verified the asset hash and created the config persist link. Scoop started ten plugins without profile environment variables and passed hotkey checks.
+- [x] Final runtime is Scoop v0.2.0 host PID 20764 with ten children, all using `current\config`. Both persistent profile variables are absent; four representative hotkeys remain owned and the old profile is retained unchanged.
+
+## Post-v0.2.0 Physical — shortened config
+
+- [ ] The tray still has one host icon and the same feature groups. **Open Profile
+      Folder** opens `C:\Users\User\Scoop\apps\desktop-tools\current\config`,
+      the stable Scoop link to `persist\desktop-tools\config`.
+- [ ] Open an existing TOML from that folder: personal bindings, Shell Keys
+      comments and other settings are still present; there is no second host or
+      duplicate plugin tray icon.
+- [ ] Use a common hotkey such as `Ctrl+Alt+D`: Draw, its menu and the rest of
+      the suite behave as before the directory move.
