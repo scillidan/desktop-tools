@@ -230,3 +230,9 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Agent copied 45 files to `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`; all 34 TOML files match the retained source byte-for-byte. The old target's test marker was backed up before removal.
 - [x] Scoop manifest commit `9210bb8` adds only `"persist": "Profile/User"`. Scoop without profile environment variables passed ten-plugin startup, child-path and hotkey checks. The staged host and its ten children now use the same persist directory; `DTTOOLS_PROFILE` was repointed there.
 - [ ] Click the top-level **Open Profile Folder**, between **Start with Windows** and **About**. Explorer must open `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`, without opening a second host or changing any configuration. Open one existing TOML and confirm its personal settings remain present.
+
+## Config directory migration
+
+- [x] Resolver tests and six real isolated launch cases pass: fresh standard/portable `config`, legacy portable/standard `Profile/User`, and new-over-legacy precedence when both exist. Every case started ten plugins with one absolute profile and exited cleanly.
+- [x] Full fmt/workspace tests/Clippy/release/staging pass. Existing explicit `--profile` and environment-variable behavior is unchanged; no current profile was rewritten by resolver tests.
+- [ ] Publish the release containing this resolver, migrate Scoop's persist target to `config`, and verify the real ten-plugin host, representative hotkeys, **Open Profile Folder** and existing personal TOML content. Retain `Profile/User` as the rollback copy.

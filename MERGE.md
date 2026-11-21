@@ -75,7 +75,7 @@ desktop-tools/
 │       ├── taskbar-core/       # Explorer discovery, ordering, restoration
 │       └── taskbar-tools/      # workers, config, diagnostics, host IPC
 ├── scripts/
-├── Profile/User/               # runtime files, gitignored
+├── config/                     # runtime files, gitignored
 ├── CHECKLIST.md
 └── MERGE.md
 ```
@@ -86,8 +86,8 @@ Source domains are ownership boundaries. The runtime package remains flat:
 desktop-tools.exe
 plugins/<plugin-id>/plugin.toml
 plugins/<plugin-id>/<plugin>.exe
-Profile/User/*.toml
-Profile/logs/*.log
+config/*.toml
+config/logs/*.log
 ```
 
 Staging flattens executable crates in `domains/*/*` into `plugins/<id>/`. Library crates such as `screen-draw` and `app-toggle` are linked into their owning executable and produce no runtime plugin directory. This preserves the existing catalog discovery/update contract instead of inventing nested runtime plugin discovery.
@@ -404,7 +404,7 @@ These are corrections required by the audit, not optional polish:
 2. **Graceful stop with timeout.** Current stop writes `quit` and immediately force-kills the tree. Introduce a `Stopping` state reaped by the host timer: wait up to 2 s, then kill the tree. Taskbar must get time to restore hidden and centered state; screen must get time to stop/mux recording. Never block the host UI thread for the full timeout.
 3. **Hosted failures are non-modal.** Single-instance and startup failures go to stderr and exit nonzero; no background plugin waits behind a message box.
 4. **Hosted notifications use the host.** Add the specified notify event and route system notifications through the single tray identity. Command/silent remain plugin-local options. No hosted plugin calls `Shell_NotifyIconW`.
-5. **Profile and autostart migration:** `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > existing exe `Profile/User` > `%APPDATA%/desktop-tools/Profile/User`. Resolve one absolute path in the host and pass it to every child. Quote autostart executable paths. Migrate old Run values to one `desktop-tools` value; do not leave two hosts starting at login.
+5. **Profile and autostart migration:** `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > existing exe `config` (legacy `Profile/User` fallback) > existing `%APPDATA%/desktop-tools/config` (legacy `Profile/User` fallback), with `config` as the fresh default. Resolve one absolute path in the host and pass it to every child. Quote autostart executable paths. Migrate old Run values to one `desktop-tools` value; do not leave two hosts starting at login.
 6. **Editor parity:** shared Edit Config supports `EDITOR` then `VISUAL`, with the existing safe quoting behavior. Window's second presets file gets a plugin-contributed Edit Presets action.
 7. **Lock arbitration:** the keyboard locker publishes a named lock-state event/shared flag. Other low-level hooks pass events while it is set so the locker can swallow them regardless of hook installation order. Otherwise window or layout hooks could still act while the keyboard is locked.
 8. **Hotkey repeat policy:** a hook result distinguishes pass, swallow+dispatch and swallow-only. Non-idempotent toggles use swallow-only on auto-repeat; current repeatable actions retain their behavior.
@@ -618,8 +618,9 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 
 ### Standard Windows and portable/Scoop profile discovery
 
-- [x] Resolve one absolute profile for host and all hosted plugins in this order: explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`); an existing exe-adjacent `Profile/User` for portable mode; otherwise `%APPDATA%\desktop-tools\Profile\User`. The host continues passing that resolved path to every child. A missing `APPDATA` retains the exe-adjacent compatibility fallback. Real final-binary probes covered standard, portable, explicit relative, current-environment and legacy-environment resolution; both full cases passed the same absolute path to ten children. The user physically confirmed the unchanged Edit config path and ordinary hotkey/menu behavior on 2026-11-21. The top-level **Open Profile Folder** action uses the same resolved host profile rather than rediscovering a path.
-- [x] Keep release zips free of profile files so ordinary installs use the Windows directory; creating `Profile/User` beside the exe opts a manual zip into portable mode. Scoop continues to persist `Profile/User`. The real standard-install probe confirmed no exe-adjacent `Profile` was created, and the portable probe confirmed `APPDATA` was not used.
+- [x] Resolve one absolute profile for host and all hosted plugins in this order: explicit `--profile`; `DTTOOLS_PROFILE` (with legacy `KBTOOLS_PROFILE`); an existing exe-adjacent `config` or legacy `Profile/User` for portable mode; otherwise an existing `%APPDATA%\desktop-tools\config` or legacy `Profile/User`, with `config` as the fresh default. New `config` wins when both exist. The host passes that resolved path to every child; a missing `APPDATA` retains the exe-adjacent fallback. Real probes covered explicit and environment resolution plus six fresh/legacy/new-over-legacy layout cases. The top-level **Open Profile Folder** action uses the same resolved host profile rather than rediscovering a path.
+- [x] Keep release zips free of profile files so ordinary installs use the Windows directory; creating `config` beside the exe opts a manual zip into portable mode. Scoop persists `config`. Existing `Profile/User` directories remain readable as legacy fallbacks and are never removed by profile resolution. The real standard-install probes confirmed no exe-adjacent profile was created, and portable probes confirmed `APPDATA` was not used.
+- [ ] Complete the real `config` migration after publishing the resolver in a release: copy and hash-check the current Scoop profile, update the manifest/junction, verify ten plugins and representative hotkeys, then physically check Open Profile Folder and personal TOML content. Retain `Profile/User` as the rollback copy.
 - [x] Migrate this machine separately and reversibly: 45 files were copied from the verified `%LOCALAPPDATA%\desktop-tools\Profile\User` into Scoop's persist location; all 34 TOML files match byte-for-byte and the source remains as a rollback point. Scoop without environment overrides passed ten-plugin startup, child-path and representative-hotkey checks. The staged host, all ten children and `DTTOOLS_PROFILE` now select the same persist directory; the override was repointed rather than removed so staged and Scoop builds cannot diverge. Manifest commit `9210bb8` adds only `"persist": "Profile/User"`, correcting the previously observed no-persist state. Separate logs from roaming configuration later only if roaming becomes a requirement; screenshots and videos retain their configured output paths.
 
 ### Conditional technical debt, not scheduled feature work

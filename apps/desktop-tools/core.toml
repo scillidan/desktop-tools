@@ -1,5 +1,5 @@
 # desktop-tools — suite host and plugin enable list.
-# Profile/User/core.toml is created from this file on first run.
+# config/core.toml is created from this file on first run.
 
 [host]
 start_with_windows = false

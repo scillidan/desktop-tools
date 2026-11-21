@@ -3,6 +3,7 @@ dist/
 stage/
 *.pdb
 **/*.rs.bk
+config/
 Profile/User/
 Profile/logs/
 .vscode/

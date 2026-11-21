@@ -1,4 +1,4 @@
-//! `Profile/User/core.toml`: host settings and the plugin enable list.
+//! `config/core.toml`: host settings and the plugin enable list.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

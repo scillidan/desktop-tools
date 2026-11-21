@@ -22,7 +22,8 @@ current acceptance gate before changing a delivered workflow.
 - Configuration belongs to feature TOMLs. Reload is atomic across shared hotkey
   namespaces. Import a legacy file once only when its destination is absent.
 - The active profile is selected by `--profile`, then `DTTOOLS_PROFILE`, then the
-  executable's `Profile/User`. Preserve old profiles and migration sources.
+  executable's `config`, with existing `Profile/User` retained as the legacy
+  fallback. Preserve old profiles and migration sources.
 - Suspend is temporary; Disable is persistent and requires graceful cleanup.
   Hosted and standalone menus share the same command/menu model.
 
