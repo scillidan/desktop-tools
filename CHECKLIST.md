@@ -224,7 +224,9 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Full workspace tests, Clippy, release/staging and ten-plugin smoke pass. The current staged host is PID 19584 with ten children; its explicit `%LOCALAPPDATA%` profile remains authoritative and all 34 real TOML files stayed byte-identical. No migration to Scoop persist or environment-variable removal has occurred.
 - [x] Physical regression passed: a feature's **Edit config** still opens the existing `%LOCALAPPDATA%\desktop-tools\Profile\User` file, and an ordinary hotkey plus the menu/tray behavior remain unchanged.
 
-## Post-P10 — Open Profile Folder (current host PID 12376)
+## Post-P10 — Open Profile Folder and Scoop profile migration (current host PID 2316)
 
 - [x] Agent verified full fmt/test/Clippy/release/staging and ten-plugin smoke.
-- [ ] Click the top-level **Open Profile Folder**, between **Start with Windows** and **About**. Explorer must open `%LOCALAPPDATA%\desktop-tools\Profile\User` (the actual selected profile), without opening a second host or changing any configuration.
+- [x] Agent copied 45 files to `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`; all 34 TOML files match the retained source byte-for-byte. The old target's test marker was backed up before removal.
+- [x] Scoop manifest commit `9210bb8` adds only `"persist": "Profile/User"`. Scoop without profile environment variables passed ten-plugin startup, child-path and hotkey checks. The staged host and its ten children now use the same persist directory; `DTTOOLS_PROFILE` was repointed there.
+- [ ] Click the top-level **Open Profile Folder**, between **Start with Windows** and **About**. Explorer must open `C:\Users\User\Scoop\persist\desktop-tools\Profile\User`, without opening a second host or changing any configuration. Open one existing TOML and confirm its personal settings remain present.
