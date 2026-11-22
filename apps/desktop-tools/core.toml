@@ -1,10 +1,14 @@
-# desktop-tools — suite host and plugin enable list.
+# desktop-tools — suite host, editor and plugin enable list.
 # config/core.toml is created from this file on first run.
 
 [host]
 start_with_windows = false
 log_level = "info"
 tray = "host"
+
+# Empty = EDITOR, then VISUAL, then notepad.
+[editor]
+command = ""
 
 [plugins]
 enabled = [

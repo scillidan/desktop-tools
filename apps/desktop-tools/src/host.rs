@@ -115,12 +115,6 @@ impl Host {
             .parent()
             .context("host executable has no parent")?
             .to_path_buf();
-        kit::config::ensure_settings_in_profile(&profile)?;
-        kit::config::write_reference_in_profile(
-            &profile,
-            kit::config::SETTINGS_FILE,
-            kit::config::DEFAULT_SETTINGS,
-        )?;
         kit::config::write_reference_in_profile(&profile, "core.toml", DEFAULT_CORE)?;
         let (core_path, text) =
             kit::config::load_in_profile(&profile, &exe_dir, "core.toml", DEFAULT_CORE)?;
@@ -261,7 +255,6 @@ impl Host {
         entries.push(Entry::Sep);
         entries.push(Entry::Item("Reload core"));
         entries.push(Entry::Item("Edit core.toml"));
-        entries.push(Entry::Item("Edit desktop-tools.toml"));
         entries.push(Entry::Toggle(
             "Start with Windows",
             kit::win::autostart_enabled(APP),
@@ -312,10 +305,6 @@ impl Host {
             }
             "Edit core.toml" => {
                 self.edit_profile_file("core.toml");
-                return;
-            }
-            "Edit desktop-tools.toml" => {
-                self.edit_profile_file(kit::config::SETTINGS_FILE);
                 return;
             }
             "Start with Windows" => {

@@ -581,7 +581,7 @@ impl ConfigModule {
             .join(self.file_name()))
     }
 }
-// desktop-tools.toml is suite settings, never a legacy Window binding file.
+// desktop-tools.toml is not a Window binding file.
 const OLD_CONFIG_NAMES: &[&str] = &["window-tools.toml", "windowtools.toml", "rectangle.toml"];
 
 pub fn default_config_path() -> Result<PathBuf> {

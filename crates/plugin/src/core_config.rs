@@ -1,4 +1,4 @@
-//! `config/core.toml`: host settings and the plugin enable list.
+//! `config/core.toml`: host, suite editor and plugin enable settings.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,15 @@ pub struct CoreConfig {
     #[serde(default)]
     pub host: HostSection,
     #[serde(default)]
+    pub editor: EditorSection,
+    #[serde(default)]
     pub plugins: PluginsSection,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub struct EditorSection {
+    #[serde(default)]
+    pub command: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -102,6 +110,21 @@ enabled = ["b", "a", "b"]
         let core = CoreConfig::parse("").unwrap();
         assert!(core.host.tray == "host");
         assert!(core.plugins.enabled.is_empty());
+    }
+
+    #[test]
+    fn plugin_enable_changes_preserve_the_suite_editor() {
+        let mut core = CoreConfig::parse(
+            "[editor]\ncommand = 'code --new-window'\n[plugins]\nenabled = []\n",
+        )
+        .unwrap();
+        core.set_enabled("window-tools", true);
+        let text = core.to_toml().unwrap();
+        assert_eq!(core.editor.command, "code --new-window");
+        assert_eq!(
+            CoreConfig::parse(&text).unwrap().editor.command,
+            "code --new-window"
+        );
     }
 
     #[test]

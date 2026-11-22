@@ -11,11 +11,7 @@ use std::path::{Path, PathBuf};
 
 pub const PROFILE_ENV: &str = "DTTOOLS_PROFILE";
 pub const LEGACY_PROFILE_ENV: &str = "KBTOOLS_PROFILE";
-pub const SETTINGS_FILE: &str = "desktop-tools.toml";
-pub const DEFAULT_SETTINGS: &str = r#"# Suite-wide settings. Empty = EDITOR, then VISUAL, then notepad.
-[editor]
-command = ""
-"#;
+pub const CORE_FILE: &str = "core.toml";
 
 /// Resolve the profile root. Existing portable and legacy directories are
 /// preferred over the fresh-install default; no directory is created here.
@@ -90,13 +86,6 @@ pub fn profile_file(name: &str) -> Result<PathBuf> {
     Ok(profile_dir()?.join(name))
 }
 
-pub fn ensure_settings_in_profile(profile: &Path) -> Result<PathBuf> {
-    std::fs::create_dir_all(profile)?;
-    let path = profile.join(SETTINGS_FILE);
-    load_or_create(&path, DEFAULT_SETTINGS)?;
-    Ok(path)
-}
-
 fn editor_from_settings(text: &str) -> Option<String> {
     toml::from_str::<toml::Value>(text)
         .ok()?
@@ -110,7 +99,7 @@ fn editor_from_settings(text: &str) -> Option<String> {
 
 /// Resolve the suite editor: settings, then EDITOR/VISUAL, then Notepad.
 pub fn editor() -> String {
-    let configured = profile_file(SETTINGS_FILE)
+    let configured = profile_file(CORE_FILE)
         .ok()
         .and_then(|path| std::fs::read_to_string(path).ok())
         .and_then(|text| editor_from_settings(&text));
@@ -428,22 +417,13 @@ mod tests {
     }
 
     #[test]
-    fn suite_editor_setting_is_optional_and_settings_file_is_preserved() {
-        assert_eq!(editor_from_settings(DEFAULT_SETTINGS), None);
+    fn suite_editor_is_read_from_core_and_remains_optional() {
+        assert_eq!(CORE_FILE, "core.toml");
+        assert_eq!(editor_from_settings("[host]\ntray = 'host'\n"), None);
         assert_eq!(
             editor_from_settings("[editor]\ncommand = 'code --new-window'\n"),
             Some("code --new-window".into())
         );
-        let root = temp_dir("suite-editor");
-        let path = ensure_settings_in_profile(&root).unwrap();
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), DEFAULT_SETTINGS);
-        std::fs::write(&path, "[editor]\ncommand = 'custom'\n").unwrap();
-        ensure_settings_in_profile(&root).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "[editor]\ncommand = 'custom'\n"
-        );
-        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -554,14 +534,14 @@ mod tests {
         let legacy = root.join("legacy");
         let profile = root.join("profile");
         std::fs::create_dir_all(&legacy).unwrap();
-        std::fs::write(legacy.join("desktop-tools.toml"), "old = 1\n").unwrap();
+        std::fs::write(legacy.join("legacy-window.toml"), "old = 1\n").unwrap();
 
         let path = profile.join("window-tools.toml");
-        import_legacy_once(&path, &legacy, &["desktop-tools.toml", "window-tools.toml"]).unwrap();
+        import_legacy_once(&path, &legacy, &["legacy-window.toml", "window-tools.toml"]).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "old = 1\n");
 
-        std::fs::write(legacy.join("desktop-tools.toml"), "old = 2\n").unwrap();
-        import_legacy_once(&path, &legacy, &["desktop-tools.toml"]).unwrap();
+        std::fs::write(legacy.join("legacy-window.toml"), "old = 2\n").unwrap();
+        import_legacy_once(&path, &legacy, &["legacy-window.toml"]).unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "old = 1\n");
         let _ = std::fs::remove_dir_all(&root);
     }
