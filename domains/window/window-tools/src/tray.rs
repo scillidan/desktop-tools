@@ -7,18 +7,12 @@
 
 use anyhow::{Context, Result};
 use kit::tray::{Event, Tray as KitTray};
-use std::os::windows::process::CommandExt;
-use std::path::Path;
-use std::process::Command;
 use windows::core::HSTRING;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
     RegDeleteValueW, RegGetValueW, RegOpenKeyExW, RegSetValueExW, HKEY_CURRENT_USER, KEY_SET_VALUE,
     REG_SZ, RRF_RT_REG_SZ,
 };
-use windows::Win32::System::Threading::CREATE_NO_WINDOW;
-use windows::Win32::UI::Shell::ShellExecuteW;
-use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const APP_NAME: &str = "window-tools";
@@ -244,48 +238,6 @@ fn set_autostart(on: bool) -> Result<()> {
     Ok(())
 }
 
-/// Open a config file: `EDITOR` / `VISUAL` when set, else the default handler.
-pub fn edit_config(path: &Path) -> Result<()> {
-    if let Some(editor) = std::env::var_os("EDITOR").or_else(|| std::env::var_os("VISUAL")) {
-        if !editor.is_empty() {
-            spawn_editor(&editor.to_string_lossy(), path)?;
-            return Ok(());
-        }
-    }
-    let file = HSTRING::from(path.to_string_lossy().as_ref());
-    let r = unsafe {
-        ShellExecuteW(
-            None,
-            windows::core::w!("open"),
-            &file,
-            None,
-            None,
-            SW_SHOWNORMAL,
-        )
-    };
-    anyhow::ensure!(r.0 as isize > 32, "no handler for .toml files");
-    Ok(())
-}
-
-fn spawn_editor(editor: &str, path: &Path) -> Result<()> {
-    editor_command(editor, path)
-        .spawn()
-        .with_context(|| format!("cannot launch EDITOR={editor}"))?;
-    Ok(())
-}
-
-/// Editors go through `cmd /S /C` so `.cmd` shims (VS Code's `code`) resolve
-/// and `EDITOR` values with arguments keep working. `/S` strips the first and
-/// last quote, so the tail needs its own outer pair; without it cmd would eat
-/// the quotes around a path with spaces.
-fn editor_command(editor: &str, path: &Path) -> Command {
-    let mut cmd = Command::new("cmd");
-    cmd.args(["/S", "/C"])
-        .raw_arg(format!("\"{editor} \"{}\"\"", path.display()))
-        .creation_flags(CREATE_NO_WINDOW.0);
-    cmd
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,27 +258,5 @@ mod tests {
             include_bytes!("../assets/window-tools.ico").as_slice(),
             kit::icon::ico(kit::icon::WINDOW, kit::icon::State::Normal)
         );
-    }
-
-    /// End-to-end check of the cmd quoting: an editor path *and* a config path
-    /// that both contain spaces must reach the editor as one argument each.
-    #[test]
-    fn editor_command_quotes_spaced_paths() {
-        let dir =
-            std::env::temp_dir().join(format!("desktop-tools-rs-editor-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let log = dir.join("args.txt");
-        let script = dir.join("fake editor.cmd");
-        std::fs::write(&script, format!("@echo %* > \"{}\"\r\n", log.display())).unwrap();
-        let target = dir.join("window-tools.toml");
-        std::fs::write(&target, "").unwrap();
-
-        let editor = format!("\"{}\"", script.display());
-        let mut child = editor_command(&editor, &target).spawn().unwrap();
-        child.wait().unwrap();
-
-        let logged = std::fs::read_to_string(&log).unwrap();
-        assert!(logged.contains(&target.display().to_string()), "{logged}");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -199,7 +199,7 @@ pub fn frame_pin(frame: HWND) {
 const TEMP_KEEP_SECS: u64 = 24 * 60 * 60;
 
 fn temp_capture_dir() -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join("screen-tools-rs");
+    let dir = std::env::temp_dir().join("screen-tools");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
@@ -208,6 +208,7 @@ fn temp_capture_dir() -> std::path::PathBuf {
 pub fn cleanup_temp_captures() {
     let mut roots = vec![std::env::temp_dir()];
     roots.push(temp_capture_dir());
+    roots.push(std::env::temp_dir().join("screen-tools-rs"));
     roots.push(std::env::temp_dir().join("dt-ocr"));
     let now = SystemTime::now();
     let mut removed = 0;
@@ -218,7 +219,9 @@ pub fn cleanup_temp_captures() {
         for entry in entries.flatten() {
             let path = entry.path();
             let is_capture = path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
-                (n.starts_with("screen-tools-rs-") || n.starts_with("dt-ocr-"))
+                (n.starts_with("screen-tools-")
+                    || n.starts_with("screen-tools-rs-")
+                    || n.starts_with("dt-ocr-"))
                     && n.ends_with(".png")
             });
             if !is_capture {

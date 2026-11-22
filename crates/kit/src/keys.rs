@@ -76,31 +76,12 @@ impl Combo {
 impl FromStr for Combo {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Combo> {
-        // AHK sigil form: modifiers are the leading run of ^ ! + #, then the
-        // key name (`!+z`, `^!+g`, `#f2`). This must be tried before the
-        // `+`-separated form, where a bare "+" can never appear as a token.
-        let trimmed = s.trim();
-        if trimmed
+        if s.trim_start()
             .chars()
             .next()
             .is_some_and(|ch| matches!(ch, '^' | '!' | '+' | '#'))
         {
-            let mut c = Combo::default();
-            let mut rest = trimmed;
-            while let Some(ch) = rest.chars().next() {
-                match ch {
-                    '^' => c.ctrl = true,
-                    '!' => c.alt = true,
-                    '+' => c.shift = true,
-                    '#' => c.win = true,
-                    _ => break,
-                }
-                rest = &rest[ch.len_utf8()..];
-            }
-            let name = rest.trim().to_ascii_lowercase();
-            c.key = parse_key(&name)
-                .ok_or_else(|| anyhow::anyhow!("unknown key `{name}` in combo `{s}`"))?;
-            return Ok(c.canonical());
+            bail!("combo `{s}` uses unsupported sigils; use ctrl/alt/shift/win names");
         }
 
         let mut c = Combo::default();
@@ -109,11 +90,11 @@ impl FromStr for Combo {
             let part = part.trim().to_ascii_lowercase();
             match part.as_str() {
                 "" => continue,
-                "ctrl" | "control" | "^" => c.ctrl = true,
+                "ctrl" | "control" => c.ctrl = true,
                 "shift" => c.shift = true,
-                "alt" | "!" => c.alt = true,
+                "alt" => c.alt = true,
                 "altgr" | "ralt" => c.altgr = true,
-                "win" | "meta" | "#" => c.win = true,
+                "win" | "meta" => c.win = true,
                 name => {
                     if key_name.is_some() {
                         bail!("combo `{s}` has more than one non-modifier key");
@@ -235,7 +216,7 @@ mod tests {
     fn parse_digit_keys() {
         let c: Combo = "alt+1".parse().unwrap();
         assert!(c.alt && c.key == Key::Char('1'));
-        let c: Combo = "#5".parse().unwrap();
+        let c: Combo = "win+5".parse().unwrap();
         assert!(c.win && c.key == Key::Char('5'));
     }
 
@@ -268,12 +249,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_ahk_style_modifiers() {
-        // AHK syntax: ^!+g, #f2, !xx
-        let c: Combo = "!+z".parse().unwrap();
-        assert!(c.alt && c.shift && c.key == Key::Char('z'));
-        let c: Combo = "^!+g".parse().unwrap();
-        assert!(c.ctrl && c.alt && c.shift && c.key == Key::Char('g'));
+    fn reject_sigil_modifiers() {
+        for legacy in ["!+z", "^!+g", "#f2", "+z"] {
+            assert!(legacy.parse::<Combo>().is_err(), "accepted `{legacy}`");
+        }
     }
 
     #[test]

@@ -59,7 +59,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             dir: String::new(),
-            name: "screen-tools-rs-{date}-{time}".to_string(),
+            name: "screen-tools-{date}-{time}".to_string(),
             fps: 30,
             ffmpeg: "ffmpeg".to_string(),
             audio: true,
@@ -149,7 +149,7 @@ pub fn name_for(template: &str, date: &str, time: &str) -> String {
         .collect();
     let name = name.trim().to_string();
     if name.is_empty() {
-        "screen-tools-rs".to_string()
+        "screen-tools".to_string()
     } else {
         name
     }
@@ -425,8 +425,8 @@ mod tests {
     #[test]
     fn name_template_expands_and_stays_in_the_folder() {
         assert_eq!(
-            name_for("screen-tools-rs-{date}-{time}", "20261105", "214500"),
-            "screen-tools-rs-20261105-214500"
+            name_for("screen-tools-{date}-{time}", "20261105", "214500"),
+            "screen-tools-20261105-214500"
         );
         assert_eq!(
             name_for("{datetime}-demo", "20261105", "214500"),
@@ -436,7 +436,7 @@ mod tests {
             name_for("rec/{date}:{time}", "20260101", "000000"),
             "rec_20260101_000000"
         );
-        assert_eq!(name_for("   ", "20260101", "000000"), "screen-tools-rs");
+        assert_eq!(name_for("   ", "20260101", "000000"), "screen-tools");
         assert_eq!(name_for("a<b>c|d?e*f", "d", "t"), "a_b_c_d_e_f");
     }
 
@@ -462,7 +462,7 @@ mod tests {
     fn settings_defaults_are_audio_on_with_caps() {
         let s = Settings::default();
         assert!(s.audio);
-        assert_eq!(s.name, "screen-tools-rs-{date}-{time}");
+        assert_eq!(s.name, "screen-tools-{date}-{time}");
         assert_eq!(s.crf, 20);
         assert_eq!(s.max_minutes, 60);
         assert_eq!(s.min_free_mb, 500);

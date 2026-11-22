@@ -1,4 +1,4 @@
-//! screen-tools-rs — OCR frame window + overlay (Text-Grab model).
+//! screen-tools — capture, OCR, recording and power tools.
 //!
 //! P0.2: a borderless always-on-top hollow frame marks a fixed OCR region.
 //! Draw it with the draw binding, resize it by typed SizeSpec, pin it

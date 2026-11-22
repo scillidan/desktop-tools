@@ -24,6 +24,7 @@ pub fn load() -> Result<(PathBuf, Engine)> {
 
 pub fn load_from(root: PathBuf) -> Result<(PathBuf, Engine)> {
     std::fs::create_dir_all(&root)?;
+    kit::config::write_reference_in_profile(&root, FILE_NAME, DEFAULT_CONFIG)?;
     let path = root.join(FILE_NAME);
     if path.exists() {
         split_p4a_shell_config(&path)?;

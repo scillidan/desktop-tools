@@ -95,7 +95,7 @@ fn binding_lines(bindings: &Bindings, actions: &[Action]) -> String {
 fn module_text(module: ConfigModule, cfg: &Config) -> String {
     match module {
         ConfigModule::Capture => format!(
-            "# Capture output and the external image editor.\n\n[capture]\ndir = {}\n\n[external]\neditor = {}\n\n{}",
+            "# Capture output and the external image editor.\n# Focused Pin: Ctrl+C copies+closes Pin/Frame; Ctrl+S saves as; Ctrl+Shift+S quick-saves.\n\n[capture]\ndir = {}\n\n[external]\neditor = {}\n\n{}",
             quote(&cfg.capture_dir),
             quote(&cfg.external_editor),
             binding_lines(&cfg.bindings, &[Action::Capture])
@@ -383,6 +383,15 @@ pub fn modified(actions: &Path) -> Option<std::time::SystemTime> {
 }
 
 pub fn edit(module: ConfigModule, actions: &Path) {
+    if let Some(profile) = actions.parent() {
+        let text = module_text(module, &Config::default());
+        if let Err(error) = kit::config::write_reference_in_profile(profile, module.file(), &text) {
+            eprintln!(
+                "cannot write {} default reference: {error:#}",
+                module.file()
+            );
+        }
+    }
     kit::win::edit_config(&module.path(actions));
 }
 

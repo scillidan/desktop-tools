@@ -7,8 +7,7 @@
 //! Parity notes:
 //! - The AHK original saves/restores `ClipboardAll` but never writes the
 //!   clipboard, so the restore is a no-op; we just read the text.
-//! - AHK hotkey syntax (`!+z`, `^!+g`) parses via kit's combo parser.
-//! - Legacy double-press (`!xx`) and explicit multi-step sequences
+//! - Single combinations and explicit multi-step sequences
 //!   (`alt+x > alt+x > alt+x`) share kit's 400 ms sequence matcher.
 
 fn main() -> anyhow::Result<()> {
@@ -25,41 +24,9 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-/// (base hotkey, is_double_press): `!xx` -> (`!x`, true).
-///
-/// AHK's textual rule is "last two characters identical", but that also turns
-/// `f11` into double-F1. Parse the whole combo first: if it is a valid single
-/// hotkey, it wins. Otherwise try the AHK double-press split and keep it only
-/// if the base is a valid combo. This supports both `!xx` and `alt+shift+zz`.
-#[cfg(windows)]
-fn split_double_press(hotkey: &str) -> (&str, bool) {
-    let hotkey = hotkey.trim();
-    if hotkey.parse::<kit::keys::Combo>().is_ok() {
-        return (hotkey, false);
-    }
-    let chars: Vec<char> = hotkey.chars().collect();
-    if chars.len() >= 2 && chars[chars.len() - 1] == chars[chars.len() - 2] {
-        let base_len = hotkey.len() - chars[chars.len() - 1].len_utf8();
-        let base = &hotkey[..base_len];
-        if base.parse::<kit::keys::Combo>().is_ok() {
-            return (base, true);
-        }
-    }
-    (hotkey, false)
-}
-
 #[cfg(windows)]
 fn parse_sequence(hotkey: &str) -> anyhow::Result<kit::hotkey_sequence::Sequence> {
-    let hotkey = hotkey.trim();
-    if hotkey.contains('>') {
-        return hotkey.parse();
-    }
-    let (base, double) = split_double_press(hotkey);
-    if double {
-        format!("{base} > {base}").parse()
-    } else {
-        base.parse()
-    }
+    hotkey.trim().parse()
 }
 
 #[cfg(windows)]
@@ -161,7 +128,7 @@ fn run() -> anyhow::Result<()> {
 
     let _single = win::ensure_single_instance(APP)?;
 
-    let (config_path, text) = config::load_profile(
+    let (config_path, text) = config::load_layered_profile(
         "goldendict-search-in-group.toml",
         include_str!("../goldendict-search-in-group.toml"),
     )?;
@@ -365,41 +332,20 @@ fn refresh_menu(tray: &mut kit::tray::Tray, popup: bool, hosted: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        group_parameter, load_groups, parse_sequence, set_popup_line, split_double_press, Group,
-    };
+    use super::{group_parameter, load_groups, parse_sequence, set_popup_line, Group};
 
     #[test]
-    fn legacy_double_and_new_multistep_share_one_sequence_parser() {
-        assert_eq!(parse_sequence("!xx").unwrap().to_string(), "alt+x > alt+x");
+    fn canonical_single_and_multistep_share_one_sequence_parser() {
+        assert_eq!(parse_sequence("alt+x").unwrap().to_string(), "alt+x");
         assert_eq!(
             parse_sequence("alt+x > ctrl+shift+t > alt+x")
                 .unwrap()
                 .to_string(),
             "alt+x > ctrl+shift+t > alt+x"
         );
-    }
-
-    #[test]
-    fn double_press_detection() {
-        assert_eq!(split_double_press("!xx"), ("!x", true));
-        assert_eq!(split_double_press("xx"), ("x", true));
-        assert_eq!(split_double_press("alt+shift+zz"), ("alt+shift+z", true));
-        assert_eq!(split_double_press("!11"), ("!1", true));
-        assert_eq!(split_double_press("alt+1"), ("alt+1", false));
-        assert_eq!(split_double_press("!+z"), ("!+z", false));
-        assert_eq!(split_double_press("x"), ("x", false));
-    }
-
-    #[test]
-    fn function_keys_are_not_double_press() {
-        // AHK's textual rule would split this into double-F1; a valid combo
-        // must win.
-        assert_eq!(split_double_press("f11"), ("f11", false));
-        assert_eq!(
-            split_double_press("ctrl+alt+shift+insert"),
-            ("ctrl+alt+shift+insert", false)
-        );
+        for legacy in ["!xx", "alt+shift+zz", "^!+g"] {
+            assert!(parse_sequence(legacy).is_err(), "accepted `{legacy}`");
+        }
     }
 
     #[test]

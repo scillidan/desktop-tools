@@ -131,7 +131,7 @@ fn run() -> anyhow::Result<()> {
         general: Option<General>,
     }
 
-    let (config_path, text) = config::load_profile(
+    let (config_path, text) = config::load_layered_profile(
         "keyboard-auto-switch-back.toml",
         include_str!("../keyboard-auto-switch-back.toml"),
     )?;

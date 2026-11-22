@@ -115,6 +115,13 @@ impl Host {
             .parent()
             .context("host executable has no parent")?
             .to_path_buf();
+        kit::config::ensure_settings_in_profile(&profile)?;
+        kit::config::write_reference_in_profile(
+            &profile,
+            kit::config::SETTINGS_FILE,
+            kit::config::DEFAULT_SETTINGS,
+        )?;
+        kit::config::write_reference_in_profile(&profile, "core.toml", DEFAULT_CORE)?;
         let (core_path, text) =
             kit::config::load_in_profile(&profile, &exe_dir, "core.toml", DEFAULT_CORE)?;
         let core = CoreConfig::parse(&text).context("core.toml")?;
@@ -253,6 +260,8 @@ impl Host {
 
         entries.push(Entry::Sep);
         entries.push(Entry::Item("Reload core"));
+        entries.push(Entry::Item("Edit core.toml"));
+        entries.push(Entry::Item("Edit desktop-tools.toml"));
         entries.push(Entry::Toggle(
             "Start with Windows",
             kit::win::autostart_enabled(APP),
@@ -277,11 +286,36 @@ impl Host {
         ));
     }
 
+    fn edit_profile_file(&self, name: &str) {
+        let user = self.profile.join(name);
+        if !user.exists() {
+            kit::win::message_box(
+                APP,
+                &format!(
+                    "{} does not exist yet.\nStart the plugin once, then edit it.",
+                    user.display()
+                ),
+            );
+            return;
+        }
+        if let Err(error) = kit::win::edit_profile_config(&user) {
+            kit::win::message_box(APP, &format!("Cannot open {name}:\n{error:#}"));
+        }
+    }
+
     fn on_menu(&mut self, tray: &mut Tray, label: &str) {
         match label {
             "Reload core" => {
                 self.reload_core(true);
                 self.refresh_menu(tray);
+                return;
+            }
+            "Edit core.toml" => {
+                self.edit_profile_file("core.toml");
+                return;
+            }
+            "Edit desktop-tools.toml" => {
+                self.edit_profile_file(kit::config::SETTINGS_FILE);
                 return;
             }
             "Start with Windows" => {
@@ -351,20 +385,7 @@ impl Host {
                     self.start_index(idx, true);
                 }
             }
-            PluginAction::Edit => {
-                let path = self.profile.join(format!("{id}.toml"));
-                if path.exists() {
-                    kit::win::edit_config(&path);
-                } else {
-                    kit::win::message_box(
-                        APP,
-                        &format!(
-                            "{} does not exist yet.\nStart the plugin once, then edit it.",
-                            path.display()
-                        ),
-                    );
-                }
-            }
+            PluginAction::Edit => self.edit_profile_file(&format!("{id}.toml")),
             PluginAction::Log => {
                 let path = self.log_dir.join(format!("{id}.log"));
                 if path.exists() {

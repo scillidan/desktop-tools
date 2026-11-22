@@ -1,4 +1,4 @@
-//! screen-tools-rs TOML config: default frame size + hotkey bindings. One bad value
+//! screen-tools TOML config: default frame size + hotkey bindings. One bad value
 //! keeps its default with a warning; only a fundamentally unreadable file is
 //! an error (desktop-tools-rs convention).
 
@@ -242,15 +242,15 @@ impl Default for Config {
             mask_mode: MaskMode::Box,
             mask_font: "Sarasa Term SC Nerd".to_string(),
             mask_size: MaskSize::Pt(10),
-            capture_dir: "%USERPROFILE%\\Pictures\\screen-tools-rs".to_string(),
+            capture_dir: "%USERPROFILE%\\Pictures\\screen-tools".to_string(),
             notify_enabled: false,
             pin_border: PinBorder::Hatch,
             pin_line_color: 0,
             pin_hatch_color: 0x00ffff,
             flameshot: String::new(),
             external_editor: String::new(),
-            record_dir: "%USERPROFILE%\\Videos\\screen-tools-rs".to_string(),
-            record_name: "screen-tools-rs-{date}-{time}".to_string(),
+            record_dir: "%USERPROFILE%\\Videos\\screen-tools".to_string(),
+            record_name: "screen-tools-{date}-{time}".to_string(),
             record_fps: 30,
             record_ffmpeg: "ffmpeg".to_string(),
             record_audio: true,
@@ -564,6 +564,16 @@ pub fn parse(text: &str) -> Result<Config> {
             None => eprintln!("warn: [bindings] must be a table; using defaults"),
         }
     }
+    // Exact legacy defaults follow the product rename; custom output paths stay untouched.
+    if cfg.capture_dir == "%USERPROFILE%\\Pictures\\screen-tools-rs" {
+        cfg.capture_dir = "%USERPROFILE%\\Pictures\\screen-tools".into();
+    }
+    if cfg.record_dir == "%USERPROFILE%\\Videos\\screen-tools-rs" {
+        cfg.record_dir = "%USERPROFILE%\\Videos\\screen-tools".into();
+    }
+    if cfg.record_name == "screen-tools-rs-{date}-{time}" {
+        cfg.record_name = "screen-tools-{date}-{time}".into();
+    }
     Ok(cfg)
 }
 
@@ -623,15 +633,15 @@ mod tests {
                 mask_mode: MaskMode::Box,
                 mask_font: "Sarasa Term SC Nerd".to_string(),
                 mask_size: MaskSize::Pt(10),
-                capture_dir: "%USERPROFILE%\\Pictures\\screen-tools-rs".to_string(),
+                capture_dir: "%USERPROFILE%\\Pictures\\screen-tools".to_string(),
                 notify_enabled: false,
                 pin_border: PinBorder::Hatch,
                 pin_line_color: 0,
                 pin_hatch_color: 0x00ffff,
                 flameshot: String::new(),
                 external_editor: String::new(),
-                record_dir: "%USERPROFILE%\\Videos\\screen-tools-rs".to_string(),
-                record_name: "screen-tools-rs-{date}-{time}".to_string(),
+                record_dir: "%USERPROFILE%\\Videos\\screen-tools".to_string(),
+                record_name: "screen-tools-{date}-{time}".to_string(),
                 record_fps: 30,
                 record_ffmpeg: "ffmpeg".to_string(),
                 record_audio: true,
@@ -721,8 +731,8 @@ mod tests {
     #[test]
     fn record_config_parses_and_clamps_fps() {
         let cfg = parse("").unwrap();
-        assert_eq!(cfg.record_dir, "%USERPROFILE%\\Videos\\screen-tools-rs");
-        assert_eq!(cfg.record_name, "screen-tools-rs-{date}-{time}");
+        assert_eq!(cfg.record_dir, "%USERPROFILE%\\Videos\\screen-tools");
+        assert_eq!(cfg.record_name, "screen-tools-{date}-{time}");
         assert_eq!(cfg.record_fps, 30);
         assert_eq!(cfg.record_ffmpeg, "ffmpeg");
         assert!(cfg.record_audio);
@@ -748,8 +758,25 @@ mod tests {
     }
 
     #[test]
+    fn legacy_output_defaults_follow_the_rename() {
+        let cfg = parse(
+            "[capture]\ndir = '%USERPROFILE%\\Pictures\\screen-tools-rs'\n[record]\ndir = '%USERPROFILE%\\Videos\\screen-tools-rs'\nname = 'screen-tools-rs-{date}-{time}'\n",
+        )
+        .unwrap();
+        assert_eq!(cfg.capture_dir, "%USERPROFILE%\\Pictures\\screen-tools");
+        assert_eq!(cfg.record_dir, "%USERPROFILE%\\Videos\\screen-tools");
+        assert_eq!(cfg.record_name, "screen-tools-{date}-{time}");
+        let custom =
+            parse("[capture]\ndir = 'D:\\shots'\n[record]\ndir = 'D:\\clips'\nname = 'custom'\n")
+                .unwrap();
+        assert_eq!(custom.capture_dir, "D:\\shots");
+        assert_eq!(custom.record_dir, "D:\\clips");
+        assert_eq!(custom.record_name, "custom");
+    }
+
+    #[test]
     fn bindings_parse_and_validate() {
-        let cfg = parse("[bindings]\ndraw = \"^!g\"\nresize = \"ctrl+alt+s\"\n").unwrap();
+        let cfg = parse("[bindings]\ndraw = \"ctrl+alt+g\"\nresize = \"ctrl+alt+s\"\n").unwrap();
         assert_eq!(cfg.bindings.draw.key, Key::Char('g'));
         assert!(cfg.bindings.draw.ctrl && cfg.bindings.draw.alt);
         assert_eq!(cfg.bindings.resize, "ctrl+alt+s".parse::<Combo>().unwrap());

@@ -3,7 +3,8 @@
 //! nothing). Interior drag uses the system move loop; edge drag is our own
 //! aspect-locked resize, so there is no non-client border to eat pixels or
 //! leave ghosts. Hovering an edge shows only the resize-arrow cursor.
-//! Esc/right-click closes.
+//! Ctrl+C copies the original and closes the Pin and Frame; Ctrl+S saves as,
+//! Ctrl+Shift+S quick-saves, and Esc/right-click closes.
 
 use crate::PinBorder;
 use anyhow::{ensure, Context, Result};
@@ -21,12 +22,12 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    ReleaseCapture, SetCapture, VIRTUAL_KEY, VK_ESCAPE,
+    GetKeyState, ReleaseCapture, SetCapture, VK_CONTROL, VK_ESCAPE, VK_SHIFT,
 };
 use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetCursorPos,
-    GetForegroundWindow, GetShellWindow, GetWindowLongPtrW, GetWindowRect, LoadCursorW,
+    GetForegroundWindow, GetShellWindow, GetWindowLongPtrW, GetWindowRect, IsWindow, LoadCursorW,
     RegisterClassW, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, UpdateLayeredWindow,
     CREATESTRUCTW, GWLP_USERDATA, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCAPTION, HTCLIENT,
     HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, HTTRANSPARENT, HWND_TOPMOST, IDC_SIZENESW,
@@ -92,11 +93,13 @@ struct Pin {
     mem: HDC,
     bmp: HGDIOBJ,
     old: HGDIOBJ,
+    bits: *mut u8,
     w: i32,
     h: i32,
     style: Style,
     margin: i32,
     drag: Option<ResizeDrag>,
+    owner: HWND,
 }
 
 #[derive(Clone, Copy)]
@@ -305,11 +308,13 @@ pub unsafe fn show(
         mem,
         bmp: dib.into(),
         old,
+        bits: bits as *mut u8,
         w,
         h,
         style,
         margin: m,
         drag: None,
+        owner,
     }));
     let desktop = current_desktop(owner);
     // An owned tool window follows its owner's virtual desktop without gaining a taskbar button.
@@ -487,6 +492,38 @@ fn resize_cursor(side: u32) -> PCWSTR {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum PinKeyAction {
+    Copy,
+    SaveAs,
+    QuickSave,
+    Close,
+    None,
+}
+
+fn pin_key_action(ctrl: bool, shift: bool, key: u8) -> PinKeyAction {
+    if key == VK_ESCAPE.0 as u8 {
+        return PinKeyAction::Close;
+    }
+    if !ctrl {
+        return PinKeyAction::None;
+    }
+    match key.to_ascii_lowercase() {
+        b'c' => PinKeyAction::Copy,
+        b's' if shift => PinKeyAction::QuickSave,
+        b's' => PinKeyAction::SaveAs,
+        _ => PinKeyAction::None,
+    }
+}
+
+unsafe fn pin_shot(hwnd: HWND) -> Result<screen_capture::Shot> {
+    let raw = pin_of(hwnd).context("pin state missing")?;
+    let pin = &*raw;
+    let len = (pin.w as usize) * (pin.h as usize) * 4;
+    let pixels = std::slice::from_raw_parts(pin.bits, len);
+    screen_capture::Shot::from_bgra(pin.w, pin.h, pixels)
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_CREATE => {
@@ -590,9 +627,58 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
             }
             LRESULT(0)
         }
-        WM_KEYDOWN if VIRTUAL_KEY(wparam.0 as u16) == VK_ESCAPE => {
-            let _ = DestroyWindow(hwnd);
-            LRESULT(0)
+        WM_KEYDOWN => {
+            let ctrl = GetKeyState(VK_CONTROL.0 as i32) < 0;
+            let shift = GetKeyState(VK_SHIFT.0 as i32) < 0;
+            match pin_key_action(ctrl, shift, wparam.0 as u8) {
+                PinKeyAction::Copy => {
+                    let result =
+                        pin_shot(hwnd).and_then(|shot| unsafe { shot.into_clipboard(hwnd) });
+                    match result {
+                        Ok(()) => {
+                            if let Some(raw) = pin_of(hwnd) {
+                                let owner = (*raw).owner;
+                                if IsWindow(Some(owner)).as_bool() {
+                                    crate::frame::hide(owner);
+                                }
+                            }
+                            let _ = DestroyWindow(hwnd);
+                        }
+                        Err(e) => crate::logline(&format!("warn: pin copy failed: {e:#}")),
+                    }
+                    LRESULT(0)
+                }
+                PinKeyAction::QuickSave => {
+                    match pin_shot(hwnd).and_then(|shot| shot.save_png(&crate::capture_dir())) {
+                        Ok(path) => crate::logline(&format!("pin saved: {}", path.display())),
+                        Err(e) => crate::logline(&format!("warn: pin save failed: {e:#}")),
+                    }
+                    LRESULT(0)
+                }
+                PinKeyAction::SaveAs => {
+                    let chosen = screen_capture::choose_file(
+                        hwnd,
+                        &crate::capture_dir(),
+                        &screen_capture::default_capture_name(),
+                    );
+                    match chosen {
+                        Ok(Some(path)) => {
+                            match pin_shot(hwnd).and_then(|shot| shot.save_png_to(&path)) {
+                                Ok(()) => crate::logline(&format!("pin saved: {}", path.display())),
+                                Err(e) => crate::logline(&format!("warn: pin save failed: {e:#}")),
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => crate::logline(&format!("warn: pin save dialog failed: {e:#}")),
+                    }
+                    LRESULT(0)
+                }
+                PinKeyAction::Close => {
+                    let _ = DestroyWindow(hwnd);
+                    LRESULT(0)
+                }
+                PinKeyAction::None => DefWindowProcW(hwnd, msg, wparam, lparam),
+            }
         }
         WM_RBUTTONUP | WM_CLOSE => {
             let _ = DestroyWindow(hwnd);
@@ -614,13 +700,26 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 
 #[cfg(test)]
 mod tests {
-    use super::{band_pixel, edge_at, fit, lock_aspect, margin, Style, PIN_EX_STYLE};
+    use super::{
+        band_pixel, edge_at, fit, lock_aspect, margin, pin_key_action, PinKeyAction, Style,
+        PIN_EX_STYLE,
+    };
     use crate::PinBorder;
     use windows::Win32::Foundation::{POINT, RECT};
     use windows::Win32::UI::WindowsAndMessaging::{
         HTBOTTOMRIGHT, HTLEFT, WMSZ_BOTTOM, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP,
         WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
     };
+
+    #[test]
+    fn pin_keys_copy_save_and_close_without_plain_letter_shortcuts() {
+        assert_eq!(pin_key_action(true, false, b'C'), PinKeyAction::Copy);
+        assert_eq!(pin_key_action(true, false, b'S'), PinKeyAction::SaveAs);
+        assert_eq!(pin_key_action(true, true, b'S'), PinKeyAction::QuickSave);
+        assert_eq!(pin_key_action(false, false, 0x1b), PinKeyAction::Close);
+        assert_eq!(pin_key_action(false, false, b'C'), PinKeyAction::None);
+        assert_eq!(pin_key_action(false, true, b'S'), PinKeyAction::None);
+    }
 
     #[test]
     fn pin_avoids_shell_styles_that_break_desktop_isolation() {

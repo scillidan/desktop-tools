@@ -121,7 +121,7 @@ Hosted pass A and standalone pass B were signed by the user. The final host was 
 - [x] Ctrl+Alt+R starts/stops a short recording; output and existing media are intact.
 - [x] Screen was stopped and the desktop host restored with nine plugins.
 
-Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-instance duplicate rejection, legacy config byte preservation, and real `screen-tools-rs.*` window classes pass. The documented `tools/physical.ps1` does not exist and was not claimed as run.
+Automated: 116 old-workspace tests, clippy, release, Ctrl+Alt+S occupation, new-instance duplicate rejection, legacy config byte preservation, and real `screen-tools.*` window classes pass. The documented `tools/physical.ps1` does not exist and was not claimed as run.
 
 ## P6b Screen hosted baseline
 
@@ -300,3 +300,24 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       it: the application receives it once. With a visible Frame, Capture still works.
 - [ ] Confirm `Win+E` and ``Ctrl+` `` still toggle the installed Double Commander
       and WezTerm targets, and Auto-search retains the existing personal groups.
+
+## P16 — Pin actions, editor pairs and active naming
+
+- [ ] Focus a Pin and press `Ctrl+C`: CopyQ contains the original image, and both
+      the Pin and its Frame close. A deliberate clipboard failure must leave the Pin.
+- [ ] `Ctrl+S` opens Save As and `Ctrl+Shift+S` quick-saves under
+      `Pictures\screen-tools`; compare PNG dimensions with the original capture.
+      Both paths retain the Pin, and cancelling Save As also retains it.
+- [ ] Make a normal Capture and short recording: new files use
+      `Pictures\screen-tools\screen-tools-*` and `Videos\screen-tools\screen-tools-*`.
+      Old `screen-tools-rs` files remain, and Task Manager shows `screen-tools`.
+- [ ] Open GoldenDict Search and Auto-search configs: comments say to create groups
+      in GoldenDict first; the live groups are `default` / `translate`, with no
+      `grammar`. Confirm both existing search hotkeys and Auto-search still work.
+- [ ] Set `[editor] command` in `desktop-tools.toml`, then use Edit config: one
+      editor process opens the default reference first and user file second.
+      Check a hosted plugin, a Window/Screen feature, Edit core.toml and Edit
+      desktop-tools.toml. Reference snapshots must not be presented as layered for
+      Window, Screen, Taskbar, Key Map or Shell Keys.
+- [ ] `ctrl+shift+alt+g` still toggles Auto-search after its user file became sparse.
+      AHK `^!+g` and `!xx` are intentionally unsupported, not silent fallbacks.

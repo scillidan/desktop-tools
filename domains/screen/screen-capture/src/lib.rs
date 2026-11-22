@@ -1,7 +1,7 @@
 //! Screen capture via GDI BitBlt (DDA arrives later; see ROADMAP P1). The
 //! image lands on the clipboard as CF_DIB plus a CF_BITMAP alias: clipboard
 //! managers (copyq etc.) and many apps only read the DIB form, while GDI-style
-//! readers want the bitmap handle. Only an explicit Ctrl+S writes a PNG.
+//! readers want the bitmap handle. PNGs are written only by explicit save actions.
 //! shortcut: GDI cannot see accelerated DirectComposition content
 //! (browsers, some game UIs) — upgrade to Graphics Capture API if a
 //! captured region comes out black or stale.
@@ -70,6 +70,74 @@ pub struct Shot {
 }
 
 impl Shot {
+    /// Builds a Shot from top-down BGRA pixels already held by a window.
+    pub fn from_bgra(w: i32, h: i32, bgra: &[u8]) -> Result<Self> {
+        ensure!(w > 0 && h > 0, "empty image");
+        let len = (w as usize) * (h as usize) * 4;
+        ensure!(bgra.len() >= len, "short pixel buffer");
+        unsafe {
+            let screen = GetDC(None);
+            ensure!(!screen.0.is_null(), "GetDC(screen) failed");
+            let mem = CreateCompatibleDC(Some(screen));
+            if mem.is_invalid() {
+                let _ = ReleaseDC(None, screen);
+                anyhow::bail!("CreateCompatibleDC failed");
+            }
+            let mut info = BITMAPINFO::default();
+            info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
+            info.bmiHeader.biWidth = w;
+            info.bmiHeader.biHeight = -h;
+            info.bmiHeader.biPlanes = 1;
+            info.bmiHeader.biBitCount = 32;
+            info.bmiHeader.biCompression = BI_RGB.0;
+            let mut bits: *mut core::ffi::c_void = ptr::null_mut();
+            let Ok(bmp) = CreateDIBSection(Some(screen), &info, DIB_RGB_COLORS, &mut bits, None, 0)
+            else {
+                let _ = DeleteDC(mem);
+                let _ = ReleaseDC(None, screen);
+                anyhow::bail!("CreateDIBSection failed");
+            };
+            if bmp.is_invalid() || bits.is_null() {
+                let _ = DeleteObject(bmp.into());
+                let _ = DeleteDC(mem);
+                let _ = ReleaseDC(None, screen);
+                anyhow::bail!("CreateDIBSection returned null");
+            }
+            ptr::copy_nonoverlapping(bgra.as_ptr(), bits as *mut u8, len);
+            let old = SelectObject(mem, bmp.into());
+            let dd = CreateCompatibleBitmap(screen, w, h);
+            let mem2 = CreateCompatibleDC(Some(screen));
+            if dd.is_invalid() || mem2.is_invalid() {
+                let _ = SelectObject(mem, old);
+                let _ = DeleteObject(bmp.into());
+                let _ = DeleteObject(dd.into());
+                let _ = DeleteDC(mem2);
+                let _ = DeleteDC(mem);
+                let _ = ReleaseDC(None, screen);
+                anyhow::bail!("cannot create the clipboard bitmap");
+            }
+            let old2 = SelectObject(mem2, dd.into());
+            let copied = BitBlt(mem2, 0, 0, w, h, Some(mem), 0, 0, SRCCOPY).is_ok();
+            let _ = SelectObject(mem2, old2);
+            let _ = SelectObject(mem, old);
+            let _ = DeleteDC(mem2);
+            let _ = DeleteDC(mem);
+            let _ = ReleaseDC(None, screen);
+            if !copied {
+                let _ = DeleteObject(bmp.into());
+                let _ = DeleteObject(dd.into());
+                anyhow::bail!("cannot copy the clipboard bitmap");
+            }
+            Ok(Self {
+                w,
+                h,
+                bmp,
+                dd,
+                bits: bits as *mut u8,
+            })
+        }
+    }
+
     /// Hands the pixels to the clipboard (DIB block + bitmap alias).
     ///
     /// # Safety
@@ -146,7 +214,7 @@ impl Shot {
         unsafe { std::slice::from_raw_parts(self.bits, len) }.to_vec()
     }
 
-    /// Writes `<dir>/screen-tools-rs-YYYYMMDD-HHMMSS.png` and returns its path. The
+    /// Writes `<dir>/screen-tools-YYYYMMDD-HHMMSS.png` and returns its path. The
     /// encode runs on a worker thread: WinRT async results on the UI (STA)
     /// thread only complete by pumping messages, so polling there deadlocks.
     pub fn save_png(&self, dir: &str) -> Result<std::path::PathBuf> {
@@ -229,20 +297,10 @@ fn flip_rows(bits: *const u8, w: i32, h: i32) -> Vec<u8> {
     out
 }
 
-/// `screen-tools-rs-YYYYMMDD-HHMMSS.png` in local time.
+/// `screen-tools-YYYYMMDD-HHMMSS.png` in local time.
 fn file_name(st: &SYSTEMTIME) -> String {
     format!(
-        "screen-tools-rs-{:04}{:02}{:02}-{:02}{:02}{:02}.png",
-        st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond
-    )
-}
-
-/// `screen-tools-rs-YYYYMMDD-HHMMSS.mp4` in local time (recording output).
-#[allow(dead_code)]
-pub fn record_name() -> String {
-    let st = unsafe { GetLocalTime() };
-    format!(
-        "screen-tools-rs-{:04}{:02}{:02}-{:02}{:02}{:02}.mp4",
+        "screen-tools-{:04}{:02}{:02}-{:02}{:02}{:02}.png",
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond
     )
 }
@@ -817,7 +875,25 @@ mod tests {
             wSecond: 1,
             ..Default::default()
         };
-        assert_eq!(file_name(&st), "screen-tools-rs-20260307-090501.png");
+        assert_eq!(file_name(&st), "screen-tools-20260307-090501.png");
+    }
+
+    #[test]
+    fn shot_from_bgra_preserves_pixels_and_png_dimensions() {
+        let pixels: Vec<u8> = (0..3 * 2 * 4).map(|v| v as u8).collect();
+        assert!(Shot::from_bgra(3, 2, &pixels[..8]).is_err());
+        let shot = Shot::from_bgra(3, 2, &pixels).unwrap();
+        assert_eq!((shot.w, shot.h), (3, 2));
+        assert_eq!(shot.bgra(), pixels);
+        let path =
+            std::env::temp_dir().join(format!("screen-tools-shot-test-{}.png", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        shot.save_png_to(&path).unwrap();
+        let png = std::fs::read(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(&png[12..16], b"IHDR");
+        assert_eq!(&png[16..20], &3u32.to_be_bytes());
+        assert_eq!(&png[20..24], &2u32.to_be_bytes());
     }
 
     #[test]

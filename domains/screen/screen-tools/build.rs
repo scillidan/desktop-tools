@@ -1,4 +1,4 @@
-//! Embeds the screen-tools-rs icon into the Windows executable.
+//! Embeds the screen-tools icon into the Windows executable.
 
 fn main() {
     if std::env::var_os("CARGO_CFG_WINDOWS").is_none() {

@@ -404,7 +404,7 @@ fn run() -> anyhow::Result<()> {
 
     let _single = win::ensure_single_instance(APP)?;
 
-    let (config_path, text) = config::load_profile(
+    let (config_path, text) = config::load_layered_profile(
         "goldendict-auto-search.toml",
         include_str!("../goldendict-auto-search.toml"),
     )?;
@@ -429,7 +429,10 @@ fn run() -> anyhow::Result<()> {
     ));
     let mut dc_enabled = st.double_click_enabled.unwrap_or(true);
     let cb_enabled_cfg = st.clipboard_enabled.unwrap_or(false);
-    let toggle_combo: Combo = hk.toggle_key.unwrap_or_else(|| "^!+g".into()).parse()?;
+    let toggle_combo: Combo = hk
+        .toggle_key
+        .unwrap_or_else(|| "ctrl+alt+shift+g".into())
+        .parse()?;
 
     // Shared state between the tray loop and helper threads.
     let bound: Arc<RwLock<HashSet<String>>> = Arc::new(RwLock::new(HashSet::new()));

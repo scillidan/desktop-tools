@@ -1,7 +1,5 @@
-# screen-tools-rs configuration. This template lives at the repo root; tools\rebuild.ps1
-# copies it next to screen-tools-rs.exe on every rebuild. The running exe reads
-# screen-tools.toml from its own directory. Bad values fall back to defaults with a
-# warning in screen-tools-rs.log.
+# Legacy aggregate screen-tools configuration. Current installs use split
+# screen-*.toml files in the profile. Bad values warn in screen-tools.log.
 
 [frame]
 width     = 800   # default frame width, px (16..=20000)
@@ -45,12 +43,12 @@ font = "Sarasa Term SC Nerd"
 size = 10
 
 # Ctrl+Shift+S on a focused Move/resize frame saves its region here with the
-# default `screen-tools-rs-YYYYMMDD-HHMMSS.png` name, then closes the frame. Ctrl+S opens
+# default `screen-tools-YYYYMMDD-HHMMSS.png` name, then closes the frame. Ctrl+S opens
 # a save dialog starting in this directory (name prefilled); Ctrl+C copies the
-# image. Pinning never writes a file. `%VAR%` expands; empty makes quick-save
-# report an error.
+# image. Creating a Pin writes nothing; its focused save keys use this same
+# directory. `%VAR%` expands; empty makes quick-save report an error.
 [capture]
-dir = "%USERPROFILE%\\Pictures\\screen-tools-rs"
+dir = "%USERPROFILE%\\Pictures\\screen-tools"
 
 # Tray notification after a manual OCR result or a quick-OCR copy. Off by
 # default (silent); the tray icon must be present.
@@ -59,7 +57,9 @@ enabled = false
 
 # Pinned-image edge. "hatch" = translucent diagonal shadow (6 px, the
 # default), "line" = one solid pixel using line-color, "none" = no edge.
-# Hovering an edge shows only the resize-arrow cursor in every mode.
+# Hovering an edge shows only the resize-arrow cursor in every mode. A focused
+# Pin: Ctrl+C copies the original and closes Pin+Frame; Ctrl+S opens Save As;
+# Ctrl+Shift+S quick-saves; saving keeps the Pin; Esc/right-click closes.
 [pin]
 border = "hatch"       # hatch | line | none
 hatch-color = "cyan"   # colour name or #RRGGBB; only used by border = "hatch"
@@ -79,8 +79,8 @@ editor = ""
 # Recording (Ctrl+Alt+R on a visible frame starts/stops; the frame hides while
 # recording so it never enters the video).
 [record]
-dir = "%USERPROFILE%\\Videos\\screen-tools-rs"   # %VAR% expanded, created on first use
-name = "screen-tools-rs-{date}-{time}"           # {date} YYYYMMDD, {time} HHMMSS, {datetime}
+dir = "%USERPROFILE%\\Videos\\screen-tools"   # %VAR% expanded, created on first use
+name = "screen-tools-{date}-{time}"           # {date} YYYYMMDD, {time} HHMMSS, {datetime}
 fps = 30                                # clamped to 5..60
 ffmpeg = "ffmpeg"                       # PATH name or absolute exe
 # Desktop audio (WASAPI loopback of the default playback device). Captured as a
@@ -93,7 +93,7 @@ crf = 20
 max_minutes = 60
 min_free_mb = 500
 
-# action = "combo" — combo syntax: ctrl+alt+s, ^!s (AHK sigils), win+f2.
+# action = "combo" — combo syntax: ctrl+alt+s or win+f2.
 # NOTE: these are GLOBAL hotkeys. Defaults are chosen to avoid Windows
 # defaults, but `pin` uses a three-modifier combo so plain Ctrl+T still reaches
 # the foreground app — rebind if that bites.

@@ -1,5 +1,5 @@
 # window-tools - native window management (P3 compatibility configuration).
-# Combo syntax: ctrl+alt+h, win+f2, ^!+g (AHK sigils also work).
+# Combo syntax: ctrl+alt+h or win+f2.
 # Repeating an edge/corner action cycles 1/2 -> 2/3 -> 1/3.
 # Optional: gap = 8  (px margin between snapped window and work area).
 # Hold this modifier + left mouse button to move a window. Every swallowed

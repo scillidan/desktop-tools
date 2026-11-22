@@ -62,7 +62,7 @@ desktop-tools/
 │   │   ├── screen-record/      # video, audio, FFmpeg lifecycle
 │   │   ├── screen-power/       # monitor power-off and wake recovery
 │   │   ├── flameshot-handoff/  # external handoff; linked locally
-│   │   └── screen-tools/       # thin screen-tools-rs.exe composition root
+│   │   └── screen-tools/       # thin screen-tools.exe composition root
 │   ├── keyboard/
 │   │   ├── keyboard-locker/
 │   │   ├── keyboard-switch/
@@ -99,7 +99,7 @@ The full suite is the host plus ten plugins (eleven processes):
 | Primary group | Plugin id | Executable | Default profile |
 |---|---|---|---|
 | window | `window-tools` | `window-tools-rs.exe` | `window-tools.toml`, `window-resize.toml` |
-| screen | `screen-tools` | `screen-tools-rs.exe` | `screen-capture.toml` / `screen-draw.toml` / `screen-ocr.toml` / `screen-power.toml` / `screen-record.toml` / `screen-flameshot.toml` |
+| screen | `screen-tools` | `screen-tools.exe` | `screen-capture.toml` / `screen-draw.toml` / `screen-ocr.toml` / `screen-power.toml` / `screen-record.toml` / `screen-flameshot.toml` |
 | keyboard | `keyboard-locker` | `keyboard-locker.exe` | `keyboard-locker.toml` |
 | keyboard | `keyboard-switch` | `keyboard-switch.exe` | `keyboard-switch.toml` |
 | keyboard | `keyboard-auto-switch-back` | `keyboard-auto-switch-back.exe` | `keyboard-auto-switch-back.toml` |
@@ -224,7 +224,7 @@ The existing ``Alt+` `` / ``Alt+Shift+` `` bindings remain unchanged. `Win+E` is
 
 ### 4.2 Screen
 
-`screen-tools-rs` remains the executable and suite name, but its current large modules are separated into library crates with explicit inputs/outputs:
+`screen-tools` remains the executable and suite name, but its current large modules are separated into library crates with explicit inputs/outputs:
 
 | Crate | Owns | Must not own |
 |---|---|---|
@@ -602,7 +602,7 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 ### Generic defaults and layered configuration (active)
 
 - [ ] Resumed by the user: implement system defaults plus sparse user overrides, with existing full profiles remaining valid and byte-untouched. Tables merge by key; scalars replace; arrays and arrays-of-tables replace wholesale so explicit `[]` clears entries. Existing Window binding-file replacement semantics must not resurrect deliberately deleted bindings. Persistence and reload must operate on raw user text while execution uses the merged configuration. A generated, current system-reference copy must be available without duplicating the effective config into the user file.
-- [x] Layered stage 1: kit owns the generic TOML merge/loader and generates reference files under `config\defaults`; user files remain sparse and are not rewritten by loading. Keyboard Switch is the first migrated plugin: fresh defaults install no switch hotkey, CapsLock is opt-in, `swap_esc_caps = false`, `InDefine` has no implicit US/Chinese layouts, declared layouts must be installed and unambiguous, and menu toggles upsert only their own user setting. Existing full profiles retain their explicit CapsLock and layout behavior. Other plugins still use their previous loader until individually migrated.
+- [x] Layered stage 1: kit owns the generic TOML merge/loader and generates reference files under `config\defaults`; user files remain sparse and are not rewritten by loading. Keyboard Switch is the first migrated plugin: fresh defaults install no switch hotkey, CapsLock is opt-in, `swap_esc_caps = false`, `InDefine` has no implicit US/Chinese layouts, declared layouts must be installed and unambiguous, and menu toggles upsert only their own user setting. Existing full profiles retain their explicit CapsLock and layout behavior. Locker, Auto Switch Back and both GoldenDict plugins now use the same sparse loader; other configs remain full-file until their deletion semantics are explicitly designed.
 - [x] GoldenDict groups and Taskbar pins are empty by default. Auto-search also defaults to an empty group/search type, which searches all dictionaries; its argument tests cover empty, group-specific and `all` cases. Existing personal groups remain untouched.
 - [ ] Remove the remaining personal fresh-profile values: App Toggle targets/bindings and Key Map replacements. Keep `swap_esc_caps = false`, auto-switch-back on US English and `Sarasa Term SC Nerd` as a recommended/example OCR Mask font. Validate only in isolated fresh profiles and never rewrite the accepted live profile.
 - [x] Fixed the audited key-grab defects: Screen returns the complete current chord when a global action needs a visible Frame but none exists, and App Toggle skips both hotkey backends for missing target/launcher paths. Real probes verified instant and held `Ctrl+Enter` arrive exactly once without a synthetic Ctrl release, and a missing App Toggle target leaves its ordinary hotkey available with clean Quit. Existing installed targets keep their bindings.
@@ -643,3 +643,13 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 - [x] Keep the integration under Screen Record with no new suite process. Native FFmpeg remains the default. Reuse `Action::Record`, the Screen hotkey coordinator and Record menu for control; Frame/window/monitor geometry belongs to a later scene-source mapping stage, not basic recording. `obs-cmd` controls OBS scene items, not the Windows position of the OBS UI.
 - [ ] Stage 1 is read-only: `info`, recording/replay status and visible error reporting. Stage 2 owns explicit start/stop/pause/resume with pre/post status, refuses to adopt or stop a pre-existing OBS recording, never uses `toggle`, and keeps a menu stop available during Suspend. Stage 3 saves an already-running Replay Buffer without owning it. Stage 4 first reads canvas/scene/source transforms, then separately designs crop writes and one-step restoration for an explicitly managed scene item.
 - [ ] Authentication uses only the child process's `OBS_WEBSOCKET_URL`; never store the password in TOML, pass `--websocket` on a logged command line, or emit an unredacted `obsws://` URL. Never auto-launch OBS, change its profile/scene collection/output directory/video settings, or fall back to FFmpeg after an OBS failure. CLI output is human-readable rather than JSON; geometry writes must fail closed on unparsable output and are not promised by process control alone.
+
+## 16. Requested configuration, Pin and naming cleanup
+
+1. [x] The approved modifier-state reinjection knowledge was submitted to CQ.
+2. [x] GoldenDict comments explicitly require creating groups in GoldenDict first and use only `default` / `translate` as personal examples. Runtime default groups remain empty; `grammar` was removed from code, tests and the live profile.
+3. [x] A focused Pin uses its stored original BGRA pixels. `Ctrl+C` uses the existing clipboard worker and closes the Pin/Frame only on success. `Ctrl+S` opens Save As; `Ctrl+Shift+S` saves directly to the capture directory. Save success/cancel/failure retains the Pin. Both save paths preserve the original dimensions and reuse the existing MTA PNG writer.
+4. [x] Active output directories, file prefixes, temporary files, worker scripts and window titles use `screen-tools`, not `screen-tools-rs`. Legacy mutex/import names and cleanup of old temporary files remain intentionally compatible; old Pictures/Videos output is retained. Live values equal to the old default directories/prefix were migrated after backup, never arbitrary custom paths.
+5. [x] The two live GoldenDict files are now sparse personal overrides; their before/after merged TOML values are identical. Keyboard Switch, Locker, Auto Switch Back and both GoldenDict plugins use layered loading. Other configs keep full-file deletion semantics and expose generated references as snapshots only.
+6. [x] Suite settings live in `desktop-tools.toml` with `[editor] command`; the stale Window legacy-import alias for that filename was removed. Editor resolution is setting > `EDITOR` > `VISUAL` > Notepad. One shared launcher opens default reference then user file in the same editor process. The host also exposes Edit core.toml and Edit desktop-tools.toml.
+7. [x] AHK `^ ! + #` hotkey sigils and GoldenDict doubled-character shorthand are rejected. Canonical modifier names and explicit `>` sequences are the only supported syntax; the live `^!+g` value was migrated and the Auto-search fallback was corrected too. Key Map `#alpha` / `>>star` values are text triggers, not hotkeys.

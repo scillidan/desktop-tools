@@ -484,6 +484,11 @@ pub fn load_or_create_presets(path: &Path, default_toml: &str) -> Result<Vec<Siz
     let exe = std::env::current_exe().context("cannot locate own executable")?;
     let legacy = exe.parent().context("executable has no parent directory")?;
     kit::config::import_legacy_once(path, legacy, &["resize.toml"])?;
+    kit::config::write_reference_in_profile(
+        path.parent().context("config path has no parent")?,
+        "resize.toml",
+        default_toml,
+    )?;
     let text = load_or_create(path, default_toml)?;
     parse_presets(&text)
 }
@@ -576,15 +581,16 @@ impl ConfigModule {
             .join(self.file_name()))
     }
 }
-const OLD_CONFIG_NAMES: &[&str] = &[
-    "desktop-tools.toml",
-    "window-tools.toml",
-    "windowtools.toml",
-    "rectangle.toml",
-];
+// desktop-tools.toml is suite settings, never a legacy Window binding file.
+const OLD_CONFIG_NAMES: &[&str] = &["window-tools.toml", "windowtools.toml", "rectangle.toml"];
 
 pub fn default_config_path() -> Result<PathBuf> {
     let path = kit::config::profile_file(CONFIG_NAME)?;
+    kit::config::write_reference_in_profile(
+        path.parent().context("config path has no parent")?,
+        CONFIG_NAME,
+        DEFAULT_CONFIG,
+    )?;
     let legacy_path = path.with_file_name(LEGACY_CONFIG_NAME);
     if !path.exists() && !legacy_path.exists() {
         let exe = std::env::current_exe().context("cannot locate own executable")?;
@@ -657,6 +663,11 @@ pub fn ensure_module_config(
     cfg: &Config,
 ) -> Result<PathBuf> {
     let path = module.path(global_path)?;
+    kit::config::write_reference_in_profile(
+        global_path.parent().context("config path has no parent")?,
+        module.file_name(),
+        default_module(module),
+    )?;
     if path.exists() {
         return Ok(path);
     }

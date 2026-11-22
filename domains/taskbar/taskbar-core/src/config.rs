@@ -68,6 +68,12 @@ where
 {
     let config = load::<T>(file_name, section, nested)?;
     let path = path(file_name)?;
+    let default = toml::to_string_pretty(&T::default())?;
+    kit::config::write_reference_in_profile(
+        path.parent().context("config path has no parent")?,
+        file_name,
+        &default,
+    )?;
     if !path.exists() {
         write(&path, &config)?;
     }

@@ -11,6 +11,11 @@ use std::path::{Path, PathBuf};
 
 pub const PROFILE_ENV: &str = "DTTOOLS_PROFILE";
 pub const LEGACY_PROFILE_ENV: &str = "KBTOOLS_PROFILE";
+pub const SETTINGS_FILE: &str = "desktop-tools.toml";
+pub const DEFAULT_SETTINGS: &str = r#"# Suite-wide settings. Empty = EDITOR, then VISUAL, then notepad.
+[editor]
+command = ""
+"#;
 
 /// Resolve the profile root. Existing portable and legacy directories are
 /// preferred over the fresh-install default; no directory is created here.
@@ -85,6 +90,71 @@ pub fn profile_file(name: &str) -> Result<PathBuf> {
     Ok(profile_dir()?.join(name))
 }
 
+pub fn ensure_settings_in_profile(profile: &Path) -> Result<PathBuf> {
+    std::fs::create_dir_all(profile)?;
+    let path = profile.join(SETTINGS_FILE);
+    load_or_create(&path, DEFAULT_SETTINGS)?;
+    Ok(path)
+}
+
+fn editor_from_settings(text: &str) -> Option<String> {
+    toml::from_str::<toml::Value>(text)
+        .ok()?
+        .get("editor")?
+        .get("command")?
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// Resolve the suite editor: settings, then EDITOR/VISUAL, then Notepad.
+pub fn editor() -> String {
+    let configured = profile_file(SETTINGS_FILE)
+        .ok()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|text| editor_from_settings(&text));
+    configured
+        .or_else(|| {
+            std::env::var("EDITOR")
+                .ok()
+                .filter(|v| !v.trim().is_empty())
+        })
+        .or_else(|| {
+            std::env::var("VISUAL")
+                .ok()
+                .filter(|v| !v.trim().is_empty())
+        })
+        .unwrap_or_else(|| "notepad".into())
+}
+
+pub fn reference_path(name: &str) -> Result<PathBuf> {
+    Ok(profile_dir()?.join("defaults").join(name))
+}
+
+/// Refresh the generated, read-only default reference without touching user TOML.
+pub fn write_reference_in_profile(
+    profile: &Path,
+    name: &str,
+    default_toml: &str,
+) -> Result<PathBuf> {
+    let reference = profile.join("defaults").join(name);
+    std::fs::create_dir_all(
+        reference
+            .parent()
+            .context("default reference has no parent")?,
+    )?;
+    if std::fs::read_to_string(&reference).ok().as_deref() != Some(default_toml) {
+        std::fs::write(&reference, default_toml)
+            .with_context(|| format!("cannot write {}", reference.display()))?;
+    }
+    Ok(reference)
+}
+
+pub fn write_reference(name: &str, default_toml: &str) -> Result<PathBuf> {
+    write_reference_in_profile(&profile_dir()?, name, default_toml)
+}
+
 /// Create the profile directory, import a legacy exe-adjacent file once, then
 /// load (or create) the profile file.
 pub fn load_in_profile(
@@ -146,17 +216,7 @@ pub fn load_layered_in_profile(
         .with_context(|| format!("cannot create {}", profile.display()))?;
     let path = profile.join(name);
     import_legacy_once(&path, legacy_dir, &[name])?;
-
-    let reference = profile.join("defaults").join(name);
-    std::fs::create_dir_all(
-        reference
-            .parent()
-            .context("default reference has no parent")?,
-    )?;
-    if std::fs::read_to_string(&reference).ok().as_deref() != Some(default_toml) {
-        std::fs::write(&reference, default_toml)
-            .with_context(|| format!("cannot write {}", reference.display()))?;
-    }
+    write_reference_in_profile(profile, name, default_toml)?;
     if !path.exists() {
         std::fs::write(
             &path,
@@ -363,6 +423,25 @@ mod tests {
         assert!(
             resolve_profile_dir(&["--profile".to_string(), String::new()], None, &exe, None)
                 .is_err()
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn suite_editor_setting_is_optional_and_settings_file_is_preserved() {
+        assert_eq!(editor_from_settings(DEFAULT_SETTINGS), None);
+        assert_eq!(
+            editor_from_settings("[editor]\ncommand = 'code --new-window'\n"),
+            Some("code --new-window".into())
+        );
+        let root = temp_dir("suite-editor");
+        let path = ensure_settings_in_profile(&root).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), DEFAULT_SETTINGS);
+        std::fs::write(&path, "[editor]\ncommand = 'custom'\n").unwrap();
+        ensure_settings_in_profile(&root).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "[editor]\ncommand = 'custom'\n"
         );
         let _ = std::fs::remove_dir_all(&root);
     }

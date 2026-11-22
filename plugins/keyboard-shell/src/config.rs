@@ -61,6 +61,7 @@ pub fn load() -> Result<(PathBuf, Config)> {
 pub fn load_in_profile(profile: &Path) -> Result<(PathBuf, Config)> {
     std::fs::create_dir_all(profile)
         .with_context(|| format!("cannot create {}", profile.display()))?;
+    kit::config::write_reference_in_profile(profile, FILE_NAME, DEFAULT_CONFIG)?;
     let path = profile.join(FILE_NAME);
     if !path.exists() {
         let text = import_previous_keymap(profile)?

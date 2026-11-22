@@ -75,10 +75,10 @@ impl FromStr for Mods {
         for part in s.split('+') {
             match part.trim().to_ascii_lowercase().as_str() {
                 "" => continue,
-                "ctrl" | "control" | "^" => m.ctrl = true,
+                "ctrl" | "control" => m.ctrl = true,
                 "shift" => m.shift = true,
-                "alt" | "!" => m.alt = true,
-                "win" | "meta" | "super" | "#" => m.win = true,
+                "alt" => m.alt = true,
+                "win" | "meta" | "super" => m.win = true,
                 other => bail!("`{other}` is not a modifier in `{s}`"),
             }
         }
@@ -219,3 +219,14 @@ pub mod keys;
 pub mod win;
 pub use config::{Binding, ConfigPart};
 pub use keys::{Combo, Key};
+
+#[cfg(test)]
+mod modifier_tests {
+    #[test]
+    fn modifiers_use_names_not_ahk_sigils() {
+        assert!("win+alt".parse::<super::Mods>().is_ok());
+        for legacy in ["#", "!", "^", "#+!"] {
+            assert!(legacy.parse::<super::Mods>().is_err(), "accepted {legacy}");
+        }
+    }
+}

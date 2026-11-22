@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 #[test]
 fn two_step_sequence_fires_only_after_the_second_combo() {
     let mut sequences = SequenceSet::new(
-        vec![("grammar", "alt+x > alt+x".parse::<Sequence>().unwrap())],
+        vec![("lookup", "alt+x > alt+x".parse::<Sequence>().unwrap())],
         Duration::from_millis(400),
     )
     .unwrap();
@@ -14,14 +14,14 @@ fn two_step_sequence_fires_only_after_the_second_combo() {
     assert_eq!(sequences.press(combo, start), None);
     assert_eq!(
         sequences.press(combo, start + Duration::from_millis(399)),
-        Some("grammar")
+        Some("lookup")
     );
 }
 
 #[test]
 fn a_step_at_the_timeout_boundary_starts_a_new_sequence() {
     let mut sequences = SequenceSet::new(
-        vec![("grammar", "alt+x > alt+x".parse::<Sequence>().unwrap())],
+        vec![("lookup", "alt+x > alt+x".parse::<Sequence>().unwrap())],
         Duration::from_millis(400),
     )
     .unwrap();
@@ -35,7 +35,7 @@ fn a_step_at_the_timeout_boundary_starts_a_new_sequence() {
     );
     assert_eq!(
         sequences.press(combo, start + Duration::from_millis(500)),
-        Some("grammar")
+        Some("lookup")
     );
 }
 
@@ -43,7 +43,7 @@ fn a_step_at_the_timeout_boundary_starts_a_new_sequence() {
 fn shared_prefixes_and_three_steps_keep_all_matching_candidates() {
     let mut sequences = SequenceSet::new(
         vec![
-            ("grammar", "alt+x > alt+x".parse::<Sequence>().unwrap()),
+            ("lookup", "alt+x > alt+x".parse::<Sequence>().unwrap()),
             (
                 "table",
                 "alt+x > ctrl+shift+t > alt+x".parse::<Sequence>().unwrap(),
@@ -90,7 +90,7 @@ fn ambiguous_or_globally_unsafe_bindings_are_rejected() {
 fn registration_deduplicates_combos_and_reset_clears_pending_steps() {
     let mut sequences = SequenceSet::new(
         vec![
-            ("grammar", "alt+x > alt+x".parse::<Sequence>().unwrap()),
+            ("lookup", "alt+x > alt+x".parse::<Sequence>().unwrap()),
             (
                 "table",
                 "alt+x > ctrl+shift+t > alt+x".parse::<Sequence>().unwrap(),
@@ -123,7 +123,7 @@ fn registration_deduplicates_combos_and_reset_clears_pending_steps() {
     );
     assert_eq!(
         sequences.press(combos[0], start + Duration::from_millis(300)),
-        Some("grammar")
+        Some("lookup")
     );
     assert_eq!(
         sequences.press(combos[2], start + Duration::from_millis(400)),

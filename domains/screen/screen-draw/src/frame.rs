@@ -332,7 +332,7 @@ pub unsafe fn create(
     let hwnd = CreateWindowExW(
         FRAME_EX_STYLE,
         class,
-        w!("screen-tools-rs"),
+        w!("screen-tools"),
         WS_POPUP,
         pos.l,
         pos.t,
@@ -366,7 +366,7 @@ pub unsafe fn create(
         // which is why the strip was invisible.
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         status_class,
-        w!("screen-tools-rs status"),
+        w!("screen-tools status"),
         WS_POPUP,
         0,
         0,

@@ -1,7 +1,7 @@
 //! Win32 helpers shared by all apps: single instance, HKCU Run autostart,
 //! message boxes, opening folders. Ported from keymap-rs `platform/windows.rs`.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::Path;
 use windows::Win32::Foundation::HANDLE;
 
@@ -210,52 +210,54 @@ pub fn open_with_default(path: &Path) {
     }
 }
 
-/// Open `path` in `%EDITOR%` (fallback notepad). Splits the editor command
-/// from the file path; the old `run_command` passed the whole command line as
-/// ShellExecute's file name, so `Edit Config` did nothing.
+/// Open a profile file with its same-name default reference when available.
 pub fn edit_config(path: &Path) {
-    use windows::core::HSTRING;
-    use windows::Win32::UI::Shell::ShellExecuteW;
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
-    let editor = std::env::var("EDITOR")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "notepad".to_string());
-    let (program, args) = split_editor(&editor);
-    let params = if args.is_empty() {
-        format!("\"{}\"", path.display())
-    } else {
-        format!("{args} \"{}\"", path.display())
-    };
-    let file = HSTRING::from(program);
-    let params = HSTRING::from(params);
-    unsafe {
-        ShellExecuteW(
-            None,
-            windows::core::w!("open"),
-            &file,
-            &params,
-            None,
-            SW_SHOWNORMAL,
-        );
+    if let Err(error) = edit_profile_config(path) {
+        eprintln!("cannot edit {}: {error:#}", path.display());
     }
 }
 
-fn split_editor(editor: &str) -> (&str, &str) {
-    let editor = editor.trim();
-    if let Some(rest) = editor.strip_prefix('"') {
-        if let Some(end) = rest.find('"') {
-            return (&rest[..end], rest[end + 1..].trim());
-        }
+pub fn edit_profile_config(path: &Path) -> Result<()> {
+    let default = path.parent().and_then(|parent| {
+        path.file_name()
+            .map(|name| parent.join("defaults").join(name))
+    });
+    match default {
+        Some(default) if default.exists() => edit_config_pair(&default, path),
+        _ => edit_configs(&[path]),
     }
-    if Path::new(editor).is_file() {
-        return (editor, "");
-    }
-    match editor.split_once(' ') {
-        Some((program, args)) => (program, args.trim()),
-        None => (editor, ""),
-    }
+}
+
+/// Open the generated default and its user override in one editor invocation.
+pub fn edit_config_pair(default: &Path, user: &Path) -> Result<()> {
+    edit_configs(&[default, user])
+}
+
+pub fn edit_configs(paths: &[&Path]) -> Result<()> {
+    anyhow::ensure!(!paths.is_empty(), "no config files supplied");
+    let editor = crate::config::editor();
+    editor_command(&editor, paths)
+        .spawn()
+        .with_context(|| format!("cannot launch editor `{editor}`"))?;
+    Ok(())
+}
+
+/// `cmd /S /C` resolves `.cmd` editor shims and preserves quoted paths. The
+/// extra outer quotes stop `/S` from removing quotes around spaced file names.
+fn editor_command(editor: &str, paths: &[&Path]) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    use windows::Win32::System::Threading::CREATE_NO_WINDOW;
+
+    let files = paths
+        .iter()
+        .map(|path| format!("\"{}\"", path.display()))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.args(["/S", "/C"])
+        .raw_arg(format!("\"{editor} {files}\""))
+        .creation_flags(CREATE_NO_WINDOW.0);
+    cmd
 }
 
 /// Run a command line with ShellExecute (like AHK `Run`).
@@ -278,16 +280,29 @@ pub fn run_command(cmd: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::split_editor;
+    use super::editor_command;
 
     #[test]
-    fn editor_command_is_split_from_the_file() {
-        assert_eq!(split_editor("notepad"), ("notepad", ""));
-        assert_eq!(split_editor("code --wait"), ("code", "--wait"));
-        assert_eq!(
-            split_editor(r#""C:\Program Files\Notepad++\notepad++.exe" -multiInst"#),
-            (r"C:\Program Files\Notepad++\notepad++.exe", "-multiInst")
-        );
+    fn editor_command_passes_default_and_user_as_two_arguments() {
+        let dir = std::env::temp_dir().join(format!("kit editor {}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("args.txt");
+        let script = dir.join("fake editor.cmd");
+        std::fs::write(&script, format!("@echo %* > \"{}\"\r\n", log.display())).unwrap();
+        let default = dir.join("default config.toml");
+        let user = dir.join("user config.toml");
+        std::fs::write(&default, "").unwrap();
+        std::fs::write(&user, "").unwrap();
+
+        let editor = format!("\"{}\"", script.display());
+        let mut child = editor_command(&editor, &[&default, &user]).spawn().unwrap();
+        child.wait().unwrap();
+
+        let logged = std::fs::read_to_string(&log).unwrap();
+        let default_pos = logged.find(&default.display().to_string()).unwrap();
+        let user_pos = logged.find(&user.display().to_string()).unwrap();
+        assert!(default_pos < user_pos, "{logged}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 

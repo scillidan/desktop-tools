@@ -1,5 +1,5 @@
-//! Key and key-combo primitives. Adapted from keytools-rs `kit::keys`
-//! (keymap-rs convention): `ctrl+alt+left`, `win+f2`, `^!+g` (AHK sigils).
+//! Key and key-combo primitives using canonical names such as
+//! `ctrl+alt+left` and `win+f2`.
 
 use anyhow::{bail, Result};
 use std::fmt;
@@ -55,29 +55,12 @@ impl Default for Combo {
 impl FromStr for Combo {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Combo> {
-        // AHK sigil form first: modifiers are the leading run of ^ ! + #.
-        let trimmed = s.trim();
-        if trimmed
+        if s.trim_start()
             .chars()
             .next()
             .is_some_and(|ch| matches!(ch, '^' | '!' | '+' | '#'))
         {
-            let mut c = Combo::default();
-            let mut rest = trimmed;
-            while let Some(ch) = rest.chars().next() {
-                match ch {
-                    '^' => c.ctrl = true,
-                    '!' => c.alt = true,
-                    '+' => c.shift = true,
-                    '#' => c.win = true,
-                    _ => break,
-                }
-                rest = &rest[ch.len_utf8()..];
-            }
-            let name = rest.trim().to_ascii_lowercase();
-            c.key = parse_key(&name)
-                .ok_or_else(|| anyhow::anyhow!("unknown key `{name}` in combo `{s}`"))?;
-            return Ok(c);
+            bail!("combo `{s}` uses unsupported sigils; use ctrl/alt/shift/win names");
         }
 
         let mut c = Combo::default();
@@ -86,10 +69,10 @@ impl FromStr for Combo {
             let part = part.trim().to_ascii_lowercase();
             match part.as_str() {
                 "" => continue,
-                "ctrl" | "control" | "^" => c.ctrl = true,
+                "ctrl" | "control" => c.ctrl = true,
                 "shift" => c.shift = true,
-                "alt" | "!" => c.alt = true,
-                "win" | "meta" | "super" | "#" => c.win = true,
+                "alt" => c.alt = true,
+                "win" | "meta" | "super" => c.win = true,
                 name => {
                     if key_name.is_some() {
                         bail!("combo `{s}` has more than one non-modifier key");
@@ -249,11 +232,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_ahk_sigils() {
-        let c: Combo = "^!+g".parse().unwrap();
-        assert!(c.ctrl && c.alt && c.shift && c.key == Key::Char('g'));
-        let c: Combo = "#f2".parse().unwrap();
-        assert!(c.win && c.key == Key::F(2));
+    fn reject_sigil_modifiers() {
+        for legacy in ["!+z", "^!+g", "#f2", "+z"] {
+            assert!(legacy.parse::<Combo>().is_err(), "accepted `{legacy}`");
+        }
     }
 
     #[test]

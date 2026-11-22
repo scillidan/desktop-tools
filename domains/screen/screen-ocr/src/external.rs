@@ -97,7 +97,7 @@ impl TempPng {
         ensure!(w > 0 && h > 0, "empty OCR capture");
         let id = TEMP_ID.fetch_add(1, Ordering::Relaxed);
         let path =
-            std::env::temp_dir().join(format!("screen-tools-rs-{}-{id}.png", std::process::id()));
+            std::env::temp_dir().join(format!("screen-tools-{}-{id}.png", std::process::id()));
         std::fs::File::create(&path).context("cannot create temporary OCR image")?;
         unsafe { screen_capture::write_png(&path, w as u32, h as u32, bgra)? };
         Ok(Self(path))
@@ -123,7 +123,7 @@ struct RapidWorker {
 impl RapidWorker {
     fn spawn() -> Result<Self> {
         let uv = executable("uv").context("uv.exe not found (install it with Scoop)")?;
-        let script = std::env::temp_dir().join("screen-tools-rs-rapidocr-worker.py");
+        let script = std::env::temp_dir().join("screen-tools-rapidocr-worker.py");
         if std::fs::read_to_string(&script).ok().as_deref() != Some(WORKER_PY) {
             std::fs::write(&script, WORKER_PY).context("cannot write RapidOCR worker")?;
         }

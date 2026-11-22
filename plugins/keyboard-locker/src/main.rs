@@ -740,7 +740,7 @@ fn run() -> anyhow::Result<()> {
         notify: Option<NotifySettings>,
     }
 
-    let (config_path, text) = config::load_profile(
+    let (config_path, text) = config::load_layered_profile(
         "keyboard-locker.toml",
         include_str!("../keyboard-locker.toml"),
     )?;
