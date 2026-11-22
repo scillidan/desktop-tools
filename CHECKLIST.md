@@ -323,7 +323,10 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [ ] `ctrl+shift+alt+g` still toggles Auto-search after its user file became sparse.
       AHK `^!+g` and `!xx` are intentionally unsupported, not silent fallbacks.
 - [x] Agent verified the merged core migration: host/plugins values are preserved,
-      the retired settings files are backed up outside the profile, the generated
-      core reference contains `[editor]`, and v0.3.0 passes the complete gate and
-      fresh ten-plugin smoke. The real staged host has ten children and five
-      representative hotkeys remain occupied.
+      the retired settings files are backed up outside the profile, and the generated
+      core reference contains `[editor]`. v0.3.0 passed the complete gate, fresh
+      ten-plugin smoke, CI run 45011185592 and Release run 45011201342. Its
+      6,511,628-byte asset matches both published hash sources. Scoop manifest
+      `ff90011` is published; real `scoop update` upgraded 0.2.0 to 0.3.0. Current
+      Scoop host PID 24556 has ten children on the same config and five representative
+      hotkeys remain occupied.
