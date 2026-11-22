@@ -110,6 +110,77 @@ pub fn load_profile(name: &str, default_toml: &str) -> Result<(PathBuf, String)>
     load_in_profile(&profile, legacy, name, default_toml)
 }
 
+/// Merge sparse user TOML over embedded defaults without modifying either file.
+/// Tables merge recursively; every other value, including arrays, is replaced.
+pub fn merge_toml(default_toml: &str, user_toml: &str) -> Result<String> {
+    fn merge(base: &mut toml::Value, user: toml::Value) {
+        match (base, user) {
+            (toml::Value::Table(base), toml::Value::Table(user)) => {
+                for (key, value) in user {
+                    match base.get_mut(&key) {
+                        Some(current) => merge(current, value),
+                        None => {
+                            base.insert(key, value);
+                        }
+                    }
+                }
+            }
+            (base, user) => *base = user,
+        }
+    }
+
+    let mut base: toml::Value = toml::from_str(default_toml).context("invalid embedded default")?;
+    let user: toml::Value = toml::from_str(user_toml).context("invalid user config")?;
+    merge(&mut base, user);
+    toml::to_string_pretty(&base).context("cannot serialize merged config")
+}
+
+/// Load sparse user overrides and keep a generated default reference beside them.
+pub fn load_layered_in_profile(
+    profile: &Path,
+    legacy_dir: &Path,
+    name: &str,
+    default_toml: &str,
+) -> Result<(PathBuf, String)> {
+    std::fs::create_dir_all(profile)
+        .with_context(|| format!("cannot create {}", profile.display()))?;
+    let path = profile.join(name);
+    import_legacy_once(&path, legacy_dir, &[name])?;
+
+    let reference = profile.join("defaults").join(name);
+    std::fs::create_dir_all(
+        reference
+            .parent()
+            .context("default reference has no parent")?,
+    )?;
+    if std::fs::read_to_string(&reference).ok().as_deref() != Some(default_toml) {
+        std::fs::write(&reference, default_toml)
+            .with_context(|| format!("cannot write {}", reference.display()))?;
+    }
+    if !path.exists() {
+        std::fs::write(
+            &path,
+            format!(
+                "# User overrides for {name}; omitted settings inherit defaults/{name}.\n\
+                 # Tables merge recursively. Arrays replace defaults, including an empty [].\n\
+                 # defaults/{name} is a generated reference; edit this file instead.\n"
+            ),
+        )
+        .with_context(|| format!("cannot create overrides {}", path.display()))?;
+    }
+    let user = std::fs::read_to_string(&path)
+        .with_context(|| format!("cannot read {}", path.display()))?;
+    Ok((path, merge_toml(default_toml, &user)?))
+}
+
+/// Resolve the profile and load sparse overrides over an embedded default.
+pub fn load_layered_profile(name: &str, default_toml: &str) -> Result<(PathBuf, String)> {
+    let profile = profile_dir()?;
+    let exe = std::env::current_exe().context("cannot locate own executable")?;
+    let legacy = exe.parent().context("executable has no parent directory")?;
+    load_layered_in_profile(&profile, legacy, name, default_toml)
+}
+
 /// Load a profile file, importing the first available legacy file name once.
 pub fn load_profile_with_legacy(
     name: &str,
@@ -292,6 +363,72 @@ mod tests {
         assert!(
             resolve_profile_dir(&["--profile".to_string(), String::new()], None, &exe, None)
                 .is_err()
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sparse_overlay_merges_tables_and_replaces_arrays() {
+        let defaults = r#"
+            title = "default"
+            [settings]
+            mode = "InAll"
+            hotkey = "capslock"
+            [[layout]]
+            klid = "00000409"
+            [[layout]]
+            klid = "00000804"
+        "#;
+        let user = r#"
+            layout = []
+            [settings]
+            hotkey = "ctrl+alt+k"
+        "#;
+        let merged: toml::Value = toml::from_str(&merge_toml(defaults, user).unwrap()).unwrap();
+        assert_eq!(merged["title"].as_str(), Some("default"));
+        assert_eq!(merged["settings"]["mode"].as_str(), Some("InAll"));
+        assert_eq!(merged["settings"]["hotkey"].as_str(), Some("ctrl+alt+k"));
+        assert_eq!(merged["layout"].as_array().unwrap().len(), 0);
+
+        let sparse: toml::Value = toml::from_str(&merge_toml(defaults, "").unwrap()).unwrap();
+        assert_eq!(sparse["layout"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn layered_profile_keeps_user_file_sparse_and_reference_current() {
+        let root = temp_dir("layered");
+        let profile = root.join("config");
+        let legacy = root.join("legacy");
+        std::fs::create_dir_all(&legacy).unwrap();
+        let (path, text) = load_layered_in_profile(
+            &profile,
+            &legacy,
+            "app.toml",
+            "[settings]\nanswer = 42\nother = true\n",
+        )
+        .unwrap();
+        assert!(std::fs::read_to_string(&path).unwrap().contains("override"));
+        let merged: toml::Value = toml::from_str(&text).unwrap();
+        assert_eq!(merged["settings"]["answer"].as_integer(), Some(42));
+        assert_eq!(
+            std::fs::read_to_string(profile.join("defaults").join("app.toml")).unwrap(),
+            "[settings]\nanswer = 42\nother = true\n"
+        );
+
+        std::fs::write(&path, "[settings]\nanswer = 7\n").unwrap();
+        let (_, text) = load_layered_in_profile(
+            &profile,
+            &legacy,
+            "app.toml",
+            "[settings]\nanswer = 43\nother = false\n",
+        )
+        .unwrap();
+        let merged: toml::Value = toml::from_str(&text).unwrap();
+        assert_eq!(merged["settings"]["answer"].as_integer(), Some(7));
+        assert_eq!(merged["settings"]["other"].as_bool(), Some(false));
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "[settings]\nanswer = 7\n"
         );
         let _ = std::fs::remove_dir_all(&root);
     }

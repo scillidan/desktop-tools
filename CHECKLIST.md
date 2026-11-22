@@ -263,3 +263,17 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [ ] On more than one monitor/DPI, confirm a Pin keeps its original geometry and
       appearance. Close a desktop containing a Pin and confirm it remains usable
       on the surviving desktop.
+
+## P12 — layered configuration, first slice
+
+- [x] Shared overlay tests pass for nested tables, scalar replacement, whole-array
+      replacement and explicit empty-array clearing. Existing full files keep the
+      same effective values; the sparse user file is never rewritten and the
+      separate `defaults/keyboard-switch.toml` reference tracks the shipped default.
+- [x] Keyboard Switch accepts an empty sparse file, leaves CapsLock and switching
+      unbound by default, rejects uninstalled declared layouts, and does not invent
+      US/Chinese layouts. Sparse menu toggles write only their explicit setting.
+- [x] Full fmt/workspace tests/Clippy/release/staging and ten-plugin smoke pass.
+      The final staged host has ten children on the existing Scoop config; its full
+      `keyboard-switch.toml` is byte-identical to the rollback copy and the generated
+      default reference matches the repository default.

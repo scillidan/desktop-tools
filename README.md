@@ -126,6 +126,8 @@ With Scoop, exit the host and use `scoop update desktop-tools` or `scoop uninsta
 
 Run `stage\desktop-tools.exe`, optionally with `--profile <dir>`. Profile priority is `--profile` > `DTTOOLS_PROFILE` > legacy `KBTOOLS_PROFILE` > an existing `config` beside the executable (with legacy `Profile\User` fallback) > an existing `%APPDATA%\desktop-tools\config` or its legacy `Profile\User`, with `config` as the fresh-install default. A relative explicit path is made absolute, and the host passes one absolute profile to every plugin. Release zips contain no profile, so ordinary manual installs use the Windows directory; creating `config` beside the exe opts into portable mode. Scoop persists that same portable directory. The top-level **Open Profile Folder** menu entry opens the exact selected directory. Enabling the new host's Windows autostart removes known legacy host and standalone Window/Taskbar Run entries to prevent duplicate workers.
 
+Layered configuration is being adopted one plugin at a time. Keyboard Switch accepts a sparse `keyboard-switch.toml`: omitted values inherit the generated reference at `defaults\keyboard-switch.toml`; tables merge recursively, while arrays replace the default array (use `[]` to clear it). Existing full user files remain valid and are never replaced by merged output. Other plugins retain their current loading behavior until their own migration is verified.
+
 `core.toml` owns the enabled plugin ids. Restarting a disabled plugin enables it, persists that state and shows `Disable <id>` consistently.
 
 ## Follow-up

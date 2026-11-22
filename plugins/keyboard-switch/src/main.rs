@@ -157,6 +157,37 @@ fn next_installed(current: Option<u32>, installed: &[isize]) -> Option<isize> {
     installed.get(idx % installed.len()).copied()
 }
 
+#[cfg(windows)]
+fn validate_defined_layouts(defined: &[DefinedLayout], installed: &[isize]) -> anyhow::Result<()> {
+    let mut klids = std::collections::HashSet::new();
+    let mut shortcuts = std::collections::HashSet::new();
+    for (index, layout) in defined.iter().enumerate() {
+        let klid = normalize_klid(&layout.klid)
+            .ok_or_else(|| anyhow::anyhow!("layout[{}]: invalid KLID {:?}", index, layout.klid))?;
+        if !installed
+            .iter()
+            .any(|hkl| format!("{:08x}", (*hkl as u32) & 0xFFFF) == klid)
+        {
+            anyhow::bail!("layout[{}]: KLID {klid} is not installed", index);
+        }
+        if !klids.insert(klid) {
+            anyhow::bail!("layout[{}]: duplicate KLID", index);
+        }
+        let shortcut = layout.shortcut.as_deref().unwrap_or_default();
+        let mut chars = shortcut.chars();
+        let Some(key) = chars.next() else {
+            anyhow::bail!("layout[{}]: shortcut is required in InDefine mode", index);
+        };
+        if chars.next().is_some() || kit::hotkey::vk_of_key(kit::keys::Key::Char(key)).is_none() {
+            anyhow::bail!("layout[{}]: shortcut must be one supported key", index);
+        }
+        if !shortcuts.insert(key.to_ascii_lowercase()) {
+            anyhow::bail!("layout[{}]: duplicate shortcut {key:?}", index);
+        }
+    }
+    Ok(())
+}
+
 /// Low-level CapsLock/Esc hook. The hook only classifies and posts; the main
 /// thread performs layout changes and SendInput.
 #[cfg(windows)]
@@ -250,24 +281,25 @@ fn run() -> anyhow::Result<()> {
 
     let _single = win::ensure_single_instance(APP)?;
 
-    let (config_path, text) = config::load_profile(
+    let (config_path, _merged_text) = config::load_layered_profile(
         "keyboard-switch.toml",
         include_str!("../keyboard-switch.toml"),
     )?;
-    let file: FileConfig = toml::from_str(&text)?;
+    let file: FileConfig = toml::from_str(&_merged_text)?;
     let settings = file.settings.unwrap_or(Settings {
         switch_mode: None,
         switch_hotkey: None,
         swap_esc_caps: None,
     });
     let mut in_define = in_define_mode(settings.switch_mode.as_deref());
-    let switch_combo: Combo = settings
+    let switch_combo: Option<Combo> = settings
         .switch_hotkey
-        .unwrap_or_else(|| "capslock".into())
-        .parse()?;
+        .as_deref()
+        .map(str::parse)
+        .transpose()?;
     let mut swap_esc = settings.swap_esc_caps.unwrap_or(false);
 
-    let is_capslock = is_plain_capslock(&switch_combo);
+    let is_capslock = switch_combo.as_ref().is_some_and(is_plain_capslock);
     SWAP_ESC.store(swap_esc, Ordering::SeqCst);
     debug_log(format!(
         "start swap={swap_esc} capslock={is_capslock} profile={}",
@@ -280,27 +312,14 @@ fn run() -> anyhow::Result<()> {
     };
     // CapsLock/Esc are handled by the hook; any other switch combo is a
     // normal registered hotkey.
-    let hotkeys = if is_capslock {
-        Hotkeys::register(&[])?
-    } else {
-        Hotkeys::register(&[("switch", switch_combo)])?
+    let hotkeys = match switch_combo {
+        Some(combo) if !is_capslock => Hotkeys::register(&[("switch", combo)])?,
+        _ => Hotkeys::register(&[])?,
     };
 
-    let mut defined: Vec<DefinedLayout> = file.layout.unwrap_or_default();
-    if defined.is_empty() {
-        // AHK defaults when [Layouts] is empty.
-        defined = vec![
-            DefinedLayout {
-                klid: "00000409".into(),
-                shortcut: Some("1".into()),
-            },
-            DefinedLayout {
-                klid: "00000804".into(),
-                shortcut: Some("2".into()),
-            },
-        ];
-    }
-    let mut installed: Vec<isize> = Vec::new();
+    let defined: Vec<DefinedLayout> = file.layout.unwrap_or_default();
+    let mut installed = installed_layouts();
+    validate_defined_layouts(&defined, &installed)?;
 
     if no_tray {
         use kit::ipc::{HostCommand, PluginLink};
@@ -318,7 +337,6 @@ fn run() -> anyhow::Result<()> {
                                 swap_esc = !swap_esc;
                                 SWAP_ESC.store(swap_esc, Ordering::SeqCst);
                                 persist_toggle(
-                                    &text,
                                     &config_path,
                                     "swap_esc_caps",
                                     &swap_esc.to_string(),
@@ -329,7 +347,6 @@ fn run() -> anyhow::Result<()> {
                             "mode_indefine" => {
                                 in_define = !in_define;
                                 persist_toggle(
-                                    &text,
                                     &config_path,
                                     "switch_mode",
                                     if in_define {
@@ -374,7 +391,7 @@ fn run() -> anyhow::Result<()> {
         swap_esc,
         in_define,
         is_capslock,
-        &switch_combo,
+        switch_combo.as_ref(),
         &defined,
         &mut installed,
         hosted,
@@ -403,7 +420,7 @@ fn run() -> anyhow::Result<()> {
                 "swap_esc" => {
                     swap_esc = !swap_esc;
                     SWAP_ESC.store(swap_esc, Ordering::SeqCst);
-                    persist_toggle(&text, &config_path, "swap_esc_caps", &swap_esc.to_string());
+                    persist_toggle(&config_path, "swap_esc_caps", &swap_esc.to_string());
                 }
                 "mode_indefine" => {
                     in_define = !in_define;
@@ -412,7 +429,7 @@ fn run() -> anyhow::Result<()> {
                     } else {
                         "\"InAll\""
                     };
-                    persist_toggle(&text, &config_path, "switch_mode", v);
+                    persist_toggle(&config_path, "switch_mode", v);
                 }
                 _ => {}
             },
@@ -438,7 +455,7 @@ fn run() -> anyhow::Result<()> {
             swap_esc,
             in_define,
             is_capslock,
-            &switch_combo,
+            switch_combo.as_ref(),
             &defined,
             &mut installed,
             hosted,
@@ -475,25 +492,48 @@ fn status_text(swap: bool, in_define: bool) -> String {
     )
 }
 
-/// Rewrite one `key = ...` line in the config file, preserving comments.
-/// No-op when the key is absent (e.g. user deleted it).
 #[cfg(windows)]
-fn persist_toggle(original: &str, path: &std::path::Path, key: &str, value: &str) {
-    let current = std::fs::read_to_string(path).unwrap_or_else(|_| original.to_string());
+fn upsert_setting(original: &str, key: &str, value: &str) -> String {
+    let mut lines: Vec<String> = original.lines().map(str::to_owned).collect();
     let new_line = format!("{key} = {value}");
-    let rewritten = current
-        .lines()
-        .map(|l| {
-            let trimmed = l.trim_start();
-            if trimmed.starts_with(&format!("{key} =")) || trimmed == key {
-                new_line.as_str()
-            } else {
-                l
+    let section = lines.iter().position(|line| line.trim() == "[settings]");
+    if let Some(start) = section {
+        let end = lines[start + 1..]
+            .iter()
+            .position(|line| line.trim_start().starts_with('['))
+            .map(|offset| start + 1 + offset)
+            .unwrap_or(lines.len());
+        if let Some(index) = (start + 1..end).find(|index| {
+            let line = lines[*index].trim_start();
+            line.strip_prefix(key)
+                .is_some_and(|tail| tail.trim_start().starts_with('='))
+        }) {
+            lines[index] = new_line;
+        } else {
+            let mut insert_at = end;
+            while insert_at > start + 1 && lines[insert_at - 1].trim().is_empty() {
+                insert_at -= 1;
             }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let _ = std::fs::write(path, rewritten);
+            lines.insert(insert_at, new_line);
+        }
+    } else {
+        if !lines.is_empty() && !lines.last().is_some_and(|line| line.is_empty()) {
+            lines.push(String::new());
+        }
+        lines.push("[settings]".into());
+        lines.push(new_line);
+    }
+    let mut rewritten = lines.join("\n");
+    rewritten.push('\n');
+    rewritten
+}
+
+#[cfg(windows)]
+fn persist_toggle(path: &std::path::Path, key: &str, value: &str) {
+    let Ok(current) = std::fs::read_to_string(path) else {
+        return;
+    };
+    let _ = std::fs::write(path, upsert_setting(&current, key, value));
 }
 
 #[cfg(windows)]
@@ -580,7 +620,7 @@ fn refresh_menu(
     swap: bool,
     in_define: bool,
     is_capslock: bool,
-    switch_combo: &kit::keys::Combo,
+    switch_combo: Option<&kit::keys::Combo>,
     defined: &[DefinedLayout],
     installed: &mut Vec<isize>,
     hosted: bool,
@@ -590,10 +630,13 @@ fn refresh_menu(
     // Tooltip (AHK UpdateTrayTip).
     let current = current_klid().unwrap_or_default();
     let mut tip = String::from("keyboard-switch\nSwitch Hotkey: ");
+    let combo_text = switch_combo
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "disabled (set settings.switch_hotkey)".into());
     if swap && is_capslock {
-        tip.push_str(&format!("ESC ({switch_combo}->ESC)"));
+        tip.push_str(&format!("ESC ({combo_text}->ESC)"));
     } else {
-        tip.push_str(&switch_combo.to_string());
+        tip.push_str(&combo_text);
     }
     tip.push_str(if in_define {
         "\nDefined layouts:"
@@ -709,6 +752,51 @@ mod tests {
         assert!(in_define_mode(Some("indefine")));
         assert!(!in_define_mode(Some("InAll")));
         assert!(!in_define_mode(None));
+    }
+
+    #[test]
+    fn default_profile_does_not_capture_capslock_or_assume_layouts() {
+        let file: FileConfig = toml::from_str(include_str!("../keyboard-switch.toml")).unwrap();
+        let settings = file.settings.unwrap();
+        assert_eq!(settings.switch_hotkey, None);
+        assert_eq!(settings.swap_esc_caps, Some(false));
+        assert!(file.layout.unwrap_or_default().is_empty());
+    }
+
+    #[test]
+    fn defined_layouts_must_be_installed_and_unambiguous() {
+        let installed = [0x0409isize, 0x0804];
+        let valid = vec![
+            DefinedLayout {
+                klid: "00000409".into(),
+                shortcut: Some("1".into()),
+            },
+            DefinedLayout {
+                klid: "00000804".into(),
+                shortcut: Some("2".into()),
+            },
+        ];
+        assert!(validate_defined_layouts(&valid, &installed).is_ok());
+        assert!(validate_defined_layouts(&defined(&["00000411"]), &installed).is_err());
+        assert!(validate_defined_layouts(&defined(&["00000409"]), &installed).is_err());
+        let duplicate = vec![valid[0].clone(), valid[0].clone()];
+        assert!(validate_defined_layouts(&duplicate, &installed).is_err());
+        assert!(validate_defined_layouts(&[], &installed).is_ok());
+    }
+
+    #[test]
+    fn sparse_menu_toggles_are_inserted_without_touching_other_sections() {
+        let original =
+            "# keep\n[settings]\nswitch_mode = \"InAll\"\n\n[[layout]]\nklid = \"00000409\"\n";
+        let updated = upsert_setting(original, "swap_esc_caps", "true");
+        assert!(updated.contains("# keep"));
+        assert!(updated.contains("[settings]\nswitch_mode = \"InAll\"\nswap_esc_caps = true\n"));
+        assert!(updated.contains("[[layout]]\nklid = \"00000409\""));
+        let replaced = upsert_setting(&updated, "switch_mode", "\"InDefine\"");
+        assert!(replaced.contains("switch_mode = \"InDefine\""));
+        assert_eq!(replaced.matches("switch_mode =").count(), 1);
+        let appended = upsert_setting("# sparse\n", "swap_esc_caps", "false");
+        assert!(appended.contains("[settings]\nswap_esc_caps = false\n"));
     }
 
     #[test]
