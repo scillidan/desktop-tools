@@ -360,7 +360,8 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 
 - [x] Shared tests cover `$NAME`, `${NAME}` and `%NAME%`, path preservation,
       missing variables and comments-only empty patches. Expansion is limited to
-      path/executable settings, never arbitrary Key Map trigger text.
+      path/executable settings, never arbitrary Key Map trigger text; the real
+      editor-launcher test finds its fake editor through `$TEMP`.
 - [x] A real isolated recording with `USERHOME` pointed at a temporary directory
       wrote `$USERHOME/Videos/screen-tools-*.mp4`; ffprobe decoded 106 frames and
       all ten plugins stopped cleanly. The machine's actual USERHOME is also present.
@@ -370,5 +371,5 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       `taskbar-tools.exe --dump`. Backup: `p19-comment-backup-20261122-230624-538012`.
 - [x] Final gate: 343 tests passed / 10 ignored; fmt, Clippy, release, staging and
       fresh ten-plugin smoke passed. Fresh smoke asserts zero user-patch comments
-      and 29 documented references. Real staged host PID 22456 has ten children,
+      and 29 documented references. Real staged host PID 28164 has ten children,
       five occupied hotkeys, unchanged personal values and one Scoop current autostart.

@@ -248,6 +248,7 @@ fn editor_command(editor: &str, paths: &[&Path]) -> std::process::Command {
     use std::os::windows::process::CommandExt;
     use windows::Win32::System::Threading::CREATE_NO_WINDOW;
 
+    let editor = crate::config::expand_env(editor);
     let files = paths
         .iter()
         .map(|path| format!("\"{}\"", path.display()))
@@ -284,7 +285,10 @@ mod tests {
 
     #[test]
     fn editor_command_passes_default_and_user_as_two_arguments() {
-        let dir = std::env::temp_dir().join(format!("kit editor {}", std::process::id()));
+        let root = std::env::var_os("TEMP")
+            .map(std::path::PathBuf::from)
+            .expect("TEMP is required for the editor expansion test");
+        let dir = root.join(format!("kit editor {}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let log = dir.join("args.txt");
         let script = dir.join("fake editor.cmd");
@@ -294,7 +298,10 @@ mod tests {
         std::fs::write(&default, "").unwrap();
         std::fs::write(&user, "").unwrap();
 
-        let editor = format!("\"{}\"", script.display());
+        let editor = format!(
+            "\"$TEMP\\kit editor {}\\fake editor.cmd\"",
+            std::process::id()
+        );
         let mut child = editor_command(&editor, &[&default, &user]).spawn().unwrap();
         child.wait().unwrap();
 
