@@ -349,7 +349,9 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [ ] Confirm the existing GoldenDict groups, App Toggle targets, `Ctrl+T` Pin,
       `brave` Taskbar pin and normal window hotkeys still behave as before.
 - [x] Final gate: 340 tests passed / 10 ignored; fmt, Clippy, release, staging and a
-      genuinely fresh ten-plugin smoke passed. Final staged host PID 22172 has ten
-      children on the real sparse profile; all 29 patches still match the verified
-      candidates and five representative hotkeys remain occupied. Startup remains
-      the single Scoop `current\desktop-tools.exe` entry.
+      genuinely fresh ten-plugin smoke passed. CI run 45031730409 and v0.4.0 Release
+      run 45031756963 passed. The 6,751,096-byte asset matches both published hash
+      sources; Scoop manifest `6d4b9ab` is published and the real update from 0.3.0
+      succeeded. Installed v0.4.0 host PID 4436 has ten children on the real sparse
+      profile; all 29 patches still match the verified candidates, five representative
+      hotkeys remain occupied, and startup is the single Scoop `current` entry.
