@@ -6,6 +6,7 @@ description = "Path-matched foreground application toggles"
 
 [dependencies]
 anyhow = { workspace = true }
+kit = { path = "../../../crates/kit" }
 serde = { workspace = true, features = ["derive"] }
 toml = { workspace = true }
 window-core = { path = "../window-core" }

@@ -172,7 +172,7 @@ fn run() -> anyhow::Result<()> {
     let hotkeys = Hotkeys::register(&registrations)?;
 
     let mut popup = gd.clipboard_hotkey_enabled.unwrap_or(false);
-    let exe = gd.executable.unwrap_or_else(|| "goldendict".into());
+    let exe = config::expand_env(&gd.executable.unwrap_or_else(|| "goldendict".into()));
 
     if no_tray {
         use kit::ipc::{HostCommand, PluginLink};

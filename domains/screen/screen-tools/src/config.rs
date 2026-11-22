@@ -448,13 +448,13 @@ pub fn parse(text: &str) -> Result<Config> {
             Some(t) => {
                 if let Some(v) = t.get("flameshot") {
                     match v.as_str() {
-                        Some(s) => cfg.flameshot = s.to_string(),
+                        Some(s) => cfg.flameshot = kit::config::expand_env(s),
                         None => eprintln!("warn: external.flameshot must be a string; disabled"),
                     }
                 }
                 if let Some(v) = t.get("editor") {
                     match v.as_str() {
-                        Some(s) => cfg.external_editor = s.to_string(),
+                        Some(s) => cfg.external_editor = kit::config::expand_env(s),
                         None => eprintln!("warn: external.editor must be a string; disabled"),
                     }
                 }
@@ -478,7 +478,7 @@ pub fn parse(text: &str) -> Result<Config> {
                     }
                 }
                 if let Some(v) = t.get("ffmpeg").and_then(|v| v.as_str()) {
-                    cfg.record_ffmpeg = v.to_string();
+                    cfg.record_ffmpeg = kit::config::expand_env(v);
                 }
                 if let Some(v) = t.get("audio") {
                     match v.as_bool() {
@@ -726,6 +726,20 @@ mod tests {
         );
         let cfg = parse("[external]\neditor = \"photocraft\"\n").unwrap();
         assert_eq!(cfg.external_editor, "photocraft");
+    }
+
+    #[test]
+    fn external_program_paths_expand_portable_variables() {
+        let name = format!("SCREEN_TOOLS_PATH_TEST_{}", std::process::id());
+        std::env::set_var(&name, "tools");
+        let text = format!(
+            "[external]\nflameshot = '${name}/flameshot.exe'\neditor = '${{{name}}}/editor.exe'\n[record]\nffmpeg = '${name}/ffmpeg.exe'\n"
+        );
+        let cfg = parse(&text).unwrap();
+        assert_eq!(cfg.flameshot, "tools/flameshot.exe");
+        assert_eq!(cfg.external_editor, "tools/editor.exe");
+        assert_eq!(cfg.record_ffmpeg, "tools/ffmpeg.exe");
+        std::env::remove_var(name);
     }
 
     #[test]

@@ -14,6 +14,7 @@ const APP: &str = "taskbar-pin";
 
 pub const FILE_NAME: &str = "taskbar-pin.toml";
 pub const SECTION: &str = "taskbar-pin";
+const CONFIG_HELP: &str = "# Move matching taskbar buttons to the front; other buttons keep their order.\n# Entries match an app ID, title, executable name or stem, case-insensitively.\n# Run `taskbar-tools.exe --dump` to list candidates. Empty pin = no explicit order.";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -34,11 +35,11 @@ impl Default for Config {
 }
 
 pub fn load() -> Result<Config> {
-    taskbar_core::config::load(FILE_NAME, SECTION, None)
+    taskbar_core::config::load(FILE_NAME, SECTION, None, CONFIG_HELP)
 }
 
 pub fn materialize() -> Result<std::path::PathBuf> {
-    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None)
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None, CONFIG_HELP)
 }
 
 #[cfg(windows)]

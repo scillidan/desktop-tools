@@ -15,6 +15,7 @@ const APP_NAME: &str = "center-taskbar";
 
 pub const FILE_NAME: &str = "taskbar-center.toml";
 pub const SECTION: &str = "center-taskbar";
+const CONFIG_HELP: &str = "# Center the legacy taskbar list; enabled = false restores Explorer's layout.\n# poll_ms is the geometry polling interval in milliseconds (minimum 10).";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -42,11 +43,11 @@ impl Config {
 }
 
 pub fn load() -> Result<Config> {
-    taskbar_core::config::load(FILE_NAME, SECTION, None)
+    taskbar_core::config::load(FILE_NAME, SECTION, None, CONFIG_HELP)
 }
 
 pub fn materialize() -> Result<std::path::PathBuf> {
-    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None)
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, None, CONFIG_HELP)
 }
 
 #[cfg(windows)]

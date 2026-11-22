@@ -8,6 +8,7 @@ const APP: &str = "hidden-taskbar";
 
 pub const FILE_NAME: &str = "taskbar-hidden.toml";
 pub const SECTION: &str = "hidden-taskbar";
+const CONFIG_HELP: &str = "# Auto-hide the taskbar; enabled = false disables the behavior.\n# hotkey toggles visibility. resize_snapped restores snapped windows to the work area.";
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -28,11 +29,11 @@ impl Default for Config {
 }
 
 pub fn load() -> anyhow::Result<Config> {
-    taskbar_core::config::load(FILE_NAME, SECTION, Some("general"))
+    taskbar_core::config::load(FILE_NAME, SECTION, Some("general"), CONFIG_HELP)
 }
 
 pub fn materialize() -> anyhow::Result<std::path::PathBuf> {
-    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, Some("general"))
+    taskbar_core::config::materialize::<Config>(FILE_NAME, SECTION, Some("general"), CONFIG_HELP)
 }
 #[cfg(windows)]
 static THREAD_ID: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);

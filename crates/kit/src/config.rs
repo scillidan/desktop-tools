@@ -286,20 +286,12 @@ fn minimal_patch_toml_impl(
 
 /// Render a user file containing only overrides, never a copy of the defaults.
 pub fn user_patch_toml(default_toml: &str, effective_toml: &str) -> Result<String> {
-    render_user_patch(minimal_patch_toml(default_toml, effective_toml)?)
+    minimal_patch_toml(default_toml, effective_toml)
 }
 
 /// Render a Window binding patch with hotkey-aware comparison.
 pub fn user_hotkey_patch_toml(default_toml: &str, effective_toml: &str) -> Result<String> {
-    render_user_patch(minimal_patch_toml_impl(default_toml, effective_toml, true)?)
-}
-
-fn render_user_patch(patch: String) -> Result<String> {
-    Ok(format!(
-        "# User patch: keep only values that differ from the generated default reference.\n\
-         # Omitted values inherit defaults; tables merge recursively and arrays replace wholesale.\n\
-         {patch}"
-    ))
+    minimal_patch_toml_impl(default_toml, effective_toml, true)
 }
 
 /// Load sparse user overrides and keep a generated default reference beside them.
@@ -385,34 +377,76 @@ pub fn modified(path: &Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-/// Expand `%NAME%` variables while preserving unknown or incomplete variables.
-pub fn expand_env(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut rest = text;
-    while let Some(start) = rest.find('%') {
-        out.push_str(&rest[..start]);
-        let tail = &rest[start + 1..];
-        match tail.find('%') {
-            Some(end) => {
-                let name = &tail[..end];
-                match std::env::var(name) {
-                    Ok(value) if !name.is_empty() => out.push_str(&value),
-                    _ => {
-                        out.push('%');
-                        out.push_str(name);
-                        out.push('%');
-                    }
-                }
-                rest = &tail[end + 1..];
+/// Expand `%NAME%`, `$NAME` and `${NAME}` in a configured path or executable.
+/// Unknown or malformed variables remain literal; inserted values are not
+/// expanded again.
+pub fn expand_env(input: &str) -> String {
+    fn name_byte(byte: u8) -> bool {
+        byte.is_ascii_alphanumeric() || byte == b'_'
+    }
+    fn valid_name(name: &str) -> bool {
+        let bytes = name.as_bytes();
+        matches!(bytes.first(), Some(b) if b.is_ascii_alphabetic() || *b == b'_')
+            && bytes.iter().copied().all(name_byte)
+    }
+
+    let bytes = input.as_bytes();
+    let mut output = String::with_capacity(input.len());
+    let mut copied = 0;
+    let mut index = 0;
+    while index < bytes.len() {
+        let (name, end) = match bytes[index] {
+            b'%' => {
+                let Some(relative) = input[index + 1..].find('%') else {
+                    index += 1;
+                    continue;
+                };
+                let end = index + 1 + relative;
+                (&input[index + 1..end], end + 1)
             }
-            None => {
-                out.push('%');
-                rest = tail;
+            b'$' if bytes.get(index + 1) == Some(&b'{') => {
+                let Some(relative) = input[index + 2..].find('}') else {
+                    index += 1;
+                    continue;
+                };
+                let end = index + 2 + relative;
+                let name = &input[index + 2..end];
+                if !valid_name(name) {
+                    index += 1;
+                    continue;
+                }
+                (name, end + 1)
+            }
+            b'$' => {
+                let mut end = index + 1;
+                while end < bytes.len() && name_byte(bytes[end]) {
+                    end += 1;
+                }
+                let name = &input[index + 1..end];
+                if !valid_name(name) {
+                    index += 1;
+                    continue;
+                }
+                (name, end)
+            }
+            _ => {
+                index += 1;
+                continue;
+            }
+        };
+        if !name.is_empty() {
+            if let Some(value) = std::env::var_os(name) {
+                output.push_str(&input[copied..index]);
+                output.push_str(&value.to_string_lossy());
+                copied = end;
+                index = end;
+                continue;
             }
         }
+        index += 1;
     }
-    out.push_str(rest);
-    out
+    output.push_str(&input[copied..]);
+    output
 }
 
 /// Spawn a fresh copy with the same profile override, then let the caller quit.
@@ -528,6 +562,30 @@ mod tests {
     }
 
     #[test]
+    fn paths_expand_windows_and_portable_dollar_variables() {
+        let name = format!("KIT_PATH_TEST_{}", std::process::id());
+        std::env::set_var(&name, r"C:\Users\Example");
+        assert_eq!(
+            expand_env(&format!("${name}/Videos")),
+            r"C:\Users\Example/Videos"
+        );
+        assert_eq!(
+            expand_env(&format!("${{{name}}}/Videos")),
+            r"C:\Users\Example/Videos"
+        );
+        assert_eq!(
+            expand_env(&format!("%{name}%\\Videos")),
+            r"C:\Users\Example\Videos"
+        );
+        assert_eq!(
+            expand_env("$KIT_PATH_TEST_MISSING/Videos"),
+            "$KIT_PATH_TEST_MISSING/Videos"
+        );
+        assert_eq!(expand_env("$1/$-/${BROKEN"), "$1/$-/${BROKEN");
+        std::env::remove_var(name);
+    }
+
+    #[test]
     fn sparse_overlay_merges_tables_and_replaces_arrays() {
         let defaults = r#"
             title = "default"
@@ -615,9 +673,7 @@ mod tests {
             "[settings]\nanswer = 42\nother = true\n",
         )
         .unwrap();
-        assert!(std::fs::read_to_string(&path)
-            .unwrap()
-            .contains("User patch"));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "");
         let merged: toml::Value = toml::from_str(&text).unwrap();
         assert_eq!(merged["settings"]["answer"].as_integer(), Some(42));
         assert_eq!(

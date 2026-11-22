@@ -1,5 +1,5 @@
 # desktop-tools — suite host, editor and plugin enable list.
-# config/core.toml is created from this file on first run.
+# The user file contains only overrides; omitted values inherit these defaults.
 
 [host]
 start_with_windows = false

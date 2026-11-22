@@ -27,8 +27,17 @@ fn write_patch(path: &Path, default: &str, effective: &str) -> Result<()> {
     std::fs::write(path, text).with_context(|| format!("cannot write {}", path.display()))
 }
 
+fn default_text<T: Serialize + Default>(comments: &str) -> Result<String> {
+    let default = toml::to_string_pretty(&T::default())?;
+    Ok(if comments.is_empty() {
+        default
+    } else {
+        format!("{comments}\n\n{default}")
+    })
+}
+
 /// Load a module file, falling back to its old aggregate section or old section name.
-pub fn load<T>(file_name: &str, section: &str, nested: Option<&str>) -> Result<T>
+pub fn load<T>(file_name: &str, section: &str, nested: Option<&str>, comments: &str) -> Result<T>
 where
     T: DeserializeOwned + Serialize + Default,
 {
@@ -37,7 +46,7 @@ where
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let path = path(file_name)?;
-    let default = toml::to_string_pretty(&T::default())?;
+    let default = default_text::<T>(comments)?;
     if path.exists() {
         let user = std::fs::read_to_string(&path)
             .with_context(|| format!("cannot read {}", path.display()))?;
@@ -69,13 +78,18 @@ where
 }
 
 /// Create a module file from its effective legacy/default value, never overwrite it.
-pub fn materialize<T>(file_name: &str, section: &str, nested: Option<&str>) -> Result<PathBuf>
+pub fn materialize<T>(
+    file_name: &str,
+    section: &str,
+    nested: Option<&str>,
+    comments: &str,
+) -> Result<PathBuf>
 where
     T: DeserializeOwned + Serialize + Default,
 {
-    let config = load::<T>(file_name, section, nested)?;
+    let config = load::<T>(file_name, section, nested, comments)?;
     let path = path(file_name)?;
-    let default = toml::to_string_pretty(&T::default())?;
+    let default = default_text::<T>(comments)?;
     kit::config::write_reference_in_profile(
         path.parent().context("config path has no parent")?,
         file_name,
@@ -97,6 +111,16 @@ mod tests {
     struct Example {
         enabled: bool,
         value: u32,
+    }
+
+    #[test]
+    fn comments_live_in_the_reference_not_the_user_patch() {
+        let default = default_text::<Example>("# Meaningful setting documentation.").unwrap();
+        assert!(default.starts_with("# Meaningful setting documentation.\n\n"));
+        assert_eq!(
+            kit::config::user_patch_toml(&default, &default).unwrap(),
+            ""
+        );
     }
 
     #[test]

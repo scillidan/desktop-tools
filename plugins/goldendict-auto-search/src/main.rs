@@ -421,7 +421,7 @@ fn run() -> anyhow::Result<()> {
     });
     let hk = file.hotkeys.unwrap_or(HotkeysSection { toggle_key: None });
 
-    let exe = gd.executable.unwrap_or_else(|| "goldendict".into());
+    let exe = config::expand_env(&gd.executable.unwrap_or_else(|| "goldendict".into()));
     let dc_group = gd.double_click_group.unwrap_or_default();
     let cb_group = gd.clipboard_group.unwrap_or_default();
     let popup = Arc::new(AtomicBool::new(

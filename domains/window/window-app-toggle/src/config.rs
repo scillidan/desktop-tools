@@ -76,11 +76,12 @@ impl RawApp {
 }
 
 fn expand_user_profile(path: &Path) -> PathBuf {
-    let text = path.to_string_lossy();
+    let expanded = kit::config::expand_env(&path.to_string_lossy());
     let Ok(profile) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) else {
-        return path.to_path_buf();
+        return PathBuf::from(expanded);
     };
-    PathBuf::from(text.replacen("%USERPROFILE%", &profile, 1))
+    // Preserve the old Unix fallback for a shared `%USERPROFILE%` entry.
+    PathBuf::from(expanded.replacen("%USERPROFILE%", &profile, 1))
 }
 
 pub fn parse(text: &str) -> Result<Config> {
@@ -166,6 +167,12 @@ mod tests {
         assert!(cfg.wezterm.exe.is_absolute());
         assert!(cfg.double_commander.exe.is_absolute());
         assert_eq!(cfg.wezterm.args, ["start", "--cwd", "."]);
+
+        for variable in ["$USERPROFILE", "${USERPROFILE}"] {
+            let cfg = parse(&DEFAULT_CONFIG.replace("%USERPROFILE%", variable)).unwrap();
+            assert!(cfg.wezterm.exe.is_absolute());
+            assert!(cfg.double_commander.command.is_absolute());
+        }
     }
 
     #[test]
