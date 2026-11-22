@@ -277,3 +277,26 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       The final staged host has ten children on the existing Scoop config; its full
       `keyboard-switch.toml` is byte-identical to the rollback copy and the generated
       default reference matches the repository default.
+
+## P13 — safe defaults and unavailable-target key handling
+
+- [x] Screen unit tests restrict pass-through to Frame-only global actions and
+      reject duplicate gate hotkeys. A real foreground-window probe verified that
+      `Ctrl+Enter` arrives exactly once with Ctrl held, both for an instant chord
+      and a 0.2-second hold; the hold path creates no synthetic Ctrl release.
+- [x] An isolated hosted Window probe with missing Double Commander/WezTerm paths
+      skipped both bindings, logged both warnings, allowed the ordinary hotkey to
+      be registered by another process, and exited cleanly. Pure configuration
+      parsing remains independent of installed machine paths.
+- [x] GoldenDict Auto-search defaults have empty group/search type in the correct
+      `[goldendict]` section; tests verify that empty means no group argument.
+      Existing user groups and bindings were not changed.
+- [x] Full fmt/workspace tests/Clippy/release/staging and ten-plugin smoke pass.
+      The complete Flameshot handoff, recording guard and daemon-reuse probe passed;
+      normal recording stop produced 30 decodable frames. All 34 user TOML files
+      remain byte-identical to the rollback copy; only the generated Keyboard Switch
+      reference is additional.
+- [ ] With no visible Screen Frame, press `Ctrl+Enter` in an application that uses
+      it: the application receives it once. With a visible Frame, Capture still works.
+- [ ] Confirm `Win+E` and ``Ctrl+` `` still toggle the installed Double Commander
+      and WezTerm targets, and Auto-search retains the existing personal groups.

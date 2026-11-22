@@ -337,7 +337,8 @@ fn run() -> Result<()> {
             }
         }
         if msg.message == windows::Win32::UI::WindowsAndMessaging::WM_HOTKEY {
-            if let Some(action) = hotkeys.action_of(msg.wParam.0 as i32) {
+            let hotkey_id = msg.wParam.0 as i32;
+            if let Some(action) = hotkeys.action_of(hotkey_id) {
                 // MOD_NOREPEAT already suppresses held-key repeats; this also
                 // swallows duplicate injected messages before they stack pins.
                 let mut last = LAST_HOTKEY
@@ -363,8 +364,24 @@ fn run() -> Result<()> {
                     continue;
                 }
                 match frames.current(&frame_settings(&cfg)) {
-                    Ok(current) => dispatch(action, current),
-                    Err(e) => logline(&format!("warn: cannot select desktop frame: {e:#}")),
+                    Ok(current) => {
+                        if requires_visible_frame(action)
+                            && unsafe { frame::visible_rect(current) }.is_none()
+                        {
+                            logline(&format!("{} passed through: no frame", action.name()));
+                            if !hotkeys.pass_through(host.hwnd(), hotkey_id) {
+                                logline(&format!("warn: {} pass-through failed", action.name()));
+                            }
+                        } else {
+                            dispatch(action, current);
+                        }
+                    }
+                    Err(e) => {
+                        logline(&format!("warn: cannot select desktop frame: {e:#}"));
+                        if requires_visible_frame(action) {
+                            let _ = hotkeys.pass_through(host.hwnd(), hotkey_id);
+                        }
+                    }
                 }
             }
         }
@@ -549,6 +566,13 @@ fn allowed_during_handoff(action: Action, active: bool) -> bool {
     !active || matches!(action, Action::ToggleScreen)
 }
 
+fn requires_visible_frame(action: Action) -> bool {
+    matches!(
+        action,
+        Action::Resize | Action::Pin | Action::Capture | Action::Move | Action::Toggle
+    )
+}
+
 fn dispatch(action: Action, frame: HWND) {
     // A recording owns the screen: our own overlays (mask, dim, a moved frame)
     // must not appear in the take, so only Record may run until it stops.
@@ -568,12 +592,7 @@ fn dispatch(action: Action, frame: HWND) {
     }
     let visible = unsafe { frame::visible_rect(frame).is_some() };
     // Only the commands that create or place a frame may run without one.
-    if !visible
-        && matches!(
-            action,
-            Action::Resize | Action::Pin | Action::Capture | Action::Move | Action::Toggle
-        )
-    {
+    if !visible && requires_visible_frame(action) {
         logline(&format!(
             "{} ignored: no frame (use draw or frame_window)",
             action.name()
@@ -825,7 +844,7 @@ fn logline(msg: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{allowed_during_handoff, hotkey_repeat};
+    use super::{allowed_during_handoff, hotkey_repeat, requires_visible_frame};
     use crate::config::Action;
     use std::time::{Duration, Instant};
 
@@ -836,6 +855,20 @@ mod tests {
             assert_eq!(
                 allowed_during_handoff(action, true),
                 matches!(action, Action::ToggleScreen),
+                "{action:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_frame_actions_are_passed_through_when_no_frame_is_visible() {
+        for action in Action::ALL {
+            assert_eq!(
+                requires_visible_frame(action),
+                matches!(
+                    action,
+                    Action::Resize | Action::Pin | Action::Capture | Action::Move | Action::Toggle
+                ),
                 "{action:?}"
             );
         }

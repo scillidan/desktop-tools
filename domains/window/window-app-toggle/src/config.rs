@@ -16,6 +16,18 @@ pub struct AppConfig {
     pub args: Vec<String>,
 }
 
+impl AppConfig {
+    pub fn missing_executable(&self) -> Option<&Path> {
+        if !self.exe.is_file() {
+            Some(&self.exe)
+        } else if !self.command.is_file() {
+            Some(&self.command)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub bindings: Vec<Binding<AppKind>>,
@@ -163,6 +175,25 @@ mod tests {
         assert_eq!(again.bindings.len(), 2);
         assert_eq!(again.wezterm.args, ["--new"]);
         assert_eq!(again.double_commander.exe, cfg.double_commander.exe);
+    }
+
+    #[test]
+    fn missing_target_and_launcher_are_reported_before_binding() {
+        let missing = std::env::temp_dir().join(format!(
+            "desktop-tools-missing-app-toggle-{}",
+            std::process::id()
+        ));
+        let existing = std::env::current_exe().unwrap();
+        let mut app = AppConfig {
+            exe: missing.clone(),
+            command: missing.clone(),
+            args: Vec::new(),
+        };
+        assert_eq!(app.missing_executable(), Some(missing.as_path()));
+        app.exe = existing.clone();
+        assert_eq!(app.missing_executable(), Some(missing.as_path()));
+        app.command = existing;
+        assert_eq!(app.missing_executable(), None);
     }
 
     #[test]

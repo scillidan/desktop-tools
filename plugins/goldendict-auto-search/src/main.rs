@@ -348,7 +348,14 @@ fn menu_model(
             enabled: true,
         },
         MenuItem::Info {
-            label: format!("Clipboard Group: {cb_group}"),
+            label: format!(
+                "Clipboard Group: {}",
+                if cb_group.is_empty() {
+                    "all dictionaries"
+                } else {
+                    cb_group
+                }
+            ),
         },
         MenuItem::Item {
             id: "test_clipboard".into(),
@@ -415,8 +422,8 @@ fn run() -> anyhow::Result<()> {
     let hk = file.hotkeys.unwrap_or(HotkeysSection { toggle_key: None });
 
     let exe = gd.executable.unwrap_or_else(|| "goldendict".into());
-    let dc_group = gd.double_click_group.unwrap_or_else(|| "default".into());
-    let cb_group = gd.clipboard_group.unwrap_or_else(|| "translate".into());
+    let dc_group = gd.double_click_group.unwrap_or_default();
+    let cb_group = gd.clipboard_group.unwrap_or_default();
     let popup = Arc::new(AtomicBool::new(
         gd.clipboard_hotkey_enabled.unwrap_or(false),
     ));
@@ -794,6 +801,20 @@ fn search(exe: &str, group: &str, popup: bool, query: &str) {
 }
 
 #[cfg(windows)]
+fn search_args(group: &str, popup: bool, query: &str) -> Vec<String> {
+    let mut args = Vec::with_capacity(2);
+    if !group.is_empty() {
+        args.push(if popup {
+            format!("--popup-group-name={group}")
+        } else {
+            format!("--group-name={group}")
+        });
+    }
+    args.push(query.to_string());
+    args
+}
+
+#[cfg(windows)]
 fn search_with_notify(
     exe: &str,
     group: &str,
@@ -805,16 +826,8 @@ fn search_with_notify(
         "search group={group} popup={popup} len={}",
         query.chars().count()
     ));
-    let param = if popup {
-        format!("--popup-group-name={group}")
-    } else {
-        format!("--group-name={group}")
-    };
-    if let Err(e) = std::process::Command::new(exe)
-        .arg(param)
-        .arg(query)
-        .spawn()
-    {
+    let args = search_args(group, popup, query);
+    if let Err(e) = std::process::Command::new(exe).args(args).spawn() {
         let message = format!("Cannot start GoldenDict:\n{e:#}\n\nExecutable: {exe}");
         if let Some(notifier) = notifier {
             let _ = notifier.notify("goldendict-auto-search", message);
@@ -939,6 +952,30 @@ mod mouse {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn default_groups_are_empty_and_in_their_parsed_section() {
+        let file: FileConfig =
+            toml::from_str(include_str!("../goldendict-auto-search.toml")).expect("default config");
+        let gd = file.goldendict.expect("goldendict section");
+        assert_eq!(gd.double_click_group.as_deref(), Some(""));
+        assert_eq!(gd.clipboard_group.as_deref(), Some(""));
+        assert_eq!(gd.clipboard_hotkey_enabled, Some(false));
+    }
+
+    #[test]
+    fn empty_group_searches_all_dictionaries() {
+        assert_eq!(search_args("", false, "word"), vec!["word"]);
+        assert_eq!(search_args("", true, "word"), vec!["word"]);
+        assert_eq!(
+            search_args("translate", false, "word"),
+            vec!["--group-name=translate", "word"]
+        );
+        assert_eq!(
+            search_args("translate", true, "word"),
+            vec!["--popup-group-name=translate", "word"]
+        );
+    }
 
     #[test]
     fn double_click_window_is_300_ms() {

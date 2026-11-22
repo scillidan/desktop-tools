@@ -73,6 +73,58 @@ fn modifiers_of(c: &kit::keys::Combo) -> HOT_KEY_MODIFIERS {
     m
 }
 
+fn modifier_down(vk: VIRTUAL_KEY) -> bool {
+    unsafe {
+        GetAsyncKeyState(vk.0 as i32) < 0
+            || (vk == VK_LWIN && GetAsyncKeyState(VK_RWIN.0 as i32) < 0)
+    }
+}
+
+fn send_combo(combo: &kit::keys::Combo, key: VIRTUAL_KEY) -> bool {
+    let configured = [
+        (combo.ctrl, VK_CONTROL),
+        (combo.shift, VK_SHIFT),
+        (combo.alt, VK_MENU),
+        (combo.win, VK_LWIN),
+    ];
+    // A very quick tap can queue the original modifier release before the
+    // reinjection. Let the original sequence drain before choosing which
+    // modifiers need to be synthesized.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    let mut synthetic = Vec::new();
+    let mut inputs = Vec::with_capacity(10);
+    let mut press = |vk: VIRTUAL_KEY, up: bool| {
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: vk,
+                    dwFlags: if up {
+                        KEYEVENTF_KEYUP
+                    } else {
+                        KEYBD_EVENT_FLAGS(0)
+                    },
+                    ..Default::default()
+                },
+            },
+        });
+    };
+    for (enabled, vk) in configured {
+        // Preserve modifiers the user is still holding instead of sending a
+        // synthetic release for a physical key.
+        if enabled && !modifier_down(vk) {
+            press(vk, false);
+            synthetic.push(vk);
+        }
+    }
+    press(key, false);
+    press(key, true);
+    for vk in synthetic.into_iter().rev() {
+        press(vk, true);
+    }
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) as usize == inputs.len() }
+}
+
 /// Registered hotkey set. Ids are 1-based indexes into the registered actions.
 pub struct Hotkeys {
     combos: Vec<kit::keys::Combo>,
@@ -150,6 +202,27 @@ impl Hotkeys {
             return None;
         }
         self.actions.get((id - 1) as usize).copied()
+    }
+
+    /// Return a chord Screen cannot use to the foreground application.
+    /// Unregister first so the injected input does not recursively invoke us.
+    pub fn pass_through(&self, hwnd: HWND, id: i32) -> bool {
+        let Some(combo) = id
+            .checked_sub(1)
+            .and_then(|index| self.combos.get(index as usize))
+        else {
+            return false;
+        };
+        let Some(vk) = vk_of_key(combo.key) else {
+            return false;
+        };
+        if unsafe { UnregisterHotKey(Some(hwnd), id) }.is_err() {
+            return false;
+        }
+        let sent = send_combo(combo, vk);
+        let restored =
+            unsafe { RegisterHotKey(Some(hwnd), id, modifiers_of(combo), vk.0 as u32).is_ok() };
+        sent && restored
     }
 
     pub fn is_empty(&self) -> bool {

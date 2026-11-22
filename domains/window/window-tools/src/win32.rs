@@ -216,6 +216,39 @@ mod tests {
     use windows::Win32::UI::WindowsAndMessaging::{PeekMessageW, HWND_TOP, PM_REMOVE, WS_VISIBLE};
 
     #[test]
+    fn unavailable_app_targets_do_not_reach_either_hotkey_backend() {
+        let mut cfg = config::parse(include_str!("../window-actions.toml")).unwrap();
+        let missing = std::env::temp_dir().join(format!(
+            "desktop-tools-missing-app-toggle-{}",
+            std::process::id()
+        ));
+        cfg.modules.app_toggle.wezterm.exe = missing.clone();
+        cfg.modules.app_toggle.wezterm.command = missing.clone();
+        cfg.modules.app_toggle.double_commander.exe = missing.clone();
+        cfg.modules.app_toggle.double_commander.command = missing;
+        assert!(cfg.bindings.iter().any(|b| b.combo.win));
+        let other_count = cfg
+            .bindings
+            .iter()
+            .filter(|b| {
+                !matches!(
+                    b.action,
+                    Action::ToggleWezTerm | Action::ToggleDoubleCommander
+                )
+            })
+            .count();
+        assert!(other_count > 0);
+        retain_available_app_bindings(&mut cfg);
+        assert!(!cfg.bindings.iter().any(|b| {
+            matches!(
+                b.action,
+                Action::ToggleWezTerm | Action::ToggleDoubleCommander
+            )
+        }));
+        assert_eq!(cfg.bindings.len(), other_count);
+    }
+
+    #[test]
     fn image_basename_takes_the_part_after_the_last_separator() {
         assert_eq!(
             image_basename(r"C:\Tools\WezTerm\wezterm-gui.exe"),
@@ -960,6 +993,27 @@ pub fn message_box(text: &str) {
     }
 }
 
+fn retain_available_app_bindings(cfg: &mut Config) {
+    let apps = cfg.modules.app_toggle.clone();
+    cfg.bindings.retain(|binding| {
+        let app = match binding.action {
+            Action::ToggleWezTerm => &apps.wezterm,
+            Action::ToggleDoubleCommander => &apps.double_commander,
+            _ => return true,
+        };
+        if let Some(missing) = app.missing_executable() {
+            eprintln!(
+                "warn: app-toggle `{}` disabled; executable not found: {}",
+                binding.combo,
+                missing.display()
+            );
+            false
+        } else {
+            true
+        }
+    });
+}
+
 /// Register all bindings; returns the combos that failed (already in use).
 pub fn register_hotkeys(p: &mut Win32, bindings: &[Binding]) -> Vec<String> {
     let mut failed = Vec::new();
@@ -1203,6 +1257,7 @@ fn hosted_menu(suspended: bool) -> kit::menu::MenuModel {
 }
 
 pub fn run_daemon(cfg_path: PathBuf, mut cfg: Config, hosted: bool) -> Result<()> {
+    retain_available_app_bindings(&mut cfg);
     // Single instance (daemon only; one-shots may run alongside it).
     let mutex_name = windows::core::HSTRING::from("Local\\window-tools-single-instance");
     let _guard = unsafe { CreateMutexW(None, true, &mutex_name) }.ok();
@@ -1493,6 +1548,7 @@ fn reload(
             return;
         }
     };
+    retain_available_app_bindings(&mut new);
     if tray.is_hosted() {
         new.bindings
             .retain(|binding| binding.action != Action::Quit);
