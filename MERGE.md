@@ -613,7 +613,7 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 ### Multi-step hotkeys (implemented)
 
 - [x] Kit owns a platform-independent `SequenceSet`: explicit combos are separated by `>`, each step requires Ctrl/Alt/Win, consecutive steps have a 400 ms window, and duplicate/prefix-ambiguous sequences and single/multi conflicts are rejected. Unique combos are registered once, auto-repeat is disabled, and pending state can be reset. Tests cover double-press, timeout, three-step/shared-prefix dispatch, invalid plain keys and reset.
-- [x] GoldenDict Search converts legacy `!xx` / `alt+shift+zz` and explicit sequences into the same matcher. A real hosted probe with a fake GoldenDict executable verified two-step, three-step/shared-prefix, legacy double-press, ordinary single-press arguments and clean Quit without opening the real dictionary. Existing live bindings were not changed.
+- [x] GoldenDict Search uses the shared matcher for explicit multi-step sequences. Real hosted probes with a fake GoldenDict executable verified two-step, three-step/shared-prefix, ordinary single-press arguments and clean Quit without opening the real dictionary. The former legacy double-press path was subsequently migrated and removed as recorded in item 7 below.
 - Extend the same adapter to another plugin only when that plugin has a concrete multi-step binding; do not globally reserve plain-letter second steps.
 
 ### Quick Switch activation and Shell Keys reference (implemented)
@@ -629,7 +629,12 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 
 ### Conditional technical debt, not scheduled feature work
 
-- [ ] Upgrade capture to Graphics Capture only if DirectComposition regions are observed black/stale; upgrade recording from `gdigrab` to Desktop Duplication when full-screen frame rate requires it. Add per-window OCR only if window-targeted recognition is needed in real use. Consolidate remaining local Win32 monitor queries during the planned shared-kit cleanup. Existing `shortcut:` comments retain the concrete trigger conditions.
+- [ ] Upgrade capture to Graphics Capture only if DirectComposition regions are observed black/stale; upgrade recording from `gdigrab` to Desktop Duplication when full-screen frame rate requires it. Consolidate remaining local Win32 monitor queries during the planned shared-kit cleanup. Existing `shortcut:` comments retain the concrete trigger conditions.
+
+### Planned capture and OBS integrations
+
+- [ ] **Background OCR (window-targeted OCR):** select an application window instead of dragging a screen region, then reuse the existing OCR pipeline. First define and test visible-window behavior. Occluded, minimized or otherwise invisible windows require real background capture support and must not be claimed until Graphics Capture/PrintWindow probes prove the pixels are available; “per-window” alone does not imply background capture.
+- [ ] **obs-cmd bridge:** implement the staged Screen Record integration in §15. Stage 1 is read-only status; stage 2 owns explicit recording control; stage 3 saves Replay Buffer; stage 4 evaluates geometry/source transforms behind a separate fail-closed gate. This remains design/TODO only: FFmpeg stays the default, OBS WebSocket is currently disabled and no OBS physical acceptance has been claimed.
 
 ## 15. Current design: Pin isolation and OBS bridge
 
@@ -651,5 +656,5 @@ This is the canonical follow-up queue. `CHECKLIST.md` retains physical acceptanc
 3. [x] A focused Pin uses its stored original BGRA pixels. `Ctrl+C` uses the existing clipboard worker and closes the Pin/Frame only on success. `Ctrl+S` opens Save As; `Ctrl+Shift+S` saves directly to the capture directory. Save success/cancel/failure retains the Pin. Both save paths preserve the original dimensions and reuse the existing MTA PNG writer.
 4. [x] Active output directories, file prefixes, temporary files, worker scripts and window titles use `screen-tools`, not `screen-tools-rs`. Legacy mutex/import names and cleanup of old temporary files remain intentionally compatible; old Pictures/Videos output is retained. Live values equal to the old default directories/prefix were migrated after backup, never arbitrary custom paths.
 5. [x] The two live GoldenDict files are now sparse personal overrides; their before/after merged TOML values are identical. Keyboard Switch, Locker, Auto Switch Back and both GoldenDict plugins use layered loading. Other configs keep full-file deletion semantics and expose generated references as snapshots only.
-6. [x] Suite settings live in `desktop-tools.toml` with `[editor] command`; the stale Window legacy-import alias for that filename was removed. Editor resolution is setting > `EDITOR` > `VISUAL` > Notepad. One shared launcher opens default reference then user file in the same editor process. The host also exposes Edit core.toml and Edit desktop-tools.toml.
+6. [x] Suite settings live in `core.toml`: `[host]`, `[editor]` and `[plugins]`. Editor resolution is core setting > `EDITOR` > `VISUAL` > Notepad, and plugin-enable persistence retains the editor setting. One shared launcher opens default reference then user file in the same editor process. The host has one Edit core.toml entry; the separate desktop-tools.toml introduced during development was merged before release and is not a legacy Window config alias.
 7. [x] AHK `^ ! + #` hotkey sigils and GoldenDict doubled-character shorthand are rejected. Canonical modifier names and explicit `>` sequences are the only supported syntax; the live `^!+g` value was migrated and the Auto-search fallback was corrected too. Key Map `#alpha` / `>>star` values are text triggers, not hotkeys.

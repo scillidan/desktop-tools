@@ -128,9 +128,7 @@ Run `stage\desktop-tools.exe`, optionally with `--profile <dir>`. Profile priori
 
 Keyboard Switch, Locker, Auto Switch Back and both GoldenDict plugins accept sparse user files: omitted values inherit `defaults\<name>.toml`, tables merge recursively, and arrays replace the default array (`[]` clears it). Other configs remain full-file; their generated `defaults` files are reference snapshots, not merge inputs. Existing full files stay valid and are never replaced by merged output.
 
-`desktop-tools.toml` sets `[editor] command`; empty falls back to `EDITOR`, `VISUAL`, then Notepad. Every Edit config opens the default reference and user file together when a reference exists. The host menu also edits `core.toml` and `desktop-tools.toml`. Hotkeys use canonical `ctrl+alt+...` names and `>` sequences; AHK sigils and doubled-character shorthand are not supported.
-
-`core.toml` owns the enabled plugin ids. Restarting a disabled plugin enables it, persists that state and shows `Disable <id>` consistently.
+`core.toml` is the single suite config for `[host]`, `[editor]` and `[plugins]`. An empty editor command falls back to `EDITOR`, `VISUAL`, then Notepad. Every Edit config opens the default reference and user file together when a reference exists. Restarting a disabled plugin enables and persists it without discarding editor settings. Hotkeys use canonical `ctrl+alt+...` names and `>` sequences; AHK sigils and doubled-character shorthand are not supported.
 
 ## Follow-up
 
