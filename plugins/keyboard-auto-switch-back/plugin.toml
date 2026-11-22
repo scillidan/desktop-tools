@@ -1,7 +1,7 @@
 id = "keyboard-auto-switch-back"
 name = "Keyboard Auto Switch Back"
 description = "Restore the previous input method after leaving a configured application."
-version = "0.3.0"
+version = "0.4.0"
 api = 1
 exe = "keyboard-auto-switch-back.exe"
 group = "keyboard"

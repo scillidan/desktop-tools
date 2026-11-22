@@ -1,7 +1,7 @@
 id = "keyboard-locker"
 name = "Keyboard Locker"
 description = "Temporarily block keyboard and mouse buttons until the configured unlock sequence."
-version = "0.3.0"
+version = "0.4.0"
 api = 1
 exe = "keyboard-locker.exe"
 group = "keyboard"
