@@ -181,7 +181,7 @@ pub fn frame_pin(frame: HWND) {
         match frame::visible_rect(frame) {
             Some(rect) => {
                 frame::hide(frame);
-                let result = capture::pin_rect(rect, pin_style());
+                let result = capture::pin_rect(rect, pin_style(), frame);
                 if result.is_err() {
                     frame::ensure_visible(frame);
                 }

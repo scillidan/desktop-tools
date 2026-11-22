@@ -732,13 +732,13 @@ fn dispatch(action: Action, frame: HWND) {
                     Some(rect) => {
                         // Hide first: our own border must not be in the image.
                         frame::hide(frame);
-                        let r = capture::pin_rect(rect, pin_style());
+                        let r = capture::pin_rect(rect, pin_style(), frame);
                         if r.is_err() {
                             frame::ensure_visible(frame);
                         }
                         r
                     }
-                    None => capture::pin_window(pin_style()),
+                    None => capture::pin_window(pin_style(), frame),
                 };
                 if let Err(e) = r {
                     logline(&format!("pin shot failed: {e:#}"));

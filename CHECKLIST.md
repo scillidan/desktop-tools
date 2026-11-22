@@ -250,3 +250,16 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       duplicate plugin tray icon.
 - [x] Use a common hotkey such as `Ctrl+Alt+D`: Draw, its menu and the rest of
       the suite behave as before the directory move.
+
+## P11 — virtual-desktop Pin isolation
+
+- [x] Full fmt/workspace tests/Clippy/release/staging and ten-plugin smoke pass.
+      A real final-binary probe passed separate Pins on two desktops, both switch
+      directions, first Pin on a fresh desktop without a previously visible Frame,
+      desktop close and subsequent Frame deduplication without losing the Pin.
+- [ ] Physically create a Pin on each of two desktops. Each appears only on its
+      own desktop; switching back restores its position and image. Pins add no
+      taskbar or Alt+Tab entry, and drag, edge-resize, Esc/right-click still work.
+- [ ] On more than one monitor/DPI, confirm a Pin keeps its original geometry and
+      appearance. Close a desktop containing a Pin and confirm it remains usable
+      on the surviving desktop.

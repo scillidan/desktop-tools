@@ -4,8 +4,6 @@
 //! aspect-locked resize, so there is no non-client border to eat pixels or
 //! leave ghosts. Hovering an edge shows only the resize-arrow cursor.
 //! Esc/right-click closes.
-//! shortcut: no virtual-desktop isolation — add per-desktop pinning with the
-//! `desktops.rs` pattern if pins start leaking across desktops.
 
 use crate::PinBorder;
 use anyhow::{ensure, Context, Result};
@@ -20,26 +18,50 @@ use windows::Win32::Graphics::Gdi::{
     BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DIB_RGB_COLORS, HALFTONE, HDC, HGDIOBJ, MONITORINFO,
     MONITOR_DEFAULTTONEAREST, SRCCOPY,
 };
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_ALL};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     ReleaseCapture, SetCapture, VIRTUAL_KEY, VK_ESCAPE,
 };
+use windows::Win32::UI::Shell::{IVirtualDesktopManager, VirtualDesktopManager};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetCursorPos, GetWindowLongPtrW,
-    GetWindowRect, LoadCursorW, RegisterClassW, SetCursor, SetWindowLongPtrW, SetWindowPos,
-    ShowWindow, UpdateLayeredWindow, CREATESTRUCTW, GWLP_USERDATA, HTBOTTOM, HTBOTTOMLEFT,
-    HTBOTTOMRIGHT, HTCAPTION, HTCLIENT, HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT,
-    HTTRANSPARENT, HWND_TOPMOST, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SW_SHOW, ULW_ALPHA, WMSZ_BOTTOM,
-    WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT,
-    WMSZ_TOPRIGHT, WM_CAPTURECHANGED, WM_CLOSE, WM_CREATE, WM_KEYDOWN, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCDESTROY, WM_NCHITTEST, WM_PAINT, WM_RBUTTONUP, WM_SETCURSOR,
-    WM_SIZE, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetCursorPos,
+    GetForegroundWindow, GetShellWindow, GetWindowLongPtrW, GetWindowRect, LoadCursorW,
+    RegisterClassW, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow, UpdateLayeredWindow,
+    CREATESTRUCTW, GWLP_USERDATA, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCAPTION, HTCLIENT,
+    HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, HTTRANSPARENT, HWND_TOPMOST, IDC_SIZENESW,
+    IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER,
+    SW_SHOW, ULW_ALPHA, WINDOW_EX_STYLE, WMSZ_BOTTOM, WMSZ_BOTTOMLEFT, WMSZ_BOTTOMRIGHT, WMSZ_LEFT,
+    WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT, WMSZ_TOPRIGHT, WM_CAPTURECHANGED, WM_CLOSE, WM_CREATE,
+    WM_KEYDOWN, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_NCDESTROY, WM_NCHITTEST, WM_PAINT,
+    WM_RBUTTONUP, WM_SETCURSOR, WM_SIZE, WNDCLASSW, WS_EX_LAYERED, WS_EX_TOPMOST, WS_POPUP,
 };
 
 const CLASS: PCWSTR = w!("screen-tools.pin");
+// An owned popup has no taskbar button. TOOLWINDOW would keep an unowned shell
+// view on every desktop; APPWINDOW would force a taskbar button.
+const PIN_EX_STYLE: WINDOW_EX_STYLE = WINDOW_EX_STYLE(WS_EX_LAYERED.0 | WS_EX_TOPMOST.0);
 /// Edge zone for the resize-arrow hit test, in pixels.
 const GRIP: i32 = 6;
+
+/// A hidden owner may not have a desktop view yet; use the foreground or shell
+/// window to obtain the current desktop, then give the pin an explicit view.
+unsafe fn current_desktop(owner: HWND) -> Option<(IVirtualDesktopManager, windows::core::GUID)> {
+    let manager =
+        CoCreateInstance::<_, IVirtualDesktopManager>(&VirtualDesktopManager, None, CLSCTX_ALL)
+            .ok()?;
+    for source in [owner, GetForegroundWindow(), GetShellWindow()] {
+        if source.0.is_null() {
+            continue;
+        }
+        if let Ok(id) = manager.GetWindowDesktopId(source) {
+            if id != windows::core::GUID::default() {
+                return Some((manager, id));
+            }
+        }
+    }
+    None
+}
 
 /// Edge decoration selected in `[pin]`.
 #[derive(Clone, Copy)]
@@ -222,7 +244,14 @@ fn band_pixel(x: i32, y: i32, w: i32, h: i32, margin: i32, style: Style) -> [u8;
 /// work area. The window owns itself from here on.
 /// # Safety
 /// The caller must use the UI thread and provide a BGRA buffer matching the supplied dimensions.
-pub unsafe fn show(rect: RECT, w: i32, h: i32, bgra: &[u8], style: Style) -> Result<()> {
+pub unsafe fn show(
+    rect: RECT,
+    w: i32,
+    h: i32,
+    bgra: &[u8],
+    style: Style,
+    owner: HWND,
+) -> Result<()> {
     ensure!(w > 0 && h > 0, "nothing to pin");
     ensure!(
         bgra.len() >= (w as usize) * (h as usize) * 4,
@@ -282,8 +311,10 @@ pub unsafe fn show(rect: RECT, w: i32, h: i32, bgra: &[u8], style: Style) -> Res
         margin: m,
         drag: None,
     }));
+    let desktop = current_desktop(owner);
+    // An owned tool window follows its owner's virtual desktop without gaining a taskbar button.
     let hwnd = CreateWindowExW(
-        WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED,
+        PIN_EX_STYLE,
         CLASS,
         w!("screen-tools.pin"),
         WS_POPUP,
@@ -291,7 +322,7 @@ pub unsafe fn show(rect: RECT, w: i32, h: i32, bgra: &[u8], style: Style) -> Res
         y - m,
         win_w + 2 * m,
         win_h + 2 * m,
-        None,
+        Some(owner),
         None,
         Some(instance),
         Some(pin as *const core::ffi::c_void),
@@ -303,6 +334,16 @@ pub unsafe fn show(rect: RECT, w: i32, h: i32, bgra: &[u8], style: Style) -> Res
         let _ = DeleteDC(pin.mem);
         return Err(windows::core::Error::from_win32()).context("cannot create the pinned window");
     };
+    match desktop {
+        Some((manager, id)) => {
+            if let Err(e) = manager.MoveWindowToDesktop(hwnd, &id) {
+                crate::logline(&format!(
+                    "warn: cannot isolate pin to its virtual desktop: {e}"
+                ));
+            }
+        }
+        None => crate::logline("warn: cannot determine the pin's virtual desktop"),
+    }
     let _ = ShowWindow(hwnd, SW_SHOW);
     let _ = SetWindowPos(
         hwnd,
@@ -573,12 +614,19 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
 
 #[cfg(test)]
 mod tests {
-    use super::{band_pixel, edge_at, fit, lock_aspect, margin, Style};
+    use super::{band_pixel, edge_at, fit, lock_aspect, margin, Style, PIN_EX_STYLE};
     use crate::PinBorder;
     use windows::Win32::Foundation::{POINT, RECT};
     use windows::Win32::UI::WindowsAndMessaging::{
         HTBOTTOMRIGHT, HTLEFT, WMSZ_BOTTOM, WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP,
+        WS_EX_APPWINDOW, WS_EX_TOOLWINDOW,
     };
+
+    #[test]
+    fn pin_avoids_shell_styles_that_break_desktop_isolation() {
+        assert_eq!(PIN_EX_STYLE.0 & WS_EX_TOOLWINDOW.0, 0);
+        assert_eq!(PIN_EX_STYLE.0 & WS_EX_APPWINDOW.0, 0);
+    }
 
     #[test]
     fn fit_keeps_small_images_untouched_and_shrinks_large_ones() {
