@@ -114,10 +114,9 @@ enabled = ["b", "a", "b"]
 
     #[test]
     fn plugin_enable_changes_preserve_the_suite_editor() {
-        let mut core = CoreConfig::parse(
-            "[editor]\ncommand = 'code --new-window'\n[plugins]\nenabled = []\n",
-        )
-        .unwrap();
+        let mut core =
+            CoreConfig::parse("[editor]\ncommand = 'code --new-window'\n[plugins]\nenabled = []\n")
+                .unwrap();
         core.set_enabled("window-tools", true);
         let text = core.to_toml().unwrap();
         assert_eq!(core.editor.command, "code --new-window");

@@ -314,10 +314,16 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [ ] Open GoldenDict Search and Auto-search configs: comments say to create groups
       in GoldenDict first; the live groups are `default` / `translate`, with no
       `grammar`. Confirm both existing search hotkeys and Auto-search still work.
-- [ ] Set `[editor] command` in `desktop-tools.toml`, then use Edit config: one
-      editor process opens the default reference first and user file second.
-      Check a hosted plugin, a Window/Screen feature, Edit core.toml and Edit
-      desktop-tools.toml. Reference snapshots must not be presented as layered for
-      Window, Screen, Taskbar, Key Map or Shell Keys.
+- [ ] Set `[editor] command` in `core.toml`, then use the single Edit core.toml entry:
+      one editor process opens `defaults\core.toml` first and `core.toml` second,
+      with no Edit desktop-tools.toml entry. Check a hosted plugin and a Window/Screen
+      feature too. Toggle a plugin and confirm the editor command is retained.
+      Reference snapshots must not be presented as layered for Window, Screen,
+      Taskbar, Key Map or Shell Keys.
 - [ ] `ctrl+shift+alt+g` still toggles Auto-search after its user file became sparse.
       AHK `^!+g` and `!xx` are intentionally unsupported, not silent fallbacks.
+- [x] Agent verified the merged core migration: host/plugins values are preserved,
+      the retired settings files are backed up outside the profile, the generated
+      core reference contains `[editor]`, and v0.3.0 passes the complete gate and
+      fresh ten-plugin smoke. The real staged host has ten children and five
+      representative hotkeys remain occupied.

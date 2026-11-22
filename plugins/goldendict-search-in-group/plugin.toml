@@ -1,7 +1,7 @@
 id = "goldendict-search-in-group"
 name = "GoldenDict Search In Group"
 description = "Send selected text to a chosen GoldenDict dictionary group or popup."
-version = "0.2.0"
+version = "0.3.0"
 api = 1
 exe = "goldendict-search-in-group.exe"
 group = "keyboard"
