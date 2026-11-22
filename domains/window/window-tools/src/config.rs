@@ -470,15 +470,6 @@ fn assemble(modules: Modules, global: Vec<Binding>) -> Result<Config> {
     })
 }
 
-/// `path` if it exists, else the default TOML written to `path` first.
-pub fn load_or_create(path: &Path, default_toml: &str) -> Result<String> {
-    if !path.exists() {
-        std::fs::write(path, default_toml)
-            .with_context(|| format!("cannot create default {}", path.display()))?;
-    }
-    std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))
-}
-
 /// Sizer presets live next to `window-actions.toml`, in their own file.
 pub fn load_or_create_presets(path: &Path, default_toml: &str) -> Result<Vec<SizeSpec>> {
     let exe = std::env::current_exe().context("cannot locate own executable")?;
@@ -489,14 +480,23 @@ pub fn load_or_create_presets(path: &Path, default_toml: &str) -> Result<Vec<Siz
         "resize.toml",
         default_toml,
     )?;
-    let text = load_or_create(path, default_toml)?;
-    parse_presets(&text)
+    if !path.exists() {
+        std::fs::write(
+            path,
+            kit::config::user_hotkey_patch_toml(default_toml, default_toml)?,
+        )
+        .with_context(|| format!("cannot create {}", path.display()))?;
+    }
+    let user =
+        std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+    parse_presets(&kit::config::merge_hotkey_toml(default_toml, &user)?)
 }
 
 /// Re-read `resize.toml`; the daemon calls this on each Sizer hotkey.
 pub fn load_presets(path: &Path) -> Result<Vec<SizeSpec>> {
-    let text =
+    let user =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let text = kit::config::merge_hotkey_toml(include_str!("../resize.toml"), &user)?;
     parse_presets(&text)
 }
 
@@ -602,8 +602,10 @@ pub fn default_config_path() -> Result<PathBuf> {
 
 fn module_file<T>(global: &Path, module: ConfigModule, parse: fn(&str) -> Result<T>) -> Result<T> {
     let path = module.path(global)?;
-    let text = std::fs::read_to_string(&path)
+    let user = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read {}", path.display()))?;
+    let text = kit::config::merge_hotkey_toml(default_module(module), &user)
+        .with_context(|| format!("cannot merge {}", path.display()))?;
     parse(&text).with_context(|| format!("invalid {}", path.display()))
 }
 
@@ -655,8 +657,54 @@ fn load_modules(path: &Path, global: Vec<Binding>) -> Result<Config> {
     assemble(modules, global)
 }
 
-/// Materialize the effective module config only when the user opens its edit
-/// entry. The legacy file is never rewritten; subsequent reloads prefer this file.
+fn patch_with_removed_bindings(default: &str, effective: &str) -> Result<String> {
+    fn matching_key(table: &toml::Table, key: &str) -> Option<String> {
+        table
+            .keys()
+            .find(|existing| {
+                existing.as_str() == key
+                    || matches!(
+                        (existing.parse::<Combo>(), key.parse::<Combo>()),
+                        (Ok(existing), Ok(default)) if existing == default
+                    )
+            })
+            .cloned()
+    }
+
+    fn mark_removed(defaults: &toml::Table, effective: &mut toml::Table) {
+        for (key, default_value) in defaults {
+            let existing = matching_key(effective, key);
+            match existing {
+                Some(existing) => {
+                    if let (Some(default_table), Some(effective_table)) = (
+                        default_value.as_table(),
+                        effective
+                            .get_mut(&existing)
+                            .and_then(toml::Value::as_table_mut),
+                    ) {
+                        mark_removed(default_table, effective_table);
+                    }
+                }
+                None if key.parse::<Combo>().is_ok() => {
+                    effective.insert(key.clone(), toml::Value::Boolean(false));
+                }
+                None if default_value.is_array() => {
+                    effective.insert(key.clone(), toml::Value::Array(Vec::new()));
+                }
+                None => {}
+            }
+        }
+    }
+
+    let defaults: toml::Value = toml::from_str(default)?;
+    let mut effective: toml::Value = toml::from_str(effective)?;
+    if let (Some(defaults), Some(effective)) = (defaults.as_table(), effective.as_table_mut()) {
+        mark_removed(defaults, effective);
+    }
+    kit::config::user_hotkey_patch_toml(default, &toml::to_string_pretty(&effective)?)
+}
+
+/// Materialize only the legacy differences; the old file is never rewritten.
 pub fn ensure_module_config(
     global_path: &Path,
     module: ConfigModule,
@@ -724,7 +772,8 @@ pub fn ensure_module_config(
         }
         ConfigModule::VirtualDesktops => bindings!(&cfg.modules.virtual_desktops.bindings),
     }
-    std::fs::write(&path, text).with_context(|| format!("cannot create {}", path.display()))?;
+    let patch = patch_with_removed_bindings(default_module(module), &text)?;
+    std::fs::write(&path, patch).with_context(|| format!("cannot create {}", path.display()))?;
     Ok(path)
 }
 
@@ -787,8 +836,8 @@ fn migrate_legacy(path: &Path) -> Result<()> {
         ensure_module_config(path, module, &legacy)?;
     }
     if !path.exists() {
-        std::fs::write(path, actions_text(&legacy.global))
-            .with_context(|| format!("cannot create {}", path.display()))?;
+        let text = patch_with_removed_bindings(DEFAULT_CONFIG, &actions_text(&legacy.global))?;
+        std::fs::write(path, text).with_context(|| format!("cannot create {}", path.display()))?;
     }
     archive_legacy(&legacy_path)
 }
@@ -815,11 +864,10 @@ fn migrate_scale(path: &Path) -> Result<()> {
                 .with_context(|| format!("invalid scale binding in {}", source.display()))?;
         }
     }
-    std::fs::write(
-        &target,
-        format!("# Fullscreen window zoom.\n\"{combo}\" = \"scale\"\n"),
-    )
-    .with_context(|| format!("cannot create {}", target.display()))
+    let effective = format!("# Fullscreen window zoom.\n\"{combo}\" = \"scale\"\n");
+    let patch =
+        patch_with_removed_bindings(window_resize::config::DEFAULT_SCALE_CONFIG, &effective)?;
+    std::fs::write(&target, patch).with_context(|| format!("cannot create {}", target.display()))
 }
 
 /// Create split files, migrate any old aggregate once, then load only split files.
@@ -827,14 +875,26 @@ pub fn load(path: &Path) -> Result<Config> {
     migrate_scale(path)?;
     migrate_legacy(path)?;
     if !path.exists() {
-        std::fs::write(path, DEFAULT_CONFIG)
-            .with_context(|| format!("cannot create {}", path.display()))?;
+        std::fs::write(
+            path,
+            kit::config::user_hotkey_patch_toml(DEFAULT_CONFIG, DEFAULT_CONFIG)?,
+        )
+        .with_context(|| format!("cannot create {}", path.display()))?;
     }
     for module in MODULES {
         let module_path = module.path(path)?;
+        let default = default_module(module);
+        kit::config::write_reference_in_profile(
+            path.parent().context("config path has no parent")?,
+            module.file_name(),
+            default,
+        )?;
         if !module_path.exists() {
-            std::fs::write(&module_path, default_module(module))
-                .with_context(|| format!("cannot create {}", module_path.display()))?;
+            std::fs::write(
+                &module_path,
+                kit::config::user_hotkey_patch_toml(default, default)?,
+            )
+            .with_context(|| format!("cannot create {}", module_path.display()))?;
         }
     }
     reload(path)
@@ -842,8 +902,9 @@ pub fn load(path: &Path) -> Result<Config> {
 
 /// Re-read every split file before replacing any active config.
 pub fn reload(path: &Path) -> Result<Config> {
-    let text =
+    let user =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+    let text = kit::config::merge_hotkey_toml(DEFAULT_CONFIG, &user)?;
     let global = parse(&text)?.global;
     load_modules(path, global)
 }
@@ -907,6 +968,9 @@ pub fn parse(text: &str) -> Result<Config> {
                 },
                 None => eprintln!("warn: `dragModifier` must be a string; using win+alt"),
             }
+            continue;
+        }
+        if action.as_bool() == Some(false) || action.as_str() == Some("none") {
             continue;
         }
         if let Some(t) = action.as_str() {
@@ -1100,23 +1164,6 @@ mod tests {
         assert!(msg.contains("win+f2 (unknown key)"));
     }
 
-    #[test]
-    fn load_or_create_roundtrip() {
-        let dir =
-            std::env::temp_dir().join(format!("desktop-tools-rs-test-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("window-tools.toml");
-        let _ = std::fs::remove_file(&path);
-
-        let text = load_or_create(&path, "x = 1\n").unwrap();
-        assert_eq!(text, "x = 1\n");
-        assert!(path.exists());
-        std::fs::write(&path, "y = 2\n").unwrap();
-        assert_eq!(load_or_create(&path, "x = 1\n").unwrap(), "y = 2\n");
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
     fn test_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("desktop-tools-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -1208,8 +1255,12 @@ mod tests {
         let global = dir.join(CONFIG_NAME);
         let cfg = load(&global).unwrap();
         assert_eq!(cfg.bindings.len(), 44);
+        assert!(!std::fs::read_to_string(&global)
+            .unwrap()
+            .contains("swapWindows"));
         for module in MODULES {
             assert!(module.path(&global).unwrap().exists());
+            assert!(dir.join("defaults").join(module.file_name()).exists());
         }
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1242,13 +1293,33 @@ mod tests {
     }
 
     #[test]
+    fn migration_preserves_a_removed_nested_app_toggle_binding() {
+        let default = default_module(ConfigModule::AppToggle);
+        let mut effective: toml::Value = toml::from_str(default).unwrap();
+        effective["bindings"]
+            .as_table_mut()
+            .unwrap()
+            .remove("win+e")
+            .unwrap();
+        let patch =
+            patch_with_removed_bindings(default, &toml::to_string_pretty(&effective).unwrap())
+                .unwrap();
+        let patch: toml::Value = toml::from_str(&patch).unwrap();
+        assert_eq!(patch["bindings"]["win+e"].as_bool(), Some(false));
+        assert_eq!(patch["bindings"].as_table().unwrap().len(), 1);
+    }
+
+    #[test]
     fn reload_reads_changed_module_file() {
         let dir = test_dir("reload-module");
         let global = dir.join(CONFIG_NAME);
         load(&global).unwrap();
         let path = ConfigModule::QuickSwitch.path(&global).unwrap();
-        let text = std::fs::read_to_string(&path).unwrap();
-        std::fs::write(&path, text.replace("ctrl+alt+l", "ctrl+alt+o")).unwrap();
+        std::fs::write(
+            &path,
+            "quickSwitch = true\n\"ctrl+alt+l\" = \"none\"\n\"ctrl+alt+o\" = \"fileDialog\"\n",
+        )
+        .unwrap();
         let cfg = reload(&global).unwrap();
         let changed: Combo = "ctrl+alt+o".parse().unwrap();
         let original: Combo = "ctrl+alt+l".parse().unwrap();

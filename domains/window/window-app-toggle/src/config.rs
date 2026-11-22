@@ -45,7 +45,7 @@ impl Default for Config {
 #[serde(deny_unknown_fields)]
 struct FileConfig {
     #[serde(default)]
-    bindings: BTreeMap<String, String>,
+    bindings: BTreeMap<String, toml::Value>,
     wezterm: RawApp,
     #[serde(rename = "doubleCommander")]
     double_commander: RawApp,
@@ -87,10 +87,16 @@ pub fn parse(text: &str) -> Result<Config> {
     let file: FileConfig = toml::from_str(text)?;
     let mut bindings = Vec::new();
     for (combo, action) in file.bindings {
+        if action.as_bool() == Some(false) {
+            continue;
+        }
+        let Some(action) = action.as_str() else {
+            bail!("app-toggle action for `{combo}` must be a string or false");
+        };
         let combo = combo
             .parse::<Combo>()
             .with_context(|| format!("invalid app-toggle combo `{combo}`"))?;
-        let action = match action.as_str() {
+        let action = match action {
             "wezterm" => AppKind::WezTerm,
             "doubleCommander" => AppKind::DoubleCommander,
             _ => bail!("unknown app-toggle action `{action}`"),

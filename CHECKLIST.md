@@ -318,8 +318,7 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       one editor process opens `defaults\core.toml` first and `core.toml` second,
       with no Edit desktop-tools.toml entry. Check a hosted plugin and a Window/Screen
       feature too. Toggle a plugin and confirm the editor command is retained.
-      Reference snapshots must not be presented as layered for Window, Screen,
-      Taskbar, Key Map or Shell Keys.
+      Default references and sparse user patches must open together for these plugins too.
 - [ ] `ctrl+shift+alt+g` still toggles Auto-search after its user file became sparse.
       AHK `^!+g` and `!xx` are intentionally unsupported, not silent fallbacks.
 - [x] Agent verified the merged core migration: host/plugins values are preserved,
@@ -330,3 +329,27 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       `ff90011` is published; real `scoop update` upgraded 0.2.0 to 0.3.0. Current
       Scoop host PID 24556 has ten children on the same config and five representative
       hotkeys remain occupied.
+
+## P18 — every user config is a patch
+
+- [x] Shared tests cover recursive tables, scalar/array replacement, empty-array
+      clearing, minimal-patch round trips, Window-only modifier-order normalization,
+      explicit Window `none` and Key Map `false` deletion, and nested App Toggle
+      migration. Exact Key Map text triggers are not normalized as hotkeys.
+- [x] A full SHA-256 backup preceded live migration. The production Rust merge/diff
+      implementation generated 29 patches with identical effective TOML; five other
+      user TOML files remained byte-identical. An isolated candidate profile passed
+      ten-plugin startup and five hotkey probes before the real profile was changed.
+- [ ] Open Edit config for GoldenDict, Window, Screen and Taskbar: the same editor
+      opens the complete default reference and the small user patch. Personal values
+      remain only in the user file; no merged default copy is written back.
+- [ ] Temporarily set an existing Window hotkey to `none`, Reload and confirm it is
+      disabled; remove that line, Reload and confirm the default returns. Repeat with
+      `false` for a default Key Map trigger if text replacement is in use.
+- [ ] Confirm the existing GoldenDict groups, App Toggle targets, `Ctrl+T` Pin,
+      `brave` Taskbar pin and normal window hotkeys still behave as before.
+- [x] Final gate: 340 tests passed / 10 ignored; fmt, Clippy, release, staging and a
+      genuinely fresh ten-plugin smoke passed. Final staged host PID 22172 has ten
+      children on the real sparse profile; all 29 patches still match the verified
+      candidates and five representative hotkeys remain occupied. Startup remains
+      the single Scoop `current\desktop-tools.exe` entry.

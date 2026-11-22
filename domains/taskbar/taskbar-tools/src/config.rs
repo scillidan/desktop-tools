@@ -10,6 +10,10 @@ pub enum Module {
 /// Migrate the old aggregate once, then load only independent feature files.
 pub fn load() -> Result<()> {
     migrate_legacy()?;
+    // This entry runs at startup/reload, not in either worker's polling loop.
+    let _ = taskbar_center::materialize()?;
+    let _ = taskbar_hidden::materialize()?;
+    let _ = taskbar_pin::materialize()?;
     taskbar_center::load()?.validate()?;
     let _ = taskbar_hidden::load()?;
     let _ = taskbar_pin::load()?;

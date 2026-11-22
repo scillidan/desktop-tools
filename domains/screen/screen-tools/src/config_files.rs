@@ -194,6 +194,13 @@ fn module_text(module: ConfigModule, cfg: &Config) -> String {
     }
 }
 
+fn module_patch(module: ConfigModule, cfg: &Config) -> Result<String> {
+    kit::config::user_patch_toml(
+        &module_text(module, &Config::default()),
+        &module_text(module, cfg),
+    )
+}
+
 fn archive_legacy(path: &Path) -> Result<()> {
     let base = path.with_file_name("screen-tools.legacy.toml");
     let mut backup = base.clone();
@@ -234,7 +241,7 @@ fn migrate_window_power(actions: &Path) -> Result<()> {
         }
     }
     if !target.exists() {
-        std::fs::write(&target, module_text(ConfigModule::Power, &cfg))
+        std::fs::write(&target, module_patch(ConfigModule::Power, &cfg)?)
             .with_context(|| format!("cannot write {}", target.display()))?;
     }
     Ok(())
@@ -249,7 +256,7 @@ fn migrate_flameshot(actions: &Path) -> Result<()> {
         .with_context(|| format!("cannot read {}", actions.display()))?;
     let legacy =
         crate::config::parse(&text).with_context(|| format!("invalid {}", actions.display()))?;
-    std::fs::write(&target, module_text(ConfigModule::Flameshot, &legacy))
+    std::fs::write(&target, module_patch(ConfigModule::Flameshot, &legacy)?)
         .with_context(|| format!("cannot write {}", target.display()))?;
     Ok(())
 }
@@ -265,7 +272,7 @@ fn migrate_legacy(actions: &Path) -> Result<()> {
     for module in MODULES {
         let path = module.path(actions);
         if !path.exists() {
-            std::fs::write(&path, module_text(module, &legacy))
+            std::fs::write(&path, module_patch(module, &legacy)?)
                 .with_context(|| format!("cannot create {}", path.display()))?;
         }
     }
@@ -279,8 +286,12 @@ pub fn load(actions: &Path) -> Result<Config> {
     migrate_legacy(actions)?;
     for module in MODULES {
         let path = module.path(actions);
+        let default = module_text(module, &Config::default());
+        if let Some(profile) = actions.parent() {
+            kit::config::write_reference_in_profile(profile, module.file(), &default)?;
+        }
         if !path.exists() {
-            std::fs::write(&path, module_text(module, &Config::default()))
+            std::fs::write(&path, kit::config::user_patch_toml(&default, &default)?)
                 .with_context(|| format!("cannot create {}", path.display()))?;
         }
     }

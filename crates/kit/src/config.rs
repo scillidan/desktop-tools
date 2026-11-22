@@ -172,12 +172,33 @@ pub fn load_profile(name: &str, default_toml: &str) -> Result<(PathBuf, String)>
 /// Merge sparse user TOML over embedded defaults without modifying either file.
 /// Tables merge recursively; every other value, including arrays, is replaced.
 pub fn merge_toml(default_toml: &str, user_toml: &str) -> Result<String> {
-    fn merge(base: &mut toml::Value, user: toml::Value) {
+    merge_toml_impl(default_toml, user_toml, false)
+}
+
+/// Merge Window binding files, treating modifier order as equivalent.
+pub fn merge_hotkey_toml(default_toml: &str, user_toml: &str) -> Result<String> {
+    merge_toml_impl(default_toml, user_toml, true)
+}
+
+fn merge_toml_impl(default_toml: &str, user_toml: &str, hotkeys: bool) -> Result<String> {
+    fn merge(base: &mut toml::Value, user: toml::Value, hotkeys: bool) {
         match (base, user) {
             (toml::Value::Table(base), toml::Value::Table(user)) => {
                 for (key, value) in user {
+                    let key = base
+                        .keys()
+                        .find(|existing| {
+                            hotkeys
+                                && existing.as_str() != key.as_str()
+                                && matches!(
+                                    (existing.parse::<crate::keys::Combo>(), key.parse::<crate::keys::Combo>()),
+                                    (Ok(existing), Ok(new)) if existing == new
+                                )
+                        })
+                        .cloned()
+                        .unwrap_or(key);
                     match base.get_mut(&key) {
-                        Some(current) => merge(current, value),
+                        Some(current) => merge(current, value, hotkeys),
                         None => {
                             base.insert(key, value);
                         }
@@ -190,8 +211,95 @@ pub fn merge_toml(default_toml: &str, user_toml: &str) -> Result<String> {
 
     let mut base: toml::Value = toml::from_str(default_toml).context("invalid embedded default")?;
     let user: toml::Value = toml::from_str(user_toml).context("invalid user config")?;
-    merge(&mut base, user);
+    merge(&mut base, user, hotkeys);
     toml::to_string_pretty(&base).context("cannot serialize merged config")
+}
+
+/// Return only the values that differ from defaults. Tables are compared by key;
+/// arrays and scalar values are kept whole. Equivalent hotkey modifier order is ignored.
+pub fn minimal_patch_toml(default_toml: &str, effective_toml: &str) -> Result<String> {
+    minimal_patch_toml_impl(default_toml, effective_toml, false)
+}
+
+fn minimal_patch_toml_impl(
+    default_toml: &str,
+    effective_toml: &str,
+    hotkeys: bool,
+) -> Result<String> {
+    fn equivalent(default: &toml::Value, effective: &toml::Value, hotkeys: bool) -> bool {
+        if default == effective || !hotkeys {
+            return default == effective;
+        }
+        match (default.as_str(), effective.as_str()) {
+            (Some(default), Some(effective)) => match (
+                default.parse::<crate::keys::Combo>(),
+                effective.parse::<crate::keys::Combo>(),
+            ) {
+                (Ok(default), Ok(effective)) => default == effective,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    fn difference(
+        default: &toml::Value,
+        effective: &toml::Value,
+        hotkeys: bool,
+    ) -> Option<toml::Value> {
+        match (default, effective) {
+            (toml::Value::Table(default), toml::Value::Table(effective)) => {
+                let mut patch = toml::Table::new();
+                for (key, value) in effective {
+                    let default_key = default
+                        .keys()
+                        .find(|existing| {
+                            existing.as_str() == key.as_str()
+                                || (hotkeys && matches!(
+                                    (existing.parse::<crate::keys::Combo>(), key.parse::<crate::keys::Combo>()),
+                                    (Ok(existing), Ok(new)) if existing == new
+                                ))
+                        })
+                        .cloned();
+                    let changed = match default_key.as_ref().and_then(|key| default.get(key)) {
+                        Some(default) => difference(default, value, hotkeys),
+                        None => Some(value.clone()),
+                    };
+                    if let Some(changed) = changed {
+                        patch.insert(default_key.unwrap_or_else(|| key.clone()), changed);
+                    }
+                }
+                (!patch.is_empty()).then_some(toml::Value::Table(patch))
+            }
+            (default, effective) if equivalent(default, effective, hotkeys) => None,
+            (_, effective) => Some(effective.clone()),
+        }
+    }
+
+    let default: toml::Value = toml::from_str(default_toml).context("invalid embedded default")?;
+    let effective: toml::Value =
+        toml::from_str(effective_toml).context("invalid effective config")?;
+    let patch = difference(&default, &effective, hotkeys)
+        .unwrap_or_else(|| toml::Value::Table(toml::Table::new()));
+    toml::to_string_pretty(&patch).context("cannot serialize config patch")
+}
+
+/// Render a user file containing only overrides, never a copy of the defaults.
+pub fn user_patch_toml(default_toml: &str, effective_toml: &str) -> Result<String> {
+    render_user_patch(minimal_patch_toml(default_toml, effective_toml)?)
+}
+
+/// Render a Window binding patch with hotkey-aware comparison.
+pub fn user_hotkey_patch_toml(default_toml: &str, effective_toml: &str) -> Result<String> {
+    render_user_patch(minimal_patch_toml_impl(default_toml, effective_toml, true)?)
+}
+
+fn render_user_patch(patch: String) -> Result<String> {
+    Ok(format!(
+        "# User patch: keep only values that differ from the generated default reference.\n\
+         # Omitted values inherit defaults; tables merge recursively and arrays replace wholesale.\n\
+         {patch}"
+    ))
 }
 
 /// Load sparse user overrides and keep a generated default reference beside them.
@@ -207,15 +315,8 @@ pub fn load_layered_in_profile(
     import_legacy_once(&path, legacy_dir, &[name])?;
     write_reference_in_profile(profile, name, default_toml)?;
     if !path.exists() {
-        std::fs::write(
-            &path,
-            format!(
-                "# User overrides for {name}; omitted settings inherit defaults/{name}.\n\
-                 # Tables merge recursively. Arrays replace defaults, including an empty [].\n\
-                 # defaults/{name} is a generated reference; edit this file instead.\n"
-            ),
-        )
-        .with_context(|| format!("cannot create overrides {}", path.display()))?;
+        std::fs::write(&path, user_patch_toml(default_toml, default_toml)?)
+            .with_context(|| format!("cannot create overrides {}", path.display()))?;
     }
     let user = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read {}", path.display()))?;
@@ -454,6 +555,54 @@ mod tests {
     }
 
     #[test]
+    fn generic_merge_does_not_normalize_exact_text_triggers() {
+        let default = "[keymap]\n\"ctrl+alt+x\" = \"a\"\n";
+        let user = "[keymap]\n\"alt+ctrl+x\" = \"b\"\n";
+        let merged: toml::Value = toml::from_str(&merge_toml(default, user).unwrap()).unwrap();
+        let entries = merged["keymap"].as_table().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries["ctrl+alt+x"].as_str(), Some("a"));
+        assert_eq!(entries["alt+ctrl+x"].as_str(), Some("b"));
+    }
+
+    #[test]
+    fn minimal_patch_keeps_only_differences_and_round_trips() {
+        let defaults = r#"
+            title = "default"
+            "ctrl+win+alt+x" = "swapWindows"
+            [settings]
+            mode = "InAll"
+            hotkey = "ctrl+alt+k"
+            [[group]]
+            name = "default"
+        "#;
+        let effective = r#"
+            title = "default"
+            "alt+win+ctrl+x" = "swapWindows"
+            "ctrl+alt+f9" = "custom"
+            [settings]
+            mode = "InDefine"
+            hotkey = "ctrl+alt+k"
+            [[group]]
+            name = "translate"
+        "#;
+        let patch = user_hotkey_patch_toml(defaults, effective).unwrap();
+        let value: toml::Value = toml::from_str(&patch).unwrap();
+        assert!(value.get("title").is_none());
+        assert!(value.get("ctrl+win+alt+x").is_none());
+        assert_eq!(value["ctrl+alt+f9"].as_str(), Some("custom"));
+        assert_eq!(value["settings"]["mode"].as_str(), Some("InDefine"));
+        assert!(value["settings"].get("hotkey").is_none());
+        assert_eq!(value["group"][0]["name"].as_str(), Some("translate"));
+        let round_trip = merge_hotkey_toml(defaults, &patch).unwrap();
+        let left: toml::Value = toml::from_str(&round_trip).unwrap();
+        let normalized = merge_hotkey_toml(defaults, effective).unwrap();
+        let right: toml::Value = toml::from_str(&normalized).unwrap();
+        assert_eq!(left, right);
+        assert_eq!(minimal_patch_toml(defaults, defaults).unwrap(), "");
+    }
+
+    #[test]
     fn layered_profile_keeps_user_file_sparse_and_reference_current() {
         let root = temp_dir("layered");
         let profile = root.join("config");
@@ -466,7 +615,9 @@ mod tests {
             "[settings]\nanswer = 42\nother = true\n",
         )
         .unwrap();
-        assert!(std::fs::read_to_string(&path).unwrap().contains("override"));
+        assert!(std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("User patch"));
         let merged: toml::Value = toml::from_str(&text).unwrap();
         assert_eq!(merged["settings"]["answer"].as_integer(), Some(42));
         assert_eq!(

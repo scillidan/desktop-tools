@@ -22,8 +22,8 @@ fn parse_module<T: DeserializeOwned>(text: &str, nested: Option<&str>) -> Result
     Ok(toml::from_str(text)?)
 }
 
-fn write<T: Serialize>(path: &Path, config: &T) -> Result<()> {
-    let text = toml::to_string_pretty(config)?;
+fn write_patch(path: &Path, default: &str, effective: &str) -> Result<()> {
+    let text = kit::config::user_patch_toml(default, effective)?;
     std::fs::write(path, text).with_context(|| format!("cannot write {}", path.display()))
 }
 
@@ -37,9 +37,11 @@ where
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let path = path(file_name)?;
+    let default = toml::to_string_pretty(&T::default())?;
     if path.exists() {
-        let text = std::fs::read_to_string(&path)
+        let user = std::fs::read_to_string(&path)
             .with_context(|| format!("cannot read {}", path.display()))?;
+        let text = kit::config::merge_toml(&default, &user)?;
         return parse_module(&text, nested).with_context(|| format!("invalid {}", path.display()));
     }
 
@@ -57,7 +59,12 @@ where
     }
 
     let config = T::default();
-    write(&path, &config)?;
+    kit::config::write_reference_in_profile(
+        path.parent().context("config path has no parent")?,
+        file_name,
+        &default,
+    )?;
+    write_patch(&path, &default, &default)?;
     Ok(config)
 }
 
@@ -75,7 +82,8 @@ where
         &default,
     )?;
     if !path.exists() {
-        write(&path, &config)?;
+        let effective = toml::to_string_pretty(&config)?;
+        write_patch(&path, &default, &effective)?;
     }
     Ok(path)
 }
@@ -112,7 +120,7 @@ mod tests {
                 value: 7
             }
         );
-        write(&path, &config).unwrap();
+        std::fs::write(&path, toml::to_string_pretty(&config).unwrap()).unwrap();
         assert_eq!(
             toml::from_str::<Example>(&std::fs::read_to_string(path).unwrap()).unwrap(),
             config

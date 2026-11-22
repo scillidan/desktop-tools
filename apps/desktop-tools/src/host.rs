@@ -115,9 +115,8 @@ impl Host {
             .parent()
             .context("host executable has no parent")?
             .to_path_buf();
-        kit::config::write_reference_in_profile(&profile, "core.toml", DEFAULT_CORE)?;
         let (core_path, text) =
-            kit::config::load_in_profile(&profile, &exe_dir, "core.toml", DEFAULT_CORE)?;
+            kit::config::load_layered_in_profile(&profile, &exe_dir, "core.toml", DEFAULT_CORE)?;
         let core = CoreConfig::parse(&text).context("core.toml")?;
         let mut catalog = Catalog::discover(&plugins_root);
         let catalog_errors = std::mem::take(&mut catalog.errors);
@@ -593,6 +592,16 @@ impl Host {
                 return false;
             }
         };
+        let text = match kit::config::merge_toml(DEFAULT_CORE, &text) {
+            Ok(text) => text,
+            Err(e) => {
+                self.log(format!("invalid core.toml: {e:#}"));
+                if show_error {
+                    kit::win::message_box(APP, &format!("Invalid core.toml:\n{e:#}"));
+                }
+                return false;
+            }
+        };
         let core = match CoreConfig::parse(&text) {
             Ok(core) => core,
             Err(e) => {
@@ -763,7 +772,8 @@ impl Host {
     }
 
     fn persist_core(&mut self) -> Result<()> {
-        let text = self.core.to_toml()?;
+        let effective = self.core.to_toml()?;
+        let text = kit::config::user_patch_toml(DEFAULT_CORE, &effective)?;
         std::fs::write(&self.core_path, text)
             .with_context(|| format!("cannot write {}", self.core_path.display()))?;
         self.core_mtime = std::fs::metadata(&self.core_path)

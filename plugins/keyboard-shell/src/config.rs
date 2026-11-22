@@ -64,13 +64,15 @@ pub fn load_in_profile(profile: &Path) -> Result<(PathBuf, Config)> {
     kit::config::write_reference_in_profile(profile, FILE_NAME, DEFAULT_CONFIG)?;
     let path = profile.join(FILE_NAME);
     if !path.exists() {
-        let text = import_previous_keymap(profile)?
+        let effective = import_previous_keymap(profile)?
             .or(import_window_suppressions(profile)?)
             .unwrap_or_else(|| DEFAULT_CONFIG.into());
+        let text = kit::config::user_patch_toml(DEFAULT_CONFIG, &effective)?;
         std::fs::write(&path, text).with_context(|| format!("cannot write {}", path.display()))?;
     }
-    let text = std::fs::read_to_string(&path)
+    let user = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read {}", path.display()))?;
+    let text = kit::config::merge_toml(DEFAULT_CONFIG, &user)?;
     Ok((path, parse(&text)?))
 }
 

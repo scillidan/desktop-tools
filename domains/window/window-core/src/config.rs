@@ -33,9 +33,12 @@ where
         if setting(&mut settings, combo, value)? {
             continue;
         }
+        if value.as_bool() == Some(false) || value.as_str() == Some("none") {
+            continue;
+        }
         let name = value
             .as_str()
-            .with_context(|| format!("`{combo}` action must be a string"))?;
+            .with_context(|| format!("`{combo}` action must be a string or none"))?;
         let action =
             action(name).with_context(|| format!("unknown action `{name}` for `{combo}`"))?;
         let combo = combo

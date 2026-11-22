@@ -1,5 +1,5 @@
 use crate::engine::Engine;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -8,10 +8,17 @@ pub const FILE_NAME: &str = "keyboard-keymap.toml";
 pub const DEFAULT_CONFIG: &str = include_str!("../keyboard-keymap.toml");
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+enum Replacement {
+    Text(String),
+    Disabled(bool),
+}
+
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FileConfig {
     #[serde(default)]
-    keymap: BTreeMap<String, String>,
+    keymap: BTreeMap<String, Replacement>,
     // P4a briefly stored Shell Keys here; P4b preserves that file as a backup.
     #[serde(default)]
     #[allow(dead_code)]
@@ -29,12 +36,26 @@ pub fn load_from(root: PathBuf) -> Result<(PathBuf, Engine)> {
     if path.exists() {
         split_p4a_shell_config(&path)?;
     } else {
-        std::fs::write(&path, DEFAULT_CONFIG)?;
+        std::fs::write(
+            &path,
+            kit::config::user_patch_toml(DEFAULT_CONFIG, DEFAULT_CONFIG)?,
+        )?;
     }
-    let text = std::fs::read_to_string(&path)?;
+    let user = std::fs::read_to_string(&path)?;
+    let text = kit::config::merge_toml(DEFAULT_CONFIG, &user)?;
     let file: FileConfig =
         toml::from_str(&text).with_context(|| format!("cannot parse {}", path.display()))?;
-    let engine = Engine::new(file.keymap)
+    let mut replacements = BTreeMap::new();
+    for (trigger, replacement) in file.keymap {
+        match replacement {
+            Replacement::Text(text) => {
+                replacements.insert(trigger, text);
+            }
+            Replacement::Disabled(false) => {}
+            Replacement::Disabled(true) => bail!("keymap `{trigger}` must be text or false"),
+        }
+    }
+    let engine = Engine::new(replacements)
         .with_context(|| format!("invalid keymap in {}", path.display()))?;
     Ok((path, engine))
 }
@@ -53,7 +74,10 @@ fn split_p4a_shell_config(path: &Path) -> Result<()> {
     }
     std::fs::rename(path, &backup)
         .with_context(|| format!("cannot preserve old shell config as {}", backup.display()))?;
-    std::fs::write(path, DEFAULT_CONFIG)?;
+    std::fs::write(
+        path,
+        kit::config::user_patch_toml(DEFAULT_CONFIG, DEFAULT_CONFIG)?,
+    )?;
     Ok(())
 }
 
@@ -97,6 +121,18 @@ mod tests {
         std::fs::write(&path, text).unwrap();
         let (_, mut engine) = load_from(dir.clone()).unwrap();
         assert_eq!(std::fs::read_to_string(path).unwrap(), text);
+        assert_eq!(type_text(&mut engine, "#x").unwrap().replacement, "χ");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sparse_patch_inherits_defaults_and_false_disables_one() {
+        let dir = test_dir("sparse");
+        let path = dir.join(FILE_NAME);
+        std::fs::write(&path, "[keymap]\n\"#alpha\" = false\n\"#x\" = \"χ\"\n").unwrap();
+        let (_, mut engine) = load_from(dir.clone()).unwrap();
+        assert_eq!(type_text(&mut engine, "#alpha"), None);
+        assert_eq!(type_text(&mut engine, "#Alpha").unwrap().replacement, "Α");
         assert_eq!(type_text(&mut engine, "#x").unwrap().replacement, "χ");
         let _ = std::fs::remove_dir_all(dir);
     }
