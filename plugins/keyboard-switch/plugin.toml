@@ -1,7 +1,7 @@
 id = "keyboard-switch"
 name = "Keyboard Switch"
 description = "Switch input methods and optional Caps Lock/Esc behavior from configurable rules."
-version = "0.5.0"
+version = "0.5.1"
 api = 1
 exe = "keyboard-switch.exe"
 group = "keyboard"

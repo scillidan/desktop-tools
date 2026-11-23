@@ -1,7 +1,7 @@
 id = "keyboard-keymap"
 name = "Key Map"
 description = "Immediate, exact static text replacement without a trigger suffix."
-version = "0.5.0"
+version = "0.5.1"
 api = 1
 exe = "keyboard-keymap.exe"
 group = "keyboard"

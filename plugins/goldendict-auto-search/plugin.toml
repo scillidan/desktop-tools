@@ -1,7 +1,7 @@
 id = "goldendict-auto-search"
 name = "GoldenDict Auto Search"
 description = "Open GoldenDict for the selected text using the configured activation gesture."
-version = "0.5.0"
+version = "0.5.1"
 api = 1
 exe = "goldendict-auto-search.exe"
 group = "keyboard"
