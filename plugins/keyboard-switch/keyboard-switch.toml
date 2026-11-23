@@ -1,10 +1,10 @@
-# keyboard-switch — cycle keyboard layouts with an explicitly configured hotkey.
+# keyboard-switch — cycle installed keyboard layouts with CapsLock by default.
 # InAll uses GetKeyboardLayoutList; InDefine uses the [[layout]] entries below.
 # Omitted settings inherit this reference when using the layered config loader.
 
 [settings]
 switch_mode = "InAll"
-# switch_hotkey = "capslock" # Opt-in: plain CapsLock is swallowed while configured.
+switch_hotkey = "capslock" # Plain CapsLock is swallowed while configured.
 swap_esc_caps = false
 
 # InDefine example. Every KLID must name an installed keyboard layout.

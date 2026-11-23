@@ -113,6 +113,11 @@ fn in_define_mode(mode: Option<&str>) -> bool {
 }
 
 #[cfg(windows)]
+fn use_defined_layouts(in_define: bool, defined: &[DefinedLayout]) -> bool {
+    in_define && !defined.is_empty()
+}
+
+#[cfg(windows)]
 fn is_plain_capslock(combo: &kit::keys::Combo) -> bool {
     combo.key == kit::keys::Key::CapsLock
         && !combo.ctrl
@@ -291,7 +296,9 @@ fn run() -> anyhow::Result<()> {
         switch_hotkey: None,
         swap_esc_caps: None,
     });
-    let mut in_define = in_define_mode(settings.switch_mode.as_deref());
+    let defined: Vec<DefinedLayout> = file.layout.unwrap_or_default();
+    let mut in_define =
+        use_defined_layouts(in_define_mode(settings.switch_mode.as_deref()), &defined);
     let switch_combo: Option<Combo> = settings
         .switch_hotkey
         .as_deref()
@@ -317,7 +324,6 @@ fn run() -> anyhow::Result<()> {
         _ => Hotkeys::register(&[])?,
     };
 
-    let defined: Vec<DefinedLayout> = file.layout.unwrap_or_default();
     let mut installed = installed_layouts();
     validate_defined_layouts(&defined, &installed)?;
 
@@ -345,7 +351,7 @@ fn run() -> anyhow::Result<()> {
                                 let _ = link.status(&status_text(swap_esc, in_define));
                             }
                             "mode_indefine" => {
-                                in_define = !in_define;
+                                in_define = use_defined_layouts(!in_define, &defined);
                                 persist_toggle(
                                     &config_path,
                                     "switch_mode",
@@ -423,7 +429,7 @@ fn run() -> anyhow::Result<()> {
                     persist_toggle(&config_path, "swap_esc_caps", &swap_esc.to_string());
                 }
                 "mode_indefine" => {
-                    in_define = !in_define;
+                    in_define = use_defined_layouts(!in_define, &defined);
                     let v = if in_define {
                         "\"InDefine\""
                     } else {
@@ -551,7 +557,7 @@ fn switch_layout(in_define: bool, defined: &[DefinedLayout], installed: &mut Vec
         (current as u32) & 0xFFFF
     ));
 
-    if in_define {
+    if use_defined_layouts(in_define, defined) {
         let cur_klid = format!("{:08x}", (current as u32) & 0xFFFF);
         let Some(next) = next_defined(Some(&cur_klid), defined) else {
             return;
@@ -755,12 +761,38 @@ mod tests {
     }
 
     #[test]
-    fn default_profile_does_not_capture_capslock_or_assume_layouts() {
+    fn empty_defined_layouts_use_installed_mode() {
+        assert!(!use_defined_layouts(true, &[]));
+        assert!(use_defined_layouts(true, &defined(&["00000409"])));
+        assert!(!use_defined_layouts(false, &defined(&["00000409"])));
+    }
+
+    #[test]
+    fn default_profile_cycles_installed_layouts_with_capslock() {
         let file: FileConfig = toml::from_str(include_str!("../keyboard-switch.toml")).unwrap();
         let settings = file.settings.unwrap();
-        assert_eq!(settings.switch_hotkey, None);
+        assert_eq!(settings.switch_hotkey.as_deref(), Some("capslock"));
+        assert_eq!(settings.switch_mode.as_deref(), Some("InAll"));
         assert_eq!(settings.swap_esc_caps, Some(false));
         assert!(file.layout.unwrap_or_default().is_empty());
+    }
+
+    #[test]
+    fn sparse_swap_config_keeps_capslock_and_installed_fallback() {
+        let merged = kit::config::merge_toml(
+            include_str!("../keyboard-switch.toml"),
+            "[settings]\nswap_esc_caps = true\nswitch_mode = \"InDefine\"\n",
+        )
+        .unwrap();
+        let file: FileConfig = toml::from_str(&merged).unwrap();
+        let settings = file.settings.unwrap();
+        let combo = settings.switch_hotkey.as_deref().unwrap().parse().unwrap();
+        assert!(is_plain_capslock(&combo));
+        assert_eq!(settings.swap_esc_caps, Some(true));
+        assert!(!use_defined_layouts(
+            in_define_mode(settings.switch_mode.as_deref()),
+            &file.layout.unwrap_or_default()
+        ));
     }
 
     #[test]
