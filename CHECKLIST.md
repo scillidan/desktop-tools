@@ -169,6 +169,12 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 - [x] Complete two separate Frame → Flameshot handoffs: no additional Flameshot daemon/tray instance appears; each GUI session opens and closes normally.
 - [x] Recording guard verified with real FFmpeg and Flameshot: during Frame recording, `Ctrl+F` was rejected and did not launch Flameshot; normal stop produced 31 decodable frames. The complete handoff/mutex regression and clean Quit passed afterward.
 
+## Flameshot daemon idle lifetime: passed
+
+- [x] `[external] flameshot_idle_secs` defaults to 300, accepts non-negative integers, reloads with Screen and treats 0 as disabled.
+- [x] Active sessions and a disabled timeout do not reap; an expired bridge-owned child is killed and waited. A pre-existing same-name process is reused without becoming owned or being killed.
+- [x] Real Flameshot 15 probe ran exactly one ignored test: the bridge started the daemon, the expired idle child exited and no Flameshot process remained. A previous 0-test filter invocation was rejected as a harness error, not counted as acceptance.
+
 ## P7 Physical — App Toggle: signed off
 
 - [x] Window's final external submenu is **App Toggle**. **Edit App Toggle config** opens `window-app-toggle.toml`; all native Window modules remain before it.

@@ -182,6 +182,7 @@ fn run() -> Result<()> {
     set_capture_dir(&cfg.capture_dir);
     tray::set_notify(cfg.notify_enabled);
     flameshot::set_path(cfg.flameshot.clone());
+    flameshot::set_idle_timeout(cfg.flameshot_idle_secs);
     set_external_editor(&cfg.external_editor);
     set_record_cfg(&cfg);
     cleanup_temp_captures();
@@ -418,6 +419,7 @@ fn run() -> Result<()> {
                         set_capture_dir(&new_cfg.capture_dir);
                         tray::set_notify(new_cfg.notify_enabled);
                         flameshot::set_path(new_cfg.flameshot.clone());
+                        flameshot::set_idle_timeout(new_cfg.flameshot_idle_secs);
                         set_external_editor(&new_cfg.external_editor);
                         set_record_cfg(&new_cfg);
                         set_pin_style(

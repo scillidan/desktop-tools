@@ -1,7 +1,7 @@
 use anyhow::Result;
 use windows::Win32::Foundation::HWND;
 
-pub use flameshot_handoff::{set_path, set_session_hooks};
+pub use flameshot_handoff::{set_idle_timeout, set_path, set_session_hooks};
 
 fn hide(frame_id: isize) {
     unsafe { crate::frame::hide(HWND(frame_id as *mut _)) };

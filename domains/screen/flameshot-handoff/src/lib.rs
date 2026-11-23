@@ -5,9 +5,10 @@ use anyhow::{Context, Result};
 use kit::layout::Rect;
 use std::os::windows::process::CommandExt;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{CloseHandle, HWND};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MonitorFromWindow, HMONITOR, MONITORINFO, MONITOR_DEFAULTTOPRIMARY,
@@ -22,8 +23,17 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 static LOGGER: Mutex<Option<fn(&str)>> = Mutex::new(None);
 static PATH: Mutex<String> = Mutex::new(String::new());
 static RUNNING: AtomicBool = AtomicBool::new(false);
+static REAPER_RUNNING: AtomicBool = AtomicBool::new(false);
 static ON_START: Mutex<Option<fn()>> = Mutex::new(None);
 static ON_END: Mutex<Option<fn()>> = Mutex::new(None);
+
+struct OwnedDaemon {
+    child: Child,
+    last_used: Instant,
+}
+
+static DAEMON: Mutex<Option<OwnedDaemon>> = Mutex::new(None);
+static IDLE_TIMEOUT: Mutex<Duration> = Mutex::new(Duration::from_secs(300));
 
 pub fn set_session_hooks(on_start: fn(), on_end: fn()) {
     *ON_START.lock().unwrap_or_else(|e| e.into_inner()) = Some(on_start);
@@ -51,6 +61,10 @@ pub fn set_path(path: String) {
     *PATH.lock().unwrap_or_else(|e| e.into_inner()) = path;
 }
 
+pub fn set_idle_timeout(seconds: u64) {
+    *IDLE_TIMEOUT.lock().unwrap_or_else(|e| e.into_inner()) = Duration::from_secs(seconds);
+}
+
 /// True from launch until Flameshot exits or startup fails.
 pub fn is_active() -> bool {
     RUNNING.load(Ordering::Acquire)
@@ -67,12 +81,11 @@ pub fn launch(
 ) -> Result<()> {
     let path = PATH.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if path.trim().is_empty() {
-        // Experimental and off by default; Flameshot pins a preset region to
-        // the screen origin when it lies within 7 px of it.
+        // Flameshot pins a preset region to the screen origin when it lies
+        // within 7 px of it.
         anyhow::bail!(
-            "Flameshot handoff is disabled (experimental: a region within 7 px \
-             of the screen origin pins at 0,0); set [external] flameshot to the \
-             executable to try it"
+            "Flameshot handoff is disabled (a region within 7 px of the screen \
+             origin pins at 0,0); set [external] flameshot to the executable"
         );
     }
     if RUNNING.swap(true, Ordering::SeqCst) {
@@ -91,18 +104,7 @@ pub fn launch(
     hide_frame(frame_id);
     logline(&format!("external: flameshot {region}"));
     std::thread::spawn(move || {
-        // Pin widgets live in the Flameshot daemon. Reuse an existing daemon
-        // instead of starting another one on every handoff.
-        match process_running(&path) {
-            Ok(true) => logline("external: flameshot daemon reused"),
-            Ok(false) => match Command::new(&path).creation_flags(CREATE_NO_WINDOW).spawn() {
-                Ok(_) => logline("external: flameshot daemon started"),
-                Err(e) => logline(&format!("warn: flameshot daemon failed: {e:#}")),
-            },
-            Err(e) => logline(&format!(
-                "warn: cannot check Flameshot daemon; not starting a duplicate: {e:#}"
-            )),
-        }
+        start_daemon(&path);
         std::thread::sleep(std::time::Duration::from_millis(400));
         let result = Command::new(&path)
             .args(["gui", "--region", &region])
@@ -119,6 +121,9 @@ pub fn launch(
                 true
             }
         };
+        if let Some(daemon) = DAEMON.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+            daemon.last_used = Instant::now();
+        }
         RUNNING.store(false, Ordering::SeqCst);
         if failed {
             let frame = HWND(frame_id as *mut _);
@@ -129,6 +134,66 @@ pub fn launch(
         session_hook(true);
     });
     Ok(())
+}
+
+fn start_daemon(path: &str) {
+    let mut owned = DAEMON.lock().unwrap_or_else(|e| e.into_inner());
+    let mut started = false;
+    // Reuse anybody's daemon, but retain a handle only when this bridge starts it.
+    match process_running(path) {
+        Ok(true) => logline("external: flameshot daemon reused"),
+        Ok(false) => match Command::new(path).creation_flags(CREATE_NO_WINDOW).spawn() {
+            Ok(child) => {
+                *owned = Some(OwnedDaemon {
+                    child,
+                    last_used: Instant::now(),
+                });
+                started = true;
+                logline("external: flameshot daemon started");
+            }
+            Err(e) => logline(&format!("warn: flameshot daemon failed: {e:#}")),
+        },
+        Err(e) => logline(&format!(
+            "warn: cannot check Flameshot daemon; not starting a duplicate: {e:#}"
+        )),
+    }
+    drop(owned);
+    if started && !REAPER_RUNNING.swap(true, Ordering::AcqRel) {
+        std::thread::spawn(|| loop {
+            std::thread::sleep(Duration::from_secs(1));
+            let timeout = *IDLE_TIMEOUT.lock().unwrap_or_else(|e| e.into_inner());
+            let mut owned = DAEMON.lock().unwrap_or_else(|e| e.into_inner());
+            reap_idle(&mut owned, RUNNING.load(Ordering::Acquire), timeout);
+        });
+    }
+}
+
+fn reap_idle(owned: &mut Option<OwnedDaemon>, active: bool, timeout: Duration) {
+    let Some(daemon) = owned.as_mut() else {
+        return;
+    };
+    if active {
+        daemon.last_used = Instant::now();
+        return;
+    }
+    match daemon.child.try_wait() {
+        Ok(Some(_)) => *owned = None,
+        Ok(None) if !timeout.is_zero() && daemon.last_used.elapsed() >= timeout => {
+            match daemon.child.kill() {
+                Ok(()) => {
+                    let _ = daemon.child.wait();
+                    logline("external: flameshot daemon stopped after idle");
+                }
+                Err(e) => logline(&format!("warn: cannot stop idle Flameshot daemon: {e:#}")),
+            }
+            *owned = None;
+        }
+        Ok(None) => {}
+        Err(e) => {
+            logline(&format!("warn: cannot inspect Flameshot daemon: {e:#}"));
+            *owned = None;
+        }
+    }
 }
 
 fn executable_name(path: &str) -> String {
@@ -217,5 +282,68 @@ mod tests {
         assert_eq!(inset_from_origin(960, 0, 960, 516), (960, 7, 960, 509));
         assert_eq!(inset_from_origin(0, 216, 300, 200), (7, 216, 293, 200));
         assert_eq!(inset_from_origin(560, 216, 300, 200), (560, 216, 300, 200));
+    }
+
+    #[test]
+    fn idle_child() {
+        if std::env::var_os("DT_FLAMESHOT_TEST_IDLE_CHILD").is_some() {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    #[test]
+    fn idle_reaping_skips_active_sessions_and_disabled_timeout() {
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "tests::idle_child", "--nocapture"])
+            .env("DT_FLAMESHOT_TEST_IDLE_CHILD", "1")
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .unwrap();
+        let mut owned = Some(OwnedDaemon {
+            child,
+            last_used: Instant::now() - Duration::from_secs(60),
+        });
+        reap_idle(&mut owned, true, Duration::from_secs(1));
+        assert!(owned.is_some());
+        reap_idle(&mut owned, false, Duration::ZERO);
+        assert!(owned.is_some());
+        owned.as_mut().unwrap().last_used = Instant::now() - Duration::from_secs(60);
+        reap_idle(&mut owned, false, Duration::from_secs(1));
+        assert!(owned.is_none());
+    }
+
+    #[test]
+    fn preexisting_process_is_not_owned_or_reaped() {
+        let path = std::env::current_exe()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        start_daemon(&path);
+        let mut owned = DAEMON.lock().unwrap_or_else(|e| e.into_inner());
+        assert!(owned.is_none());
+        reap_idle(&mut owned, false, Duration::from_secs(1));
+        assert!(process_running(&path).unwrap());
+    }
+
+    #[test]
+    #[ignore = "starts and stops a real Flameshot daemon; run alone with --ignored"]
+    fn real_flameshot_daemon_exits_after_idle() {
+        let path = std::env::var("DT_FLAMESHOT_TEST_PATH").unwrap_or_else(|_| "flameshot".into());
+        if process_running(&path).unwrap() {
+            eprintln!("SKIP: a pre-existing Flameshot daemon must not be stopped by this test");
+            return;
+        }
+        start_daemon(&path);
+        std::thread::sleep(Duration::from_secs(2));
+        let mut owned = DAEMON.lock().unwrap_or_else(|e| e.into_inner());
+        assert!(owned.is_some(), "the bridge did not own the daemon");
+        assert!(process_running(&path).unwrap(), "the daemon did not start");
+        owned.as_mut().unwrap().last_used = Instant::now() - Duration::from_secs(2);
+        reap_idle(&mut owned, false, Duration::from_secs(1));
+        assert!(owned.is_none());
+        assert!(
+            !process_running(&path).unwrap(),
+            "the daemon is still running"
+        );
     }
 }

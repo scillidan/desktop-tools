@@ -66,12 +66,13 @@ hatch-color = "cyan"   # colour name or #RRGGBB; only used by border = "hatch"
 line-color = "black"   # colour name or #RRGGBB; only used by border = "line"
 
 [external]
-# Experimental and OFF by default (empty = disabled). Ctrl+F on a focused frame
-# hands its rect to Flameshot. Flameshot's limitation: a preset region within
-# 7 px of the screen origin pins at the top-left corner, so the bridge insets
-# edge-touching frames (up to 6 px lost on that edge). Set to "flameshot" (PATH)
-# or an absolute exe path to try it.
+# OFF by default (empty = disabled). Ctrl+F on a focused frame hands its rect
+# to Flameshot. A preset region within 7 px of the screen origin pins at the
+# top-left corner, so the bridge insets edge-touching frames (up to 6 px lost).
+# Set to "flameshot" (PATH) or an absolute exe path.
 flameshot = ""
+# Stop only a bridge-started daemon after idle; 0 keeps it running.
+flameshot_idle_secs = 300
 # Ctrl+O on a focused frame saves a temp PNG of the frame and opens it here
 # (PATH name or absolute exe). Empty = disabled. Example: "photocraft".
 editor = ""
@@ -107,7 +108,7 @@ pin_shot = "ctrl+alt+p"  # quick pin (no file/clipboard); Ctrl+P = same for the 
 # Focused Move/resize frame: Esc closes; Ctrl+Shift+S saves+closes; Ctrl+S opens
 # the save dialog; Ctrl+C copies+closes; Ctrl+A fills the whole current monitor
 # (taskbar included) without changing the mode; Ctrl+O opens the capture in
-# [external] editor; Ctrl+F hands the rect to Flameshot (experimental). Pinned
+# [external] editor; Ctrl+F hands the rect to Flameshot. Pinned
 # ignores all of them.
 move    = "ctrl+alt+m"   # Move mode (cyan); unlocks pin
 toggle  = "win+shift+o"  # show/hide the OCR layer (Win+O is reserved by Windows)

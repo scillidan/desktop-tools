@@ -20,7 +20,7 @@ pub struct Config {
     /// Status-line font face (default Consolas); any installed GDI face
     /// name works, monospace recommended.
     pub font: Option<String>,
-    /// Upscale factor applied to the capture before OCR (1..=4, default 2):
+    /// Upscale factor applied to the capture before OCR (1..=4, default 4):
     /// small/compact screen fonts read much better at 2-3x (ShareX/UiPath
     /// call the same knob "scale factor"). Clamped down when the scaled
     /// image would exceed the engine's max dimension or the pixel budget.
@@ -60,9 +60,11 @@ pub struct Config {
     pub pin_line_color: u32,
     /// `hatch` colour, 0xRRGGBB (default cyan).
     pub pin_hatch_color: u32,
-    /// External screenshot tool executable for the experimental frame bridge
-    /// (PATH name or absolute path). Empty (the default) disables it.
+    /// External screenshot tool executable for the frame bridge (PATH name or
+    /// absolute path). Empty (the default) disables it.
     pub flameshot: String,
+    /// Stop a bridge-started Flameshot daemon after this idle time; 0 disables.
+    pub flameshot_idle_secs: u64,
     /// Image editor to open a frame capture with (Ctrl+O), PATH name or
     /// absolute path. Empty disables the action.
     pub external_editor: String,
@@ -248,6 +250,7 @@ impl Default for Config {
             pin_line_color: 0,
             pin_hatch_color: 0x00ffff,
             flameshot: String::new(),
+            flameshot_idle_secs: 300,
             external_editor: String::new(),
             record_dir: "${env:USERPROFILE}\\Videos\\screen-tools".to_string(),
             record_name: "screen-tools-{date}-{time}".to_string(),
@@ -452,6 +455,14 @@ pub fn parse(text: &str) -> Result<Config> {
                         None => eprintln!("warn: external.flameshot must be a string; disabled"),
                     }
                 }
+                if let Some(v) = t.get("flameshot_idle_secs") {
+                    match v.as_integer() {
+                        Some(n) if n >= 0 => cfg.flameshot_idle_secs = n as u64,
+                        _ => eprintln!(
+                            "warn: external.flameshot_idle_secs must be a non-negative integer; using 300"
+                        ),
+                    }
+                }
                 if let Some(v) = t.get("editor") {
                     match v.as_str() {
                         Some(s) => cfg.external_editor = kit::config::expand_env(s),
@@ -649,6 +660,7 @@ mod tests {
                 pin_line_color: 0,
                 pin_hatch_color: 0x00ffff,
                 flameshot: String::new(),
+                flameshot_idle_secs: 300,
                 external_editor: String::new(),
                 record_dir: "${env:USERPROFILE}\\Videos\\screen-tools".to_string(),
                 record_name: "screen-tools-{date}-{time}".to_string(),
@@ -727,6 +739,19 @@ mod tests {
     fn flameshot_bridge_config_parses() {
         // Disabled by default: the empty path is the switch.
         assert_eq!(parse("").unwrap().flameshot, "");
+        assert_eq!(parse("").unwrap().flameshot_idle_secs, 300);
+        assert_eq!(
+            parse("[external]\nflameshot_idle_secs = 2\n")
+                .unwrap()
+                .flameshot_idle_secs,
+            2
+        );
+        assert_eq!(
+            parse("[external]\nflameshot_idle_secs = -1\n")
+                .unwrap()
+                .flameshot_idle_secs,
+            300
+        );
         assert_eq!(parse("").unwrap().external_editor, "");
         assert_eq!(
             parse("[external]\nflameshot = \"C:\\\\Tools\\\\flameshot.exe\"\n")

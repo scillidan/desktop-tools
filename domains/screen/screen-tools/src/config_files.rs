@@ -188,8 +188,9 @@ fn module_text(module: ConfigModule, cfg: &Config) -> String {
             binding_lines(&cfg.bindings, &[Action::Record])
         ),
         ConfigModule::Flameshot => format!(
-            "# External annotation handoff; Ctrl+F with the Frame focused.\n\n[external]\nflameshot = {}\n",
-            quote(&cfg.flameshot)
+            "# External annotation handoff; Ctrl+F with the Frame focused.\n\n[external]\nflameshot = {}\n# Stop only a bridge-started daemon after idle; 0 keeps it running.\nflameshot_idle_secs = {}\n",
+            quote(&cfg.flameshot),
+            cfg.flameshot_idle_secs
         ),
     }
 }
