@@ -12,7 +12,6 @@ use windows::core::w;
 use windows::Win32::Foundation::*;
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::UI::HiDpi::{GetDpiForSystem, SystemParametersInfoForDpi};
 use windows::Win32::UI::Input::Ime::{ImmAssociateContextEx, HIMC, IACE_DEFAULT};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetKeyState, ReleaseCapture, SetCapture, SetFocus, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DOWN,
@@ -246,23 +245,15 @@ unsafe fn monitor_bounds_for_rect(hwnd: HWND, rect: Rect) -> Rect {
 pub fn work_area() -> Rect {
     let mut rect = RECT::default();
     unsafe {
-        let r = SystemParametersInfoForDpi(
-            SPI_GETWORKAREA.0,
+        // SPI_GETWORKAREA is always physical pixels; the ForDpi API rejects it.
+        let r = SystemParametersInfoW(
+            SPI_GETWORKAREA,
             0,
             Some(&mut rect as *mut RECT as *mut core::ffi::c_void),
             Default::default(),
-            GetDpiForSystem(),
         );
         if r.is_err() {
-            logline(&format!("warn: SystemParametersInfoForDpi failed: {r:?}"));
-            // The ForDpi flavor can fail on older shells; plain SPI works
-            // because the process is already DPI-aware from startup.
-            let _ = SystemParametersInfoW(
-                SPI_GETWORKAREA,
-                0,
-                Some(&mut rect as *mut RECT as *mut core::ffi::c_void),
-                Default::default(),
-            );
+            logline(&format!("warn: SystemParametersInfoW failed: {r:?}"));
         }
     }
     if rect.right > rect.left && rect.bottom > rect.top {
