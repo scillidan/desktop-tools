@@ -1,7 +1,7 @@
 id = "goldendict-auto-search"
 name = "GoldenDict Auto Search"
 description = "Query GoldenDict by double-click or clipboard changes in bound windows."
-version = "0.5.1"
+version = "0.6.0"
 api = 1
 exe = "goldendict-auto-search.exe"
 group = "keyboard"

@@ -1,7 +1,7 @@
 id = "keyboard-auto-switch-back"
 name = "Keyboard Auto Switch Back"
 description = "Force a target keyboard layout when the foreground window changes."
-version = "0.5.1"
+version = "0.6.0"
 api = 1
 exe = "keyboard-auto-switch-back.exe"
 group = "keyboard"

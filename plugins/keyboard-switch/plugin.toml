@@ -1,7 +1,7 @@
 id = "keyboard-switch"
 name = "Keyboard Switch"
 description = "Cycle keyboard layouts and optionally swap Caps Lock and Esc."
-version = "0.5.1"
+version = "0.6.0"
 api = 1
 exe = "keyboard-switch.exe"
 group = "keyboard"

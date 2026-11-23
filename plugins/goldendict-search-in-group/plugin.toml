@@ -1,7 +1,7 @@
 id = "goldendict-search-in-group"
 name = "GoldenDict Search In Group"
 description = "Search clipboard text in a GoldenDict dictionary group or popup."
-version = "0.5.1"
+version = "0.6.0"
 api = 1
 exe = "goldendict-search-in-group.exe"
 group = "keyboard"
