@@ -334,6 +334,8 @@ pub unsafe fn visible_rect(hwnd: HWND) -> Option<RECT> {
 mod tests {
     use super::*;
 
+    static AUTO_STATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     fn shot(width: i32, height: i32, value: u8) -> Snapshot {
         Snapshot {
             width,
@@ -369,6 +371,7 @@ mod tests {
 
     #[test]
     fn auto_arms_only_on_demand() {
+        let _guard = AUTO_STATE.lock().unwrap();
         disable_auto();
         assert!(!auto_enabled());
         enable_auto(HWND(std::ptr::null_mut()));
@@ -379,6 +382,7 @@ mod tests {
 
     #[test]
     fn pause_keeps_the_session_armed_until_resume() {
+        let _guard = AUTO_STATE.lock().unwrap();
         disable_auto();
         enable_auto(HWND(std::ptr::null_mut()));
         pause_auto();
@@ -392,6 +396,7 @@ mod tests {
 
     #[test]
     fn retarget_keeps_armed_and_clears_the_baseline() {
+        let _guard = AUTO_STATE.lock().unwrap();
         disable_auto();
         enable_auto(HWND(std::ptr::null_mut()));
         let other = HWND(std::ptr::without_provenance_mut::<core::ffi::c_void>(1));
