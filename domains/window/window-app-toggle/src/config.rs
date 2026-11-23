@@ -62,8 +62,8 @@ struct RawApp {
 
 impl RawApp {
     fn parse(self) -> Result<AppConfig> {
-        let exe = expand_user_profile(&self.exe);
-        let command = expand_user_profile(self.command.as_ref().unwrap_or(&exe));
+        let exe = expand_app_path(&self.exe);
+        let command = expand_app_path(self.command.as_ref().unwrap_or(&exe));
         if !exe.is_absolute() || !command.is_absolute() {
             bail!("app exe and command must be absolute paths");
         }
@@ -75,11 +75,14 @@ impl RawApp {
     }
 }
 
-fn expand_user_profile(path: &Path) -> PathBuf {
+fn expand_app_path(path: &Path) -> PathBuf {
     let expanded = kit::config::expand_env(&path.to_string_lossy());
     let Ok(profile) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) else {
         return PathBuf::from(expanded);
     };
+    // Scoop's default root needs no SCOOP variable; custom roots provide it.
+    let scoop = Path::new(&profile).join("Scoop");
+    let expanded = expanded.replacen("${env:SCOOP}", &scoop.to_string_lossy(), 1);
     // On Unix, HOME supplies the profile when USERPROFILE is unavailable.
     PathBuf::from(expanded.replacen("${env:USERPROFILE}", &profile, 1))
 }
@@ -164,12 +167,32 @@ mod tests {
             .bindings
             .iter()
             .any(|b| b.combo == "win+e".parse().unwrap() && b.action == AppKind::DoubleCommander));
-        assert!(cfg.wezterm.exe.is_absolute());
-        assert!(cfg.double_commander.exe.is_absolute());
+        let scoop = std::env::var_os("SCOOP")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("USERPROFILE")
+                    .or_else(|| std::env::var_os("HOME"))
+                    .map(|profile| PathBuf::from(profile).join("Scoop"))
+            })
+            .expect("Scoop root or user profile");
+        assert_eq!(
+            cfg.wezterm.exe,
+            PathBuf::from(format!(
+                r"{}\apps\wezterm\current\wezterm-gui.exe",
+                scoop.display()
+            ))
+        );
+        assert_eq!(
+            cfg.double_commander.exe,
+            PathBuf::from(format!(
+                r"{}\apps\doublecmd\current\doublecmd.exe",
+                scoop.display()
+            ))
+        );
         assert_eq!(cfg.wezterm.args, ["start", "--cwd", "."]);
 
-        assert!(DEFAULT_CONFIG.contains("${env:USERPROFILE}"));
-        assert!(parse(&DEFAULT_CONFIG.replace("${env:USERPROFILE}", "$USERPROFILE")).is_err());
+        assert!(DEFAULT_CONFIG.contains("${env:SCOOP}"));
+        assert!(parse(&DEFAULT_CONFIG.replace("${env:SCOOP}", "$SCOOP")).is_err());
     }
 
     #[test]
