@@ -2,7 +2,7 @@
 # swallowed); type the password to unlock. In password mode the lock shortcut
 # is swallowed while locked; set unlock_with_shortcut = true to let it toggle.
 # The mouse still moves, but its buttons are swallowed; set lock_mouse = false
-# to keep them usable. Clean-room rewrite of sophice/ahk-keyboard-locker (MIT).
+# to keep them usable.
 # Combo syntax: ctrl+alt+shift+insert, win+l, ...
 # The password is typed as a key sequence in the active layout; use letters.
 
@@ -19,5 +19,4 @@ unlock_with_shortcut = false
 mode = "system"
 # Examples:
 # command = 'snoretoast -t "{title}" -m "{body}"'
-# command = 'notify-send "{title}" "{body}"'   # Linux/dunst, when ported
 command = ""

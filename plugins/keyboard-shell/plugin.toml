@@ -5,5 +5,3 @@ version = "0.5.1"
 api = 1
 exe = "keyboard-shell.exe"
 group = "keyboard"
-optional = false
-tray = "host"

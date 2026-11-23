@@ -3,8 +3,6 @@
 
 [host]
 start_with_windows = false
-log_level = "info"
-tray = "host"
 
 # Empty = EDITOR, then VISUAL, then notepad.
 [editor]

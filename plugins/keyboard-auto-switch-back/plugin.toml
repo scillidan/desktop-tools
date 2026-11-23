@@ -1,9 +1,7 @@
 id = "keyboard-auto-switch-back"
 name = "Keyboard Auto Switch Back"
-description = "Restore the previous input method after leaving a configured application."
+description = "Force a target keyboard layout when the foreground window changes."
 version = "0.5.1"
 api = 1
 exe = "keyboard-auto-switch-back.exe"
 group = "keyboard"
-optional = false
-tray = "host"

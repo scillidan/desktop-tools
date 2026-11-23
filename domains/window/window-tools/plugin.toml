@@ -6,4 +6,3 @@ version = "0.5.1"
 group = "window"
 api = 1
 exe = "window-tools.exe"
-tray = "host"

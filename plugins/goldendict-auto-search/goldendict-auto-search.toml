@@ -1,7 +1,7 @@
 # GoldenDict Auto-search: mouse-triggered dictionary search.
 # Set executable to your GoldenDict path if it is not on PATH.
 # Create dictionary groups in GoldenDict first, then enter their exact names here.
-# Personal examples are "default" and "translate"; empty groups search all dictionaries.
+# Empty groups search all dictionaries.
 
 [goldendict]
 executable = "goldendict"

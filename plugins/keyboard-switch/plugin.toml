@@ -1,9 +1,7 @@
 id = "keyboard-switch"
 name = "Keyboard Switch"
-description = "Switch input methods and optional Caps Lock/Esc behavior from configurable rules."
+description = "Cycle keyboard layouts and optionally swap Caps Lock and Esc."
 version = "0.5.1"
 api = 1
 exe = "keyboard-switch.exe"
 group = "keyboard"
-optional = false
-tray = "host"

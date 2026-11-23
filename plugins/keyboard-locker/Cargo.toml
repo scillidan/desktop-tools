@@ -1,6 +1,6 @@
 [package]
 name = "keyboard-locker"
-description = "Temporarily lock your keyboard with a hotkey. Clean-room MIT rewrite of ahk-keyboard-locker"
+description = "Temporarily lock the keyboard with a hotkey"
 license.workspace = true
 authors.workspace = true
 version.workspace = true

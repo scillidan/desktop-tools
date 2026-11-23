@@ -1,6 +1,6 @@
 [package]
 name = "keyboard-switch"
-description = "Cycle keyboard layouts with a hotkey (all installed or a defined list). Rust port of AHK-KeyboardSwitch"
+description = "Cycle installed or configured keyboard layouts with a hotkey"
 license.workspace = true
 authors.workspace = true
 version.workspace = true

@@ -48,7 +48,7 @@ pub enum Action {
     Quit,
     /// Put the file dialog in front into the last file manager's folder.
     FileDialog,
-    // P3 compatibility: move to keyboard-shell in P4a.
+    // Imported by keyboard-shell; Window does not handle this action.
     Suppress,
     /// Switch to the Nth virtual desktop (1-9).
     SwitchToDesktop(u8),
@@ -501,7 +501,7 @@ pub fn load_presets(path: &Path) -> Result<Vec<SizeSpec>> {
 }
 
 /// Presets are kept in file order: the menu order is the user's order.
-/// Bad entries are skipped, like bad bindings in `window-tools.toml`.
+/// Bad entries are skipped, like bad bindings in `window-actions.toml`.
 pub fn parse_presets(text: &str) -> Result<Vec<SizeSpec>> {
     let value: toml::Value = text.parse().context("resize.toml is not valid TOML")?;
     let table = value

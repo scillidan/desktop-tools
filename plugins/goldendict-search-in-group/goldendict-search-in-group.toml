@@ -1,8 +1,6 @@
 # goldendict-search-in-group — press a group hotkey to look up the current
 # clipboard text in GoldenDict restricted to that dictionary group.
-# Ported from AHK-GoldenDictSearchInGroup.
 # Create dictionary groups in GoldenDict first, then enter their exact names here.
-# The examples use personal groups named "default" and "translate".
 
 [goldendict]
 # GoldenDict executable (searched via PATH if it has no directory part).

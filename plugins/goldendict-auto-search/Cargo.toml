@@ -1,6 +1,6 @@
 [package]
 name = "goldendict-auto-search"
-description = "Bind windows so double-click copies+queries GoldenDict, and/or monitor the clipboard in bound windows. Rust port of AHK-GoldenDictAutoSearch"
+description = "Query GoldenDict by double-click or clipboard changes in bound windows"
 license.workspace = true
 authors.workspace = true
 version.workspace = true

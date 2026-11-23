@@ -109,7 +109,9 @@ The full suite is the host plus ten plugins (eleven processes):
 | keyboard | `goldendict-auto-search` | `goldendict-auto-search.exe` | `goldendict-auto-search.toml` |
 | taskbar | `taskbar-tools` | `taskbar-tools-rs.exe` | `taskbar-center.toml` / `taskbar-hidden.toml` / `taskbar-pin.toml` |
 
-`window-tools` loads `app-toggle` and `screen-tools` loads `flameshot-handoff`; neither adds a process. App toggles use window's local focus/hook helpers and `[double_commander]` / `[wezterm]` in `window-tools.toml`. Flameshot uses the live screen frame and `[external].flameshot` in `screen-flameshot.toml`, without IPC. Lifecycle controls stay with the owning executable, and external actions appear after native actions in its menu.
+`window-tools` loads `app-toggle` and `screen-tools` loads `flameshot-handoff`; neither adds a process. App toggles use window's local focus/hook helpers and `[double_commander]` / `[wezterm]` in `window-tools.toml`. Flameshot uses the live screen frame and `[external].flameshot` in `screen-flameshot.toml`, without IPC. Lifecycle controls stay with the owning executable, and external actions appear after native actions in its menu. The bridge stops only a daemon it started after `flameshot_idle_secs` (default 300 seconds, 0 disables); an active GUI session refreshes the timer, and a pre-existing Flameshot process is never killed.
+
+Default configuration and manifest references contain consumed settings only. Historical port notes, personal examples and the unimplemented host `log_level`/`tray` and manifest `optional`/`tray` fields are removed; legacy files still used as migration inputs remain.
 
 The keyboard tools remain separate processes. Combining their hotkey ids, message loops and low-level hooks would be a rewrite, would remove per-tool lifecycle controls, and would make a GoldenDict/clipboard failure capable of taking down the keyboard locker. The two GoldenDict tools may be reconsidered as a pair later, but that is not part of this merge.
 
@@ -157,7 +159,7 @@ Single-plugin primary groups render native items first and external integrations
 
 Native plugins and Window feature submenus sort alphabetically by display name; external integrations remain after all native entries. Keyboard therefore reads Key Map / Keyboard Auto Switch Back / Keyboard Locker / Keyboard Switch / Shell Keys, then GoldenDict.
 
-`screen-tools` is installed and enabled in the full suite so `toggleScreen` keeps working by default. Its external OCR engines remain optional runtime dependencies. A suite variant without the screen package may omit it from `core.toml`; manifest `optional` controls whether absence is an error, while `[plugins].enabled` remains the only enable/disable switch.
+`screen-tools` is installed and enabled in the full suite so `toggleScreen` keeps working by default. Its external OCR engines remain optional runtime dependencies. A suite variant without the screen package may omit it from `core.toml`; missing enabled packages are logged and skipped, while `[plugins].enabled` remains the only enable/disable switch.
 
 ## 4. Domain ownership and migration rules
 

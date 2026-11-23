@@ -25,8 +25,6 @@ pub struct Manifest {
     pub exe: String,
     #[serde(default = "default_group")]
     pub group: String,
-    #[serde(default)]
-    pub optional: bool,
     /// External integrations are presented after native tools.
     #[serde(default)]
     pub external: bool,
@@ -36,17 +34,11 @@ pub struct Manifest {
     /// Whether the host adds its conventional aggregate config edit entry.
     #[serde(default = "default_config")]
     pub config: bool,
-    #[serde(default = "default_tray")]
-    pub tray: String,
 }
 
 fn default_group() -> String {
     // Preserve packages built before the merged suite introduced groups.
     "keyboard".to_string()
-}
-
-fn default_tray() -> String {
-    "host".to_string()
 }
 
 fn default_config() -> bool {
@@ -106,13 +98,6 @@ impl Manifest {
                 "plugin `{}` has group `{}` (expected window|screen|keyboard|taskbar)",
                 self.id,
                 self.group
-            );
-        }
-        if !matches!(self.tray.as_str(), "host" | "own") {
-            bail!(
-                "plugin `{}` has tray `{}` (expected host|own)",
-                self.id,
-                self.tray
             );
         }
         validate_exe(dir, &self.exe)?;

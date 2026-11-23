@@ -20,38 +20,16 @@ pub struct EditorSection {
     pub command: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HostSection {
     #[serde(default)]
     pub start_with_windows: bool,
-    #[serde(default = "default_log_level")]
-    pub log_level: String,
-    #[serde(default = "default_tray")]
-    pub tray: String,
-}
-
-impl Default for HostSection {
-    fn default() -> Self {
-        Self {
-            start_with_windows: false,
-            log_level: default_log_level(),
-            tray: default_tray(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PluginsSection {
     #[serde(default)]
     pub enabled: Vec<String>,
-}
-
-fn default_log_level() -> String {
-    "info".to_string()
-}
-
-fn default_tray() -> String {
-    "host".to_string()
 }
 
 impl CoreConfig {
@@ -89,8 +67,6 @@ mod tests {
             r#"
 [host]
 start_with_windows = false
-log_level = "debug"
-tray = "host"
 
 [plugins]
 enabled = ["b", "a", "b"]
@@ -98,7 +74,6 @@ enabled = ["b", "a", "b"]
         )
         .unwrap();
         assert!(!core.host.start_with_windows);
-        assert_eq!(core.host.log_level, "debug");
         let set = core.enabled_set();
         assert!(set.contains("a"));
         assert!(set.contains("b"));
@@ -108,7 +83,7 @@ enabled = ["b", "a", "b"]
     #[test]
     fn missing_sections_use_defaults() {
         let core = CoreConfig::parse("").unwrap();
-        assert!(core.host.tray == "host");
+        assert_eq!(core.host, HostSection::default());
         assert!(core.plugins.enabled.is_empty());
     }
 
