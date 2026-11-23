@@ -1,7 +1,7 @@
 id = "keyboard-shell"
 name = "Shell Keys"
 description = "Suppress configured Windows shell shortcuts with an independent suspend switch."
-version = "0.4.0"
+version = "0.5.0"
 api = 1
 exe = "keyboard-shell.exe"
 group = "keyboard"
