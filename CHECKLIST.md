@@ -270,9 +270,10 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       replacement and explicit empty-array clearing. Existing full files keep the
       same effective values; the sparse user file is never rewritten and the
       separate `defaults/keyboard-switch.toml` reference tracks the shipped default.
-- [x] Keyboard Switch accepts an empty sparse file, leaves CapsLock and switching
-      unbound by default, rejects uninstalled declared layouts, and does not invent
-      US/Chinese layouts. Sparse menu toggles write only their explicit setting.
+- [x] Keyboard Switch accepts an empty sparse file, rejects uninstalled declared
+      layouts, and does not invent US/Chinese layouts. Sparse menu toggles write
+      only their explicit setting. The Win11 follow-up below supersedes the original
+      opt-in CapsLock choice and the empty-InDefine no-op.
 - [x] Full fmt/workspace tests/Clippy/release/staging and ten-plugin smoke pass.
       The final staged host has ten children on the existing Scoop config; its full
       `keyboard-switch.toml` is byte-identical to the rollback copy and the generated
@@ -379,3 +380,36 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
       and make a short recording. Confirm the MP4 appears in that directory, then
       restore the previous sparse file. Open Capture/Record/App Toggle references:
       they use `${env:USERPROFILE}` and carry help; user patches carry no comments.
+
+## Win11 0.5.0 compatibility follow-up
+
+- [x] Reproduced the empty-definition failure with the installed 0.5.0 binary on
+      Windows 11 build 26300: the real registered-hotkey path owned `Ctrl+Alt+F12`
+      but left HKL `04090409` unchanged in `InDefine` with no `[[layout]]` entries.
+      Changing only the mode to `InAll` switched it to `08040804`, proving the
+      Win11 layout-change path works. The candidate release binary passed the same
+      empty-`InDefine` probe, switching HKL `08040804` to `04090409`; the hosted
+      plugin was gracefully restored after every probe.
+- [x] Regression tests require default CapsLock switching, preserve CapsLock when
+      a sparse user patch enables only ESC/CapsLock swap, and fall back to installed
+      layouts for empty `InDefine`. The default remains `swap_esc_caps = false` and
+      no layouts are invented.
+- [x] App Toggle defaults resolve `${env:SCOOP}` with a `%USERPROFILE%\Scoop`
+      fallback. The regression test failed against the old `C:\Users\...\Scoop`
+      resolution and passes against the actual `E:\Scoop`; the real candidate
+      Window plugin launched Double Commander through its registered Win+E path.
+      The pre-existing user WezTerm process was not closed or claimed as launched.
+- [x] Screen work-area probes measured identical physical pixels from the plain
+      API and the old fallback, while `SystemParametersInfoForDpi(SPI_GETWORKAREA)`
+      returned error 87 at 120 and 144 DPI. The candidate uses the supported plain
+      API; its real startup log reports `frame created` without the old warning.
+- [x] Final fmt/workspace tests/Clippy/release/staging passed (344 passed, 10
+      ignored). Real bottom/above/maximize/minimize/switch-back/desktop-pin tests
+      passed; the hosted candidate runs all ten plugins from one staged build.
+- [ ] On the final staged build, physically press CapsLock with no switch_hotkey
+      override: cycle through the existing layouts without changing native CapsLock
+      state. Enable Swap ESC/CapsLock: Esc switches layout, CapsLock sends one Esc,
+      and native CapsLock remains unchanged. Suspend/disable must release both keys.
+- [ ] Physically repeat App Toggle focus/return and swapWindows focus. Automated
+      focus assertions remain unverified because this background agent receives
+      `SetForegroundWindow was refused`; no foreground-compatibility fix is claimed.
