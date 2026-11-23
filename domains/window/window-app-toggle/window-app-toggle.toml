@@ -4,11 +4,11 @@
 'win+e' = 'doubleCommander'
 
 [wezterm]
-exe = '%USERPROFILE%\Scoop\apps\wezterm\current\wezterm-gui.exe'
-command = '%USERPROFILE%\Scoop\apps\wezterm\current\wezterm-gui.exe'
+exe = '${env:USERPROFILE}\Scoop\apps\wezterm\current\wezterm-gui.exe'
+command = '${env:USERPROFILE}\Scoop\apps\wezterm\current\wezterm-gui.exe'
 args = ["start", "--cwd", "."]
 
 [doubleCommander]
-exe = '%USERPROFILE%\Scoop\apps\doublecmd\current\doublecmd.exe'
-command = '%USERPROFILE%\Scoop\apps\doublecmd\current\doublecmd.exe'
+exe = '${env:USERPROFILE}\Scoop\apps\doublecmd\current\doublecmd.exe'
+command = '${env:USERPROFILE}\Scoop\apps\doublecmd\current\doublecmd.exe'
 args = []

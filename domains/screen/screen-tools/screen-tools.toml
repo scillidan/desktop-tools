@@ -46,9 +46,9 @@ size = 10
 # default `screen-tools-YYYYMMDD-HHMMSS.png` name, then closes the frame. Ctrl+S opens
 # a save dialog starting in this directory (name prefilled); Ctrl+C copies the
 # image. Creating a Pin writes nothing; its focused save keys use this same
-# directory. `%VAR%` expands; empty makes quick-save report an error.
+# directory. `${env:NAME}` expands; empty makes quick-save report an error.
 [capture]
-dir = "%USERPROFILE%\\Pictures\\screen-tools"
+dir = "${env:USERPROFILE}\\Pictures\\screen-tools"
 
 # Tray notification after a manual OCR result or a quick-OCR copy. Off by
 # default (silent); the tray icon must be present.
@@ -79,7 +79,7 @@ editor = ""
 # Recording (Ctrl+Alt+R on a visible frame starts/stops; the frame hides while
 # recording so it never enters the video).
 [record]
-dir = "%USERPROFILE%\\Videos\\screen-tools"   # %VAR% expanded, created on first use
+dir = "${env:USERPROFILE}\\Videos\\screen-tools"   # ${env:NAME} expanded, created on first use
 name = "screen-tools-{date}-{time}"           # {date} YYYYMMDD, {time} HHMMSS, {datetime}
 fps = 30                                # clamped to 5..60
 ffmpeg = "ffmpeg"                       # PATH name or absolute exe

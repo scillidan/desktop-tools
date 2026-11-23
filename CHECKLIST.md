@@ -358,18 +358,24 @@ The host and other plugins are intentionally stopped. The staged standalone Scre
 
 ## P19 — environment paths and reference-only comments
 
-- [x] Shared tests cover `$NAME`, `${NAME}` and `%NAME%`, path preservation,
-      missing variables and comments-only empty patches. Expansion is limited to
-      path/executable settings, never arbitrary Key Map trigger text; the real
-      editor-launcher test finds its fake editor through `$TEMP`.
+- [x] Shared tests cover standard `${env:NAME}` expansion, path preservation,
+      missing/malformed variables and comments-only empty patches. `$NAME`,
+      `${NAME}` and `%NAME%` stay literal. Expansion is limited to path/executable
+      settings, never arbitrary Key Map trigger text; the real editor-launcher test
+      finds its fake editor through `${env:TEMP}`.
 - [x] A real isolated recording with `USERHOME` pointed at a temporary directory
-      wrote `$USERHOME/Videos/screen-tools-*.mp4`; ffprobe decoded 106 frames and
-      all ten plugins stopped cleanly. The machine's actual USERHOME is also present.
+      wrote `${env:USERHOME}/Videos/screen-tools-*.mp4`; ffprobe decoded 106 frames
+      and all ten plugins stopped cleanly. The machine's actual USERHOME is present.
 - [x] After a SHA-256 backup, 30 active user TOMLs contain no comments and parse to
       exactly their prior values; four legacy archives are byte-identical. All 29
       system references contain documentation, including Taskbar Pin syntax and
       `taskbar-tools.exe --dump`. Backup: `p19-comment-backup-20261122-230624-538012`.
 - [x] Final gate: 343 tests passed / 10 ignored; fmt, Clippy, release, staging and
-      fresh ten-plugin smoke passed. Fresh smoke asserts zero user-patch comments
-      and 29 documented references. Real staged host PID 28164 has ten children,
-      five occupied hotkeys, unchanged personal values and one Scoop current autostart.
+      fresh ten-plugin smoke passed. Fresh smoke asserts zero user-patch comments,
+      29 documented references, canonical path references and no legacy variable
+      syntax. Real staged host PID 2716 has ten children, five occupied hotkeys,
+      unchanged personal values and one Scoop current autostart.
+- [ ] Set `screen-record.toml` to `${env:USERHOME}/Videos/env-expand-check`, Reload,
+      and make a short recording. Confirm the MP4 appears in that directory, then
+      restore the previous sparse file. Open Capture/Record/App Toggle references:
+      they use `${env:USERPROFILE}` and carry help; user patches carry no comments.

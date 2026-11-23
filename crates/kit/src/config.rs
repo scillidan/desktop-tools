@@ -377,75 +377,37 @@ pub fn modified(path: &Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
-/// Expand `%NAME%`, `$NAME` and `${NAME}` in a configured path or executable.
-/// Unknown or malformed variables remain literal; inserted values are not
-/// expanded again.
+/// Expand `${env:NAME}` in a configured path or executable. Unknown or
+/// malformed variables remain literal; inserted values are not expanded again.
 pub fn expand_env(input: &str) -> String {
-    fn name_byte(byte: u8) -> bool {
-        byte.is_ascii_alphanumeric() || byte == b'_'
-    }
+    const PREFIX: &str = "${env:";
+
     fn valid_name(name: &str) -> bool {
         let bytes = name.as_bytes();
         matches!(bytes.first(), Some(b) if b.is_ascii_alphabetic() || *b == b'_')
-            && bytes.iter().copied().all(name_byte)
+            && bytes
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
     }
 
-    let bytes = input.as_bytes();
     let mut output = String::with_capacity(input.len());
-    let mut copied = 0;
-    let mut index = 0;
-    while index < bytes.len() {
-        let (name, end) = match bytes[index] {
-            b'%' => {
-                let Some(relative) = input[index + 1..].find('%') else {
-                    index += 1;
-                    continue;
-                };
-                let end = index + 1 + relative;
-                (&input[index + 1..end], end + 1)
-            }
-            b'$' if bytes.get(index + 1) == Some(&b'{') => {
-                let Some(relative) = input[index + 2..].find('}') else {
-                    index += 1;
-                    continue;
-                };
-                let end = index + 2 + relative;
-                let name = &input[index + 2..end];
-                if !valid_name(name) {
-                    index += 1;
-                    continue;
-                }
-                (name, end + 1)
-            }
-            b'$' => {
-                let mut end = index + 1;
-                while end < bytes.len() && name_byte(bytes[end]) {
-                    end += 1;
-                }
-                let name = &input[index + 1..end];
-                if !valid_name(name) {
-                    index += 1;
-                    continue;
-                }
-                (name, end)
-            }
-            _ => {
-                index += 1;
-                continue;
-            }
+    let mut remaining = input;
+    while let Some(start) = remaining.find(PREFIX) {
+        output.push_str(&remaining[..start]);
+        let candidate = &remaining[start + PREFIX.len()..];
+        let Some(end) = candidate.find('}') else {
+            output.push_str(&remaining[start..]);
+            return output;
         };
-        if !name.is_empty() {
-            if let Some(value) = std::env::var_os(name) {
-                output.push_str(&input[copied..index]);
-                output.push_str(&value.to_string_lossy());
-                copied = end;
-                index = end;
-                continue;
-            }
+        let name = &candidate[..end];
+        if let Some(value) = valid_name(name).then(|| std::env::var_os(name)).flatten() {
+            output.push_str(&value.to_string_lossy());
+        } else {
+            output.push_str(&remaining[start..start + PREFIX.len() + end + 1]);
         }
-        index += 1;
+        remaining = &candidate[end + 1..];
     }
-    output.push_str(&input[copied..]);
+    output.push_str(remaining);
     output
 }
 
@@ -562,26 +524,28 @@ mod tests {
     }
 
     #[test]
-    fn paths_expand_windows_and_portable_dollar_variables() {
+    fn paths_expand_only_standard_environment_variables() {
         let name = format!("KIT_PATH_TEST_{}", std::process::id());
         std::env::set_var(&name, r"C:\Users\Example");
         assert_eq!(
-            expand_env(&format!("${name}/Videos")),
+            expand_env(&format!("${{env:{name}}}/Videos")),
             r"C:\Users\Example/Videos"
         );
+        for legacy in [
+            format!("${name}/Videos"),
+            format!("${{{name}}}/Videos"),
+            format!("%{name}%\\Videos"),
+        ] {
+            assert_eq!(expand_env(&legacy), legacy);
+        }
         assert_eq!(
-            expand_env(&format!("${{{name}}}/Videos")),
-            r"C:\Users\Example/Videos"
+            expand_env("${env:KIT_PATH_TEST_MISSING}/Videos"),
+            "${env:KIT_PATH_TEST_MISSING}/Videos"
         );
         assert_eq!(
-            expand_env(&format!("%{name}%\\Videos")),
-            r"C:\Users\Example\Videos"
+            expand_env("${env:}/${env:1BAD}/${env:BROKEN"),
+            "${env:}/${env:1BAD}/${env:BROKEN"
         );
-        assert_eq!(
-            expand_env("$KIT_PATH_TEST_MISSING/Videos"),
-            "$KIT_PATH_TEST_MISSING/Videos"
-        );
-        assert_eq!(expand_env("$1/$-/${BROKEN"), "$1/$-/${BROKEN");
         std::env::remove_var(name);
     }
 

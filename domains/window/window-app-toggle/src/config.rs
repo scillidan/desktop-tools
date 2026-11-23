@@ -80,8 +80,8 @@ fn expand_user_profile(path: &Path) -> PathBuf {
     let Ok(profile) = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")) else {
         return PathBuf::from(expanded);
     };
-    // Preserve the old Unix fallback for a shared `%USERPROFILE%` entry.
-    PathBuf::from(expanded.replacen("%USERPROFILE%", &profile, 1))
+    // On Unix, HOME supplies the profile when USERPROFILE is unavailable.
+    PathBuf::from(expanded.replacen("${env:USERPROFILE}", &profile, 1))
 }
 
 pub fn parse(text: &str) -> Result<Config> {
@@ -168,11 +168,8 @@ mod tests {
         assert!(cfg.double_commander.exe.is_absolute());
         assert_eq!(cfg.wezterm.args, ["start", "--cwd", "."]);
 
-        for variable in ["$USERPROFILE", "${USERPROFILE}"] {
-            let cfg = parse(&DEFAULT_CONFIG.replace("%USERPROFILE%", variable)).unwrap();
-            assert!(cfg.wezterm.exe.is_absolute());
-            assert!(cfg.double_commander.command.is_absolute());
-        }
+        assert!(DEFAULT_CONFIG.contains("${env:USERPROFILE}"));
+        assert!(parse(&DEFAULT_CONFIG.replace("${env:USERPROFILE}", "$USERPROFILE")).is_err());
     }
 
     #[test]

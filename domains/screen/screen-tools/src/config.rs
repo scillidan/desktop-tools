@@ -242,14 +242,14 @@ impl Default for Config {
             mask_mode: MaskMode::Box,
             mask_font: "Sarasa Term SC Nerd".to_string(),
             mask_size: MaskSize::Pt(10),
-            capture_dir: "%USERPROFILE%\\Pictures\\screen-tools".to_string(),
+            capture_dir: "${env:USERPROFILE}\\Pictures\\screen-tools".to_string(),
             notify_enabled: false,
             pin_border: PinBorder::Hatch,
             pin_line_color: 0,
             pin_hatch_color: 0x00ffff,
             flameshot: String::new(),
             external_editor: String::new(),
-            record_dir: "%USERPROFILE%\\Videos\\screen-tools".to_string(),
+            record_dir: "${env:USERPROFILE}\\Videos\\screen-tools".to_string(),
             record_name: "screen-tools-{date}-{time}".to_string(),
             record_fps: 30,
             record_ffmpeg: "ffmpeg".to_string(),
@@ -564,12 +564,22 @@ pub fn parse(text: &str) -> Result<Config> {
             None => eprintln!("warn: [bindings] must be a table; using defaults"),
         }
     }
-    // Exact legacy defaults follow the product rename; custom output paths stay untouched.
-    if cfg.capture_dir == "%USERPROFILE%\\Pictures\\screen-tools-rs" {
-        cfg.capture_dir = "%USERPROFILE%\\Pictures\\screen-tools".into();
+    // Exact legacy defaults follow the rename and canonical variable syntax.
+    if matches!(
+        cfg.capture_dir.as_str(),
+        "%USERPROFILE%\\Pictures\\screen-tools-rs"
+            | "${env:USERPROFILE}\\Pictures\\screen-tools-rs"
+            | "%USERPROFILE%\\Pictures\\screen-tools"
+    ) {
+        cfg.capture_dir = "${env:USERPROFILE}\\Pictures\\screen-tools".into();
     }
-    if cfg.record_dir == "%USERPROFILE%\\Videos\\screen-tools-rs" {
-        cfg.record_dir = "%USERPROFILE%\\Videos\\screen-tools".into();
+    if matches!(
+        cfg.record_dir.as_str(),
+        "%USERPROFILE%\\Videos\\screen-tools-rs"
+            | "${env:USERPROFILE}\\Videos\\screen-tools-rs"
+            | "%USERPROFILE%\\Videos\\screen-tools"
+    ) {
+        cfg.record_dir = "${env:USERPROFILE}\\Videos\\screen-tools".into();
     }
     if cfg.record_name == "screen-tools-rs-{date}-{time}" {
         cfg.record_name = "screen-tools-{date}-{time}".into();
@@ -633,14 +643,14 @@ mod tests {
                 mask_mode: MaskMode::Box,
                 mask_font: "Sarasa Term SC Nerd".to_string(),
                 mask_size: MaskSize::Pt(10),
-                capture_dir: "%USERPROFILE%\\Pictures\\screen-tools".to_string(),
+                capture_dir: "${env:USERPROFILE}\\Pictures\\screen-tools".to_string(),
                 notify_enabled: false,
                 pin_border: PinBorder::Hatch,
                 pin_line_color: 0,
                 pin_hatch_color: 0x00ffff,
                 flameshot: String::new(),
                 external_editor: String::new(),
-                record_dir: "%USERPROFILE%\\Videos\\screen-tools".to_string(),
+                record_dir: "${env:USERPROFILE}\\Videos\\screen-tools".to_string(),
                 record_name: "screen-tools-{date}-{time}".to_string(),
                 record_fps: 30,
                 record_ffmpeg: "ffmpeg".to_string(),
@@ -733,7 +743,7 @@ mod tests {
         let name = format!("SCREEN_TOOLS_PATH_TEST_{}", std::process::id());
         std::env::set_var(&name, "tools");
         let text = format!(
-            "[external]\nflameshot = '${name}/flameshot.exe'\neditor = '${{{name}}}/editor.exe'\n[record]\nffmpeg = '${name}/ffmpeg.exe'\n"
+            "[external]\nflameshot = '${{env:{name}}}/flameshot.exe'\neditor = '${{env:{name}}}/editor.exe'\n[record]\nffmpeg = '${{env:{name}}}/ffmpeg.exe'\n"
         );
         let cfg = parse(&text).unwrap();
         assert_eq!(cfg.flameshot, "tools/flameshot.exe");
@@ -745,7 +755,7 @@ mod tests {
     #[test]
     fn record_config_parses_and_clamps_fps() {
         let cfg = parse("").unwrap();
-        assert_eq!(cfg.record_dir, "%USERPROFILE%\\Videos\\screen-tools");
+        assert_eq!(cfg.record_dir, "${env:USERPROFILE}\\Videos\\screen-tools");
         assert_eq!(cfg.record_name, "screen-tools-{date}-{time}");
         assert_eq!(cfg.record_fps, 30);
         assert_eq!(cfg.record_ffmpeg, "ffmpeg");
@@ -777,9 +787,24 @@ mod tests {
             "[capture]\ndir = '%USERPROFILE%\\Pictures\\screen-tools-rs'\n[record]\ndir = '%USERPROFILE%\\Videos\\screen-tools-rs'\nname = 'screen-tools-rs-{date}-{time}'\n",
         )
         .unwrap();
-        assert_eq!(cfg.capture_dir, "%USERPROFILE%\\Pictures\\screen-tools");
-        assert_eq!(cfg.record_dir, "%USERPROFILE%\\Videos\\screen-tools");
+        assert_eq!(
+            cfg.capture_dir,
+            "${env:USERPROFILE}\\Pictures\\screen-tools"
+        );
+        assert_eq!(cfg.record_dir, "${env:USERPROFILE}\\Videos\\screen-tools");
         assert_eq!(cfg.record_name, "screen-tools-{date}-{time}");
+        let previous = parse(
+            "[capture]\ndir = '%USERPROFILE%\\Pictures\\screen-tools'\n[record]\ndir = '%USERPROFILE%\\Videos\\screen-tools'\n",
+        )
+        .unwrap();
+        assert_eq!(
+            previous.capture_dir,
+            "${env:USERPROFILE}\\Pictures\\screen-tools"
+        );
+        assert_eq!(
+            previous.record_dir,
+            "${env:USERPROFILE}\\Videos\\screen-tools"
+        );
         let custom =
             parse("[capture]\ndir = 'D:\\shots'\n[record]\ndir = 'D:\\clips'\nname = 'custom'\n")
                 .unwrap();

@@ -299,7 +299,7 @@ mod tests {
         std::fs::write(&user, "").unwrap();
 
         let editor = format!(
-            "\"$TEMP\\kit editor {}\\fake editor.cmd\"",
+            "\"${{env:TEMP}}\\kit editor {}\\fake editor.cmd\"",
             std::process::id()
         );
         let mut child = editor_command(&editor, &[&default, &user]).spawn().unwrap();

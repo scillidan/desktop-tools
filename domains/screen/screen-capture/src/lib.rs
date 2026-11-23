@@ -757,7 +757,7 @@ pub unsafe fn choose_file(
     };
     let initial = expand_env(dir);
     let initial = if initial.is_empty() {
-        "%USERPROFILE%\\Pictures".to_string()
+        expand_env("${env:USERPROFILE}\\Pictures")
     } else {
         initial
     };
@@ -846,20 +846,27 @@ mod tests {
     }
 
     #[test]
-    fn env_vars_expand_and_unknown_names_stay_literal() {
+    fn standard_env_vars_expand_and_other_forms_stay_literal() {
         std::env::set_var("SCREEN_TOOLS_TEST_DIR", "C:\\shots");
         assert_eq!(
-            expand_env("%SCREEN_TOOLS_TEST_DIR%\\a.png"),
+            expand_env("${env:SCREEN_TOOLS_TEST_DIR}\\a.png"),
             "C:\\shots\\a.png"
         );
+        for legacy in [
+            "%SCREEN_TOOLS_TEST_DIR%\\a.png",
+            "$SCREEN_TOOLS_TEST_DIR\\a.png",
+            "${SCREEN_TOOLS_TEST_DIR}\\a.png",
+        ] {
+            assert_eq!(expand_env(legacy), legacy);
+        }
         assert_eq!(
-            expand_env("%SCREEN_TOOLS_NOPE%\\b.png"),
-            "%SCREEN_TOOLS_NOPE%\\b.png"
+            expand_env("${env:SCREEN_TOOLS_NOPE}\\b.png"),
+            "${env:SCREEN_TOOLS_NOPE}\\b.png"
         );
         assert_eq!(expand_env("plain"), "plain");
         assert_eq!(expand_env("100% sure"), "100% sure");
         assert_eq!(
-            expand_env("a%SCREEN_TOOLS_TEST_DIR%b%SCREEN_TOOLS_TEST_DIR%"),
+            expand_env("a${env:SCREEN_TOOLS_TEST_DIR}b${env:SCREEN_TOOLS_TEST_DIR}"),
             "aC:\\shotsbC:\\shots"
         );
     }
